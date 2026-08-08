@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Windtranslator (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Windtranslator (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
