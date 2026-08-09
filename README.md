@@ -10,7 +10,6 @@ WinUI 3 桌面翻译工具，支持云端 API 翻译、AI 翻译和本地 AI 翻
 - API Key 仅由用户手动输入；默认不落盘，可勾选后保存到 Windows 凭据库
 - AI 提示词可自定义，默认翻译提示词始终保留
 - 图片翻译：侧边栏选择图片，使用千问 API 的 `qwen3.5-ocr` 模型
-- 目标语言不允许为自动检测，也不允许与原语言相同
 - 语音输入：Windows 语音识别
 - 语音输出：Windows 文本转语音
 - 设置自动保存到 `%LOCALAPPDATA%\Windtranslator\settings.json`
