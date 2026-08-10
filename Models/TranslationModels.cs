@@ -86,6 +86,12 @@ public sealed class AppSettings
 
     public int ThemeIndex { get; set; }
 
+    public bool MicaBackdropEnabled { get; set; } = true;
+
+    public int LocalTranslationSourceIndex { get; set; }
+
+    public string LocalModelPath { get; set; } = string.Empty;
+
     public Dictionary<string, string> Endpoints { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public Dictionary<string, string> Models { get; set; } = new(StringComparer.OrdinalIgnoreCase);

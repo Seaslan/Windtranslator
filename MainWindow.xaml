@@ -8,19 +8,21 @@
     mc:Ignorable="d"
     Title="Windtranslator">
 
-    <Window.SystemBackdrop>
-        <MicaBackdrop />
-    </Window.SystemBackdrop>
-
-    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Grid x:Name="WindowRoot" Background="Transparent">
         <Grid.ColumnDefinitions>
             <ColumnDefinition x:Name="SidebarColumn" Width="200" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
         <Border
+            x:Name="AcrylicFallbackLayer"
+            Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
+            IsHitTestVisible="False"
+            Visibility="Collapsed" />
+
+        <Border
             Grid.Column="0"
-            Background="{ThemeResource LayerFillColorDefaultBrush}"
+            Background="Transparent"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="0,0,1,0">
             <Grid>
@@ -101,7 +103,7 @@
             <Grid
                 Grid.Row="0"
                 Height="32"
-                Background="{ThemeResource LayerFillColorDefaultBrush}">
+                Background="Transparent">
                 <Border
                     x:Name="TitleBarDragRegion"
                     Background="Transparent" />
@@ -118,7 +120,7 @@
                 Grid.Row="1"
                 Padding="16,8,16,10"
                 ColumnSpacing="8"
-                Background="{ThemeResource LayerFillColorDefaultBrush}">
+                Background="Transparent">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
@@ -415,28 +417,46 @@
 
                     <StackPanel Spacing="6">
                         <TextBlock Text="本地 AI 翻译" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                        <TextBlock
-                            Text="使用 OpenAI 兼容接口，例如 Ollama 或 LM Studio。"
-                            FontSize="12"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            TextWrapping="Wrap" />
+                        <ComboBox
+                            x:Name="LocalTranslationSourceComboBox"
+                            SelectionChanged="LocalTranslationSourceComboBox_SelectionChanged" />
 
-                        <TextBlock Text="接口地址" />
-                        <TextBox
-                            x:Name="LocalEndpointTextBox"
-                            PlaceholderText="http://localhost:11434/v1"
-                            TextChanged="LocalEndpointTextBox_TextChanged" />
+                        <StackPanel x:Name="LocalEndpointPanel" Spacing="6">
+                            <TextBlock Text="接口地址" />
+                            <TextBox
+                                x:Name="LocalEndpointTextBox"
+                                PlaceholderText="http://localhost:11434/v1"
+                                TextChanged="LocalEndpointTextBox_TextChanged" />
 
-                        <TextBlock Text="模型" />
-                        <TextBox
-                            x:Name="LocalModelTextBox"
-                            PlaceholderText="例如 qwen2.5:7b"
-                            TextChanged="LocalModelTextBox_TextChanged" />
+                            <TextBlock Text="模型" />
+                            <TextBox
+                                x:Name="LocalModelTextBox"
+                                PlaceholderText="例如 qwen2.5:7b"
+                                TextChanged="LocalModelTextBox_TextChanged" />
 
-                        <Button
-                            x:Name="RefreshLocalModelsButton"
-                            Content="刷新本地模型"
-                            Click="RefreshLocalModelsButton_Click" />
+                            <Button
+                                x:Name="RefreshLocalModelsButton"
+                                Content="刷新本地模型"
+                                Click="RefreshLocalModelsButton_Click" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="LocalT5ModelPanel" Spacing="6" Visibility="Collapsed">
+                            <TextBlock Text="本地模型目录" />
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox
+                                    x:Name="LocalT5ModelPathTextBox"
+                                    PlaceholderText="本地翻译模型文件夹"
+                                    TextChanged="LocalT5ModelPathTextBox_TextChanged" />
+                                <Button
+                                    Grid.Column="1"
+                                    Content="选择文件夹"
+                                    Click="PickLocalT5ModelFolderButton_Click" />
+                            </Grid>
+                        </StackPanel>
                     </StackPanel>
 
                     <StackPanel Spacing="6">
@@ -445,6 +465,11 @@
                             x:Name="ThemeComboBox"
                             MinWidth="180"
                             SelectionChanged="ThemeComboBox_SelectionChanged" />
+                        <CheckBox
+                            x:Name="MicaBackdropCheckBox"
+                            Content="启用 Mica / Acrylic 材质"
+                            Checked="MicaBackdropCheckBox_Changed"
+                            Unchecked="MicaBackdropCheckBox_Changed" />
                     </StackPanel>
 
                     <StackPanel Spacing="6">

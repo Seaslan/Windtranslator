@@ -32,18 +32,12 @@ public sealed class AliyunMachineTranslationService
         var signedUrl = BuildSignedUrl(
             request.ServiceUrl,
             request.AccessKeyId,
-            request.AccessKeySecret);
+            request.AccessKeySecret,
+            request.SourceLanguage,
+            request.TargetLanguage,
+            request.SourceText);
 
-        var body = JsonSerializer.Serialize(new
-        {
-            FormatType = "text",
-            SourceLanguage = request.SourceLanguage,
-            TargetLanguage = request.TargetLanguage,
-            SourceText = request.SourceText,
-            Scene = "title",
-        });
-
-        using var content = new StringContent(body, Encoding.UTF8, "application/json");
+        using var content = new StringContent("{}", Encoding.UTF8, "application/json");
         using var requestMessage = new HttpRequestMessage(HttpMethod.Post, signedUrl)
         {
             Content = content,
@@ -96,17 +90,28 @@ public sealed class AliyunMachineTranslationService
         throw new InvalidOperationException("机器翻译服务没有返回可用的译文。");
     }
 
-    private static string BuildSignedUrl(string serviceUrl, string accessKeyId, string accessKeySecret)
+    private static string BuildSignedUrl(
+        string serviceUrl,
+        string accessKeyId,
+        string accessKeySecret,
+        string sourceLanguage,
+        string targetLanguage,
+        string sourceText)
     {
         var parameters = new SortedDictionary<string, string>(StringComparer.Ordinal)
         {
             ["AccessKeyId"] = accessKeyId,
             ["Action"] = ActionName,
             ["Format"] = "JSON",
+            ["FormatType"] = "text",
             ["RegionId"] = RegionId,
+            ["Scene"] = "title",
             ["SignatureMethod"] = "HMAC-SHA1",
             ["SignatureNonce"] = Guid.NewGuid().ToString("N"),
             ["SignatureVersion"] = "1.0",
+            ["SourceLanguage"] = sourceLanguage,
+            ["SourceText"] = sourceText,
+            ["TargetLanguage"] = targetLanguage,
             ["Timestamp"] = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture),
             ["Version"] = ApiVersion,
         };

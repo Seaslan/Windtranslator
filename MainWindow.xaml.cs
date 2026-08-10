@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Dispatching;
@@ -56,6 +57,7 @@ public sealed partial class MainWindow : Window
 
     private readonly HttpClient _httpClient = new();
     private readonly TranslationService _translationService;
+    private readonly LocalT5TranslationService _localT5TranslationService = new();
     private readonly AliyunMachineTranslationService _machineTranslationService;
     private readonly SpeechInputService _speechInput = new();
     private readonly SpeechOutputService _speechOutput = new();
@@ -89,6 +91,7 @@ public sealed partial class MainWindow : Window
         _translationService = new TranslationService(_httpClient);
         _machineTranslationService = new AliyunMachineTranslationService(_httpClient);
         _speechOutput.PlaybackEnded += (_, _) => DispatcherQueue.TryEnqueue(() => SetSpeakingState(false));
+        Closed += (_, _) => _localT5TranslationService.Dispose();
         _infoBarTimer = DispatcherQueue.CreateTimer();
         _infoBarTimer.Interval = TimeSpan.FromSeconds(3);
         _infoBarTimer.Tick += (_, _) =>
@@ -106,6 +109,8 @@ public sealed partial class MainWindow : Window
 
         ModeComboBox.ItemsSource = new[] { "API 翻译", "AI 翻译", "本地 AI 翻译" };
         ModeComboBox.SelectedIndex = Math.Clamp(_settings.ModeIndex, 0, 2);
+        LocalTranslationSourceComboBox.ItemsSource = new[] { "本地接口", "本地模型" };
+        LocalTranslationSourceComboBox.SelectedIndex = Math.Clamp(_settings.LocalTranslationSourceIndex, 0, 1);
 
         SourceLanguageComboBox.ItemsSource = Languages;
         ImageSourceLanguageComboBox.ItemsSource = Languages;
@@ -134,10 +139,12 @@ public sealed partial class MainWindow : Window
         AliyunRememberKeyCheckBox.IsChecked = _settings.RememberAliyunKeys;
         ThemeComboBox.ItemsSource = new[] { "跟随系统", "浅色", "深色" };
         ThemeComboBox.SelectedIndex = Math.Clamp(_settings.ThemeIndex, 0, 2);
+        MicaBackdropCheckBox.IsChecked = _settings.MicaBackdropEnabled;
 
         _suppressEvents = false;
 
         ApplyTheme();
+        ApplyMicaBackdrop();
         SidebarNavList.SelectedIndex = 0;
         InitializeProviderSettings();
         UpdatePromptPreview();
@@ -172,6 +179,18 @@ public sealed partial class MainWindow : Window
         _settings.ThemeIndex = Math.Max(0, ThemeComboBox.SelectedIndex);
         SaveSettings();
         ApplyTheme();
+    }
+
+    private void MicaBackdropCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_suppressEvents)
+        {
+            return;
+        }
+
+        _settings.MicaBackdropEnabled = MicaBackdropCheckBox.IsChecked == true;
+        ApplyMicaBackdrop();
+        SaveSettings();
     }
 
     private void InitializeProviderSettings()
@@ -237,6 +256,8 @@ public sealed partial class MainWindow : Window
             && !string.IsNullOrWhiteSpace(localModel)
                 ? localModel
                 : "qwen2.5:7b";
+        LocalT5ModelPathTextBox.Text = _settings.LocalModelPath;
+        UpdateLocalTranslationSourceUi();
 
         _suppressEvents = false;
         SaveSettings();
@@ -411,6 +432,51 @@ public sealed partial class MainWindow : Window
 
         _settings.Models["本地 AI"] = LocalModelTextBox.Text.Trim();
         SaveSettings();
+    }
+
+    private void LocalTranslationSourceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressEvents)
+        {
+            return;
+        }
+
+        _settings.LocalTranslationSourceIndex = Math.Clamp(LocalTranslationSourceComboBox.SelectedIndex, 0, 1);
+        UpdateLocalTranslationSourceUi();
+        SaveSettings();
+    }
+
+    private void LocalT5ModelPathTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_suppressEvents)
+        {
+            return;
+        }
+
+        _settings.LocalModelPath = LocalT5ModelPathTextBox.Text.Trim();
+        SaveSettings();
+    }
+
+    private async void PickLocalT5ModelFolderButton_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FolderPicker();
+        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
+        picker.FileTypeFilter.Add("*");
+
+        var folder = await picker.PickSingleFolderAsync();
+        if (folder is null)
+        {
+            return;
+        }
+
+        LocalT5ModelPathTextBox.Text = folder.Path;
+    }
+
+    private void UpdateLocalTranslationSourceUi()
+    {
+        var useModel = LocalTranslationSourceComboBox.SelectedIndex == 1;
+        LocalEndpointPanel.Visibility = useModel ? Visibility.Collapsed : Visibility.Visible;
+        LocalT5ModelPanel.Visibility = useModel ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void AliyunAccessKeyIdPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
@@ -590,7 +656,7 @@ public sealed partial class MainWindow : Window
         var dialog = new ContentDialog
         {
             Title = "关于",
-            Content = "Windtranslator 0.1.1\n\n作者：Seaslan\n\n本软件借助 AI 生成完成了此软件。",
+            Content = "Windtranslator 0.1.5\n\n作者：Seaslan\n\n本软件借助 AI 生成完成了此软件。",
             CloseButtonText = "关闭",
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = Content.XamlRoot,
@@ -769,22 +835,41 @@ public sealed partial class MainWindow : Window
         }
 
         var isLocalMode = ModeComboBox.SelectedIndex == 2;
+        var useLocalModel = isLocalMode && LocalTranslationSourceComboBox.SelectedIndex == 1;
         var endpoint = isLocalMode
             ? LocalEndpointTextBox.Text.Trim()
             : AiEndpointTextBox.Text.Trim();
         var model = isLocalMode
             ? LocalModelTextBox.Text.Trim()
             : AiModelComboBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(endpoint))
+        if (!useLocalModel && string.IsNullOrWhiteSpace(endpoint))
         {
             ShowInfo("请填写接口地址。", InfoBarSeverity.Warning);
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(model))
+        if (!useLocalModel && string.IsNullOrWhiteSpace(model))
         {
             ShowInfo("请填写模型名称。", InfoBarSeverity.Warning);
             return;
+        }
+
+        var localT5TargetLanguage = string.Empty;
+        if (useLocalModel)
+        {
+            localT5TargetLanguage = GetLocalT5TargetLanguageCode(
+                TargetLanguageComboBox.SelectedItem as LanguageOption);
+            if (string.IsNullOrWhiteSpace(localT5TargetLanguage))
+            {
+                ShowInfo("该本地模型仅支持翻译为简体中文、英语或俄语。", InfoBarSeverity.Warning);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(LocalT5ModelPathTextBox.Text))
+            {
+                ShowInfo("请选择本地 ONNX 模型文件夹。", InfoBarSeverity.Warning);
+                return;
+            }
         }
 
         if (!isLocalMode && string.IsNullOrWhiteSpace(_apiKeys.GetValueOrDefault(_currentProvider)))
@@ -793,7 +878,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        if (!string.IsNullOrEmpty(model))
+        if (!useLocalModel && !string.IsNullOrEmpty(model))
         {
             var settingsKey = isLocalMode ? "本地 AI" : _currentProvider;
             _settings.Models[settingsKey] = model;
@@ -810,23 +895,29 @@ public sealed partial class MainWindow : Window
             systemPrompt += "\n\n补充要求：" + CustomPromptTextBox.Text.Trim();
         }
 
-        var request = new TranslationRequest(
-            endpoint,
-            isLocalMode ? null : _apiKeys.GetValueOrDefault(_currentProvider),
-            model,
-            systemPrompt,
-            sourceText);
-
         _cts = new CancellationTokenSource();
         _isTranslating = true;
         TranslateButtonText.Text = "取消";
         ProgressRing.IsActive = true;
         UpdateUiState();
-        ShowInfo("正在翻译...", InfoBarSeverity.Informational);
+        ShowInfo(useLocalModel ? "正在使用本地模型翻译..." : "正在翻译...", InfoBarSeverity.Informational);
 
         try
         {
-            var result = await _translationService.TranslateAsync(request, _cts.Token);
+            var result = useLocalModel
+                ? await _localT5TranslationService.TranslateAsync(
+                    LocalT5ModelPathTextBox.Text.Trim(),
+                    localT5TargetLanguage,
+                    sourceText,
+                    _cts.Token)
+                : await _translationService.TranslateAsync(
+                    new TranslationRequest(
+                        endpoint,
+                        isLocalMode ? null : _apiKeys.GetValueOrDefault(_currentProvider),
+                        model,
+                        systemPrompt,
+                        sourceText),
+                    _cts.Token);
             OutputTextBox.Text = result;
             ShowInfo("翻译完成。", InfoBarSeverity.Success);
         }
@@ -1123,6 +1214,7 @@ public sealed partial class MainWindow : Window
         _settings.ModeIndex = Math.Max(0, ModeComboBox.SelectedIndex);
         _settings.ProviderName = _currentProvider;
         _settings.ThemeIndex = Math.Max(0, ThemeComboBox.SelectedIndex);
+        _settings.MicaBackdropEnabled = MicaBackdropCheckBox.IsChecked == true;
         var sourceLanguage = SourceLanguageComboBox.SelectedItem as LanguageOption;
         var targetLanguage = TargetLanguageComboBox.SelectedItem as LanguageOption;
         _settings.SourceLanguageIndex = sourceLanguage is null ? 0 : Languages.IndexOf(sourceLanguage);
@@ -1130,6 +1222,8 @@ public sealed partial class MainWindow : Window
         _settings.CustomPrompt = CustomPromptTextBox.Text;
         _settings.RememberKeys = AiRememberKeyCheckBox.IsChecked == true;
         _settings.RememberAliyunKeys = AliyunRememberKeyCheckBox.IsChecked == true;
+        _settings.LocalTranslationSourceIndex = Math.Clamp(LocalTranslationSourceComboBox.SelectedIndex, 0, 1);
+        _settings.LocalModelPath = LocalT5ModelPathTextBox.Text.Trim();
         _settings.Endpoints["本地 AI"] = LocalEndpointTextBox.Text.Trim();
         _settings.Models["本地 AI"] = LocalModelTextBox.Text.Trim();
         if (!string.IsNullOrEmpty(_currentProvider))
@@ -1156,6 +1250,21 @@ public sealed partial class MainWindow : Window
         }
 
         UpdateTitleBarButtonColors(theme);
+    }
+
+    private void ApplyMicaBackdrop()
+    {
+        if (MicaBackdropCheckBox.IsChecked != true)
+        {
+            SystemBackdrop = null;
+            AcrylicFallbackLayer.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        // Mica is available on Windows 11. Windows 10 receives the related Acrylic effect.
+        var useMica = OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000);
+        SystemBackdrop = useMica ? new MicaBackdrop() : new DesktopAcrylicBackdrop();
+        AcrylicFallbackLayer.Visibility = useMica ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void UpdateTitleBarButtonColors(ElementTheme theme)
@@ -1201,6 +1310,14 @@ public sealed partial class MainWindow : Window
         return $"你是一名专业的翻译引擎。请把用户输入的内容从{source.PromptName}翻译成{target.PromptName}。"
             + "只输出译文，不要添加解释、注释、代码块或任何额外内容。保持原文的语气、格式和专有名词。";
     }
+
+    private static string GetLocalT5TargetLanguageCode(LanguageOption? language) => language?.ApiCode switch
+    {
+        "zh" or "zh-tw" => "zh",
+        "en" => "en",
+        "ru" => "ru",
+        _ => string.Empty,
+    };
 
     private static ProviderProfile GetProviderProfile(string provider) => provider switch
     {
