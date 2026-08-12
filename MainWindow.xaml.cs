@@ -1,3 +1,9 @@
+using Microsoft.UI.Dispatching;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -5,21 +11,15 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Imaging;
-using Microsoft.UI.Windowing;
-using Microsoft.UI.Dispatching;
-using Windows.UI;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.Graphics;
 using Windows.Security.Credentials;
 using Windows.Storage;
 using Windows.Storage.Pickers;
-using Windows.Graphics;
-using WinRT.Interop;
+using Windows.UI;
 using Windtranslator.Models;
 using Windtranslator.Services;
+using WinRT.Interop;
 
 namespace Windtranslator;
 
@@ -72,6 +72,7 @@ public sealed partial class MainWindow : Window
     private bool _isSidebarCollapsed;
     private bool _suppressWindowResize;
     private bool _suppressEvents;
+    private bool _suppressSidebarSync;
     private CancellationTokenSource? _cts;
     private DispatcherQueueTimer? _infoBarTimer;
     private StorageFile? _selectedImageFile;
@@ -629,10 +630,48 @@ public sealed partial class MainWindow : Window
         var selectedItem = SidebarNavList.SelectedItem as ListViewItem;
         var tag = selectedItem?.Tag?.ToString();
 
+        if (!_suppressSidebarSync && SidebarAboutNavList.SelectedIndex >= 0)
+        {
+            _suppressSidebarSync = true;
+            SidebarAboutNavList.SelectedIndex = -1;
+            _suppressSidebarSync = false;
+        }
+
+        ShowPage(tag);
+    }
+
+    private void SidebarAboutNavList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressSidebarSync || SidebarAboutNavList.SelectedIndex < 0)
+        {
+            return;
+        }
+
+        _suppressSidebarSync = true;
+        SidebarNavList.SelectedIndex = -1;
+        _suppressSidebarSync = false;
+
+        ShowPage("About");
+    }
+
+    private void ShowPage(string? tag)
+    {
+        var pageTitle = tag switch
+        {
+            "Home" => "Windtranslator",
+            "Image" => "图片翻译",
+            "Settings" => "设置",
+            "About" => "关于",
+            _ => "Windtranslator",
+        };
+        PageTitleTextBlock.Text = pageTitle;
+        Title = pageTitle;
+
         TranslationToolbar.Visibility = tag == "Home" ? Visibility.Visible : Visibility.Collapsed;
         HomePageGrid.Visibility = tag == "Home" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPageScrollViewer.Visibility = tag == "Settings" ? Visibility.Visible : Visibility.Collapsed;
         ImagePageGrid.Visibility = tag == "Image" ? Visibility.Visible : Visibility.Collapsed;
+        AboutPagePanel.Visibility = tag == "About" ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void SidebarToggleButton_Click(object sender, RoutedEventArgs e)
@@ -649,20 +688,6 @@ public sealed partial class MainWindow : Window
         ToolTipService.SetToolTip(
             SidebarToggleButton,
             _isSidebarCollapsed ? "展开侧边栏" : "收起侧边栏");
-    }
-
-    private async void AboutButton_Click(object sender, RoutedEventArgs e)
-    {
-        var dialog = new ContentDialog
-        {
-            Title = "关于",
-            Content = "Windtranslator 0.1.5\n\n作者：Seaslan\n\n本软件借助 AI 生成完成了此软件。",
-            CloseButtonText = "关闭",
-            DefaultButton = ContentDialogButton.Close,
-            XamlRoot = Content.XamlRoot,
-        };
-
-        await dialog.ShowAsync();
     }
 
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)

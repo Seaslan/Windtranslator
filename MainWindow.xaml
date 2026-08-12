@@ -29,7 +29,6 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <Button
@@ -48,47 +47,51 @@
                     </StackPanel>
                 </Button>
 
-                <ListView
-                    x:Name="SidebarNavList"
-                    Grid.Row="1"
-                    Margin="4,0,8,8"
-                    SelectionChanged="SidebarNavList_SelectionChanged"
-                    SelectionMode="Single">
-                    <ListViewItem Tag="Home">
-                        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left">
-                            <FontIcon Glyph="&#xE80F;" FontSize="16" />
-                            <TextBlock x:Name="HomeNavText" Text="主页" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </ListViewItem>
-                    <ListViewItem Tag="Image">
-                        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left">
-                            <FontIcon Glyph="&#xEB9F;" FontSize="16" />
-                            <TextBlock x:Name="ImageNavText" Text="图片翻译" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </ListViewItem>
-                    <ListViewItem Tag="Settings">
-                        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left">
-                            <FontIcon Glyph="&#xE713;" FontSize="16" />
-                            <TextBlock x:Name="SettingsNavText" Text="设置" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </ListViewItem>
-                </ListView>
+                <Grid Grid.Row="1" Margin="4,0,8,8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-                <Button
-                    x:Name="AboutButton"
-                    Grid.Row="2"
-                    Height="40"
-                    Margin="8,0,8,10"
-                    Padding="8,0"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Left"
-                    Click="AboutButton_Click"
-                    ToolTipService.ToolTip="关于">
-                    <StackPanel Orientation="Horizontal" Spacing="10">
-                        <FontIcon Glyph="&#xE946;" FontSize="16" />
-                        <TextBlock x:Name="AboutNavText" Text="关于" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
+                    <ListView
+                        x:Name="SidebarNavList"
+                        Grid.Row="0"
+                        SelectionChanged="SidebarNavList_SelectionChanged"
+                        SelectionMode="Single">
+                        <ListViewItem Tag="Home">
+                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left">
+                                <FontIcon Glyph="&#xE80F;" FontSize="16" />
+                                <TextBlock x:Name="HomeNavText" Text="主页" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ListViewItem>
+                        <ListViewItem Tag="Image">
+                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left">
+                                <FontIcon Glyph="&#xEB9F;" FontSize="16" />
+                                <TextBlock x:Name="ImageNavText" Text="图片翻译" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ListViewItem>
+                        <ListViewItem Tag="Settings">
+                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left">
+                                <FontIcon Glyph="&#xE713;" FontSize="16" />
+                                <TextBlock x:Name="SettingsNavText" Text="设置" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ListViewItem>
+                    </ListView>
+
+                    <ListView
+                        x:Name="SidebarAboutNavList"
+                        Grid.Row="1"
+                        Margin="0,8,0,0"
+                        SelectionChanged="SidebarAboutNavList_SelectionChanged"
+                        SelectionMode="Single">
+                        <ListViewItem Tag="About">
+                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left">
+                                <FontIcon Glyph="&#xE946;" FontSize="16" />
+                                <TextBlock x:Name="AboutNavText" Text="关于" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ListViewItem>
+                    </ListView>
+                </Grid>
             </Grid>
         </Border>
 
@@ -108,6 +111,7 @@
                     x:Name="TitleBarDragRegion"
                     Background="Transparent" />
                 <TextBlock
+                    x:Name="PageTitleTextBlock"
                     Text="Windtranslator"
                     Margin="16,0,0,0"
                     FontSize="14"
@@ -346,7 +350,6 @@
                     HorizontalAlignment="Left"
                     Padding="24,18,24,24"
                     Spacing="16">
-                    <TextBlock Text="设置" Style="{StaticResource SubtitleTextBlockStyle}" />
 
                     <StackPanel Spacing="6">
                         <TextBlock Text="API 翻译（阿里云机器翻译）" Style="{StaticResource BodyStrongTextBlockStyle}" />
@@ -525,7 +528,6 @@
                     BorderThickness="1"
                     CornerRadius="8">
                     <StackPanel Spacing="12">
-                        <TextBlock Text="图片翻译" Style="{StaticResource SubtitleTextBlockStyle}" />
                                     <TextBlock
                                         Text="支持千问 qwen3.5-ocr 和 Kimi kimi-k2.6 模型。"
                                         FontSize="12"
@@ -616,6 +618,71 @@
                     </Grid>
                 </Border>
             </Grid>
+
+            <StackPanel
+                x:Name="AboutPagePanel"
+                Grid.Row="2"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="16"
+                Visibility="Collapsed">
+                <Border
+                    MinWidth="360"
+                    Padding="28,24"
+                    HorizontalAlignment="Center"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <StackPanel Spacing="16">
+                        <StackPanel
+                            Orientation="Horizontal"
+                            Spacing="16"
+                            HorizontalAlignment="Center">
+                            <PersonPicture
+                                Width="96"
+                                Height="96"
+                                VerticalAlignment="Center"
+                                DisplayName="Seaslan"
+                                ProfilePicture="https://avatars.githubusercontent.com/u/282963855?v=4" />
+
+                            <StackPanel VerticalAlignment="Center" Spacing="4">
+                                <HyperlinkButton
+                                    NavigateUri="https://github.com/seaslan"
+                                    Padding="0"
+                                    HorizontalAlignment="Left">
+                                    <TextBlock
+                                        Text="Seaslan"
+                                        FontSize="20"
+                                        FontWeight="Bold" />
+                                </HyperlinkButton>
+                                <TextBlock
+                                    Text="一个无所事事的学生"
+                                    FontSize="14"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <HyperlinkButton
+                            NavigateUri="https://github.com/Seaslan/Windtranslator"
+                            HorizontalAlignment="Center">
+                            <TextBlock Text="项目链接" />
+                        </HyperlinkButton>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock
+                    Text="版本 0.1.9"
+                    FontSize="12"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    HorizontalAlignment="Center" />
+
+                <TextBlock
+                    Text="本软件的生成借助了 AI。"
+                    FontSize="12"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    HorizontalAlignment="Center" />
+            </StackPanel>
 
             <InfoBar
                 x:Name="StatusInfoBar"

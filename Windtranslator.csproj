@@ -75,9 +75,10 @@
     <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>False</GenerateTestArtifacts>
     <AppxBundle>Never</AppxBundle>
-    <AppInstallerUri>https://github.com/Seaslan/Windtranslator/releases/latest/download</AppInstallerUri>
+    <AppInstallerUri>https://github.com/Seaslan/Windtranslator/releases/</AppInstallerUri>
     <HoursBetweenUpdateChecks>336</HoursBetweenUpdateChecks>
     <PackageCertificateThumbprint>B54FD08C59E42BDCDDC479B037FD4DDFBB7FC181</PackageCertificateThumbprint>
     <DefaultLanguage>zh-Hans</DefaultLanguage>
+    <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
   </PropertyGroup>
 </Project>
