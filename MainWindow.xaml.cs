@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.DataTransfer;
@@ -30,8 +31,11 @@ public sealed partial class MainWindow : Window
     private const string AliyunServiceUrl = "http://mt.cn-hangzhou.aliyuncs.com/api/translate/web/ecommerce";
     private const string AliyunAccessKeyIdResource = "阿里云机器翻译:AccessKeyId";
     private const string AliyunAccessKeySecretResource = "阿里云机器翻译:AccessKeySecret";
-    private const int MinWindowWidth = 1180;
-    private const int MinWindowHeight = 780;
+    private const int MinWindowWidth = 960;
+    private const int MinWindowHeight = 660;
+    private const uint WmGetMinMaxInfo = 0x0024;
+    private const int GwlWndProc = -4;
+    private static readonly int[] TranslationHistoryLimits = { 0, 5, 20, -1 };
 
     private static readonly List<string> CloudProviders = new() { "DeepSeek", "千问", "Kimi" };
 
@@ -70,29 +74,36 @@ public sealed partial class MainWindow : Window
     private bool _isTranslating;
     private bool _isImageTranslating;
     private bool _isSidebarCollapsed;
-    private bool _suppressWindowResize;
     private bool _suppressEvents;
     private bool _suppressSidebarSync;
     private CancellationTokenSource? _cts;
     private DispatcherQueueTimer? _infoBarTimer;
     private StorageFile? _selectedImageFile;
+    private readonly WindowProcedure _windowProcedure;
+    private nint _windowHandle;
+    private nint _previousWindowProcedure;
 
     public MainWindow()
     {
         InitializeComponent();
+        _windowProcedure = WindowProcedureCallback;
 
         ExtendsContentIntoTitleBar = true;
         AppWindow.TitleBar.ExtendsContentIntoTitleBar = true;
         AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Standard;
         SetTitleBar(TitleBarDragRegion);
+        InstallMinimumSizeHandler();
         AppWindow.Resize(new SizeInt32(MinWindowWidth, MinWindowHeight));
-        AppWindow.Changed += OnAppWindowChanged;
 
         _settings = AppSettingsStore.Load();
         _translationService = new TranslationService(_httpClient);
         _machineTranslationService = new AliyunMachineTranslationService(_httpClient);
         _speechOutput.PlaybackEnded += (_, _) => DispatcherQueue.TryEnqueue(() => SetSpeakingState(false));
-        Closed += (_, _) => _localT5TranslationService.Dispose();
+        Closed += (_, _) =>
+        {
+            RestoreWindowProcedure();
+            _localT5TranslationService.Dispose();
+        };
         _infoBarTimer = DispatcherQueue.CreateTimer();
         _infoBarTimer.Interval = TimeSpan.FromSeconds(3);
         _infoBarTimer.Tick += (_, _) =>
@@ -141,6 +152,13 @@ public sealed partial class MainWindow : Window
         ThemeComboBox.ItemsSource = new[] { "跟随系统", "浅色", "深色" };
         ThemeComboBox.SelectedIndex = Math.Clamp(_settings.ThemeIndex, 0, 2);
         MicaBackdropCheckBox.IsChecked = _settings.MicaBackdropEnabled;
+        TranslationHistoryLimitComboBox.ItemsSource = new[] { "不保存翻译历史", "5 条", "20 条", "无上限" };
+        _settings.TranslationHistoryLimit = NormalizeTranslationHistoryLimit(_settings.TranslationHistoryLimit);
+        TranslationHistoryLimitComboBox.SelectedIndex = Array.IndexOf(
+            TranslationHistoryLimits,
+            _settings.TranslationHistoryLimit);
+        TrimTranslationHistory();
+        RefreshTranslationHistory();
 
         _suppressEvents = false;
 
@@ -191,6 +209,26 @@ public sealed partial class MainWindow : Window
 
         _settings.MicaBackdropEnabled = MicaBackdropCheckBox.IsChecked == true;
         ApplyMicaBackdrop();
+        SaveSettings();
+    }
+
+    private void TranslationHistoryLimitComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressEvents)
+        {
+            return;
+        }
+
+        _settings.TranslationHistoryLimit = TranslationHistoryLimitComboBox.SelectedIndex switch
+        {
+            0 => 0,
+            1 => 5,
+            2 => 20,
+            3 => -1,
+            _ => 20,
+        };
+        TrimTranslationHistory();
+        RefreshTranslationHistory();
         SaveSettings();
     }
 
@@ -604,6 +642,47 @@ public sealed partial class MainWindow : Window
         SourceTextBox.Focus(FocusState.Programmatic);
     }
 
+    private void TranslationHistoryButton_Click(object sender, RoutedEventArgs e)
+    {
+        _suppressSidebarSync = true;
+        SidebarNavList.SelectedIndex = -1;
+        SidebarAboutNavList.SelectedIndex = -1;
+        _suppressSidebarSync = false;
+        ShowPage("History");
+    }
+
+    private void ReturnHomeFromTranslationHistoryButton_Click(object sender, RoutedEventArgs e)
+    {
+        _suppressSidebarSync = true;
+        SidebarNavList.SelectedIndex = 0;
+        _suppressSidebarSync = false;
+        ShowPage("Home");
+    }
+
+    private void ClearTranslationHistoryButton_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.TranslationHistory.Clear();
+        RefreshTranslationHistory();
+        SaveSettings();
+        ShowInfo("已清除翻译历史。", InfoBarSeverity.Success);
+    }
+
+    private void TranslationHistoryListView_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is not string sourceText)
+        {
+            return;
+        }
+
+        SourceTextBox.Text = sourceText;
+        _suppressSidebarSync = true;
+        SidebarNavList.SelectedIndex = 0;
+        _suppressSidebarSync = false;
+        ShowPage("Home");
+        SourceTextBox.Focus(FocusState.Programmatic);
+        TranslateButton_Click(TranslateButton, new RoutedEventArgs());
+    }
+
     private void CopyButton_Click(object sender, RoutedEventArgs e)
     {
         var text = OutputTextBox.Text;
@@ -660,6 +739,7 @@ public sealed partial class MainWindow : Window
         {
             "Home" => "Windtranslator",
             "Image" => "图片翻译",
+            "History" => "翻译历史",
             "Settings" => "设置",
             "About" => "关于",
             _ => "Windtranslator",
@@ -669,6 +749,7 @@ public sealed partial class MainWindow : Window
 
         TranslationToolbar.Visibility = tag == "Home" ? Visibility.Visible : Visibility.Collapsed;
         HomePageGrid.Visibility = tag == "Home" ? Visibility.Visible : Visibility.Collapsed;
+        TranslationHistoryPageGrid.Visibility = tag == "History" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPageScrollViewer.Visibility = tag == "Settings" ? Visibility.Visible : Visibility.Collapsed;
         ImagePageGrid.Visibility = tag == "Image" ? Visibility.Visible : Visibility.Collapsed;
         AboutPagePanel.Visibility = tag == "About" ? Visibility.Visible : Visibility.Collapsed;
@@ -690,30 +771,73 @@ public sealed partial class MainWindow : Window
             _isSidebarCollapsed ? "展开侧边栏" : "收起侧边栏");
     }
 
-    private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
+    private void InstallMinimumSizeHandler()
     {
-        if (_suppressWindowResize || !args.DidSizeChange)
-        {
-            return;
-        }
-
-        if ((AppWindow.Presenter as OverlappedPresenter)?.State == OverlappedPresenterState.Minimized)
-        {
-            return;
-        }
-
-        var size = sender.Size;
-        if (size.Width >= MinWindowWidth && size.Height >= MinWindowHeight)
-        {
-            return;
-        }
-
-        _suppressWindowResize = true;
-        sender.Resize(new SizeInt32(
-            Math.Max(size.Width, MinWindowWidth),
-            Math.Max(size.Height, MinWindowHeight)));
-        _suppressWindowResize = false;
+        _windowHandle = WindowNative.GetWindowHandle(this);
+        _previousWindowProcedure = SetWindowLongPtr(
+            _windowHandle,
+            GwlWndProc,
+            Marshal.GetFunctionPointerForDelegate(_windowProcedure));
     }
+
+    private void RestoreWindowProcedure()
+    {
+        if (_windowHandle == 0 || _previousWindowProcedure == 0)
+        {
+            return;
+        }
+
+        SetWindowLongPtr(_windowHandle, GwlWndProc, _previousWindowProcedure);
+        _previousWindowProcedure = 0;
+    }
+
+    private nint WindowProcedureCallback(nint windowHandle, uint message, nint wParam, nint lParam)
+    {
+        if (message == WmGetMinMaxInfo)
+        {
+            var minMaxInfo = Marshal.PtrToStructure<MinMaxInfo>(lParam);
+            var dpi = GetDpiForWindow(windowHandle);
+            var scale = dpi == 0 ? 1d : dpi / 96d;
+            minMaxInfo.MinimumTrackSize.X = (int)Math.Ceiling(MinWindowWidth * scale);
+            minMaxInfo.MinimumTrackSize.Y = (int)Math.Ceiling(MinWindowHeight * scale);
+            Marshal.StructureToPtr(minMaxInfo, lParam, false);
+        }
+
+        return CallWindowProc(_previousWindowProcedure, windowHandle, message, wParam, lParam);
+    }
+
+    private delegate nint WindowProcedure(nint windowHandle, uint message, nint wParam, nint lParam);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Point
+    {
+        public int X;
+        public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MinMaxInfo
+    {
+        public Point Reserved;
+        public Point MaximumSize;
+        public Point MaximumPosition;
+        public Point MinimumTrackSize;
+        public Point MaximumTrackSize;
+    }
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+    private static extern nint SetWindowLongPtr(nint windowHandle, int index, nint newValue);
+
+    [DllImport("user32.dll")]
+    private static extern nint CallWindowProc(
+        nint previousProcedure,
+        nint windowHandle,
+        uint message,
+        nint wParam,
+        nint lParam);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(nint windowHandle);
 
     private async void PickImageButton_Click(object sender, RoutedEventArgs e)
     {
@@ -944,6 +1068,7 @@ public sealed partial class MainWindow : Window
                         sourceText),
                     _cts.Token);
             OutputTextBox.Text = result;
+            AddTranslationHistory(sourceText);
             ShowInfo("翻译完成。", InfoBarSeverity.Success);
         }
         catch (OperationCanceledException)
@@ -1008,6 +1133,7 @@ public sealed partial class MainWindow : Window
         {
             var result = await _machineTranslationService.TranslateAsync(request, _cts.Token);
             OutputTextBox.Text = result;
+            AddTranslationHistory(sourceText);
             ShowInfo("翻译完成。", InfoBarSeverity.Success);
         }
         catch (OperationCanceledException)
@@ -1224,6 +1350,62 @@ public sealed partial class MainWindow : Window
         OutputCountText.Text = $"{OutputTextBox.Text.Length} 字";
     }
 
+    private void AddTranslationHistory(string sourceText)
+    {
+        if (_settings.TranslationHistoryLimit == 0 || string.IsNullOrWhiteSpace(sourceText))
+        {
+            return;
+        }
+
+        _settings.TranslationHistory.RemoveAll(historyText =>
+            string.Equals(historyText, sourceText, StringComparison.Ordinal));
+        _settings.TranslationHistory.Add(sourceText);
+        TrimTranslationHistory();
+        RefreshTranslationHistory();
+        SaveSettings();
+    }
+
+    private void TrimTranslationHistory()
+    {
+        _settings.TranslationHistory ??= new List<string>();
+        var seenTexts = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = _settings.TranslationHistory.Count - 1; index >= 0; index--)
+        {
+            if (!seenTexts.Add(_settings.TranslationHistory[index]))
+            {
+                _settings.TranslationHistory.RemoveAt(index);
+            }
+        }
+
+        if (_settings.TranslationHistoryLimit == 0)
+        {
+            _settings.TranslationHistory.Clear();
+            return;
+        }
+
+        if (_settings.TranslationHistoryLimit > 0
+            && _settings.TranslationHistory.Count > _settings.TranslationHistoryLimit)
+        {
+            _settings.TranslationHistory.RemoveRange(
+                0,
+                _settings.TranslationHistory.Count - _settings.TranslationHistoryLimit);
+        }
+    }
+
+    private void RefreshTranslationHistory()
+    {
+        var history = _settings.TranslationHistory
+            .AsEnumerable()
+            .Reverse()
+            .ToList();
+        TranslationHistoryListView.ItemsSource = history;
+        TranslationHistoryEmptyText.Visibility = history.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        ClearTranslationHistoryButton.IsEnabled = history.Count > 0;
+    }
+
+    private static int NormalizeTranslationHistoryLimit(int limit) =>
+        TranslationHistoryLimits.Contains(limit) ? limit : 20;
+
     private void UpdateUiState()
     {
         TranslateButton.IsEnabled = !_isTranslating && SourceTextBox.Text.Trim().Length > 0;
@@ -1240,6 +1422,7 @@ public sealed partial class MainWindow : Window
         _settings.ProviderName = _currentProvider;
         _settings.ThemeIndex = Math.Max(0, ThemeComboBox.SelectedIndex);
         _settings.MicaBackdropEnabled = MicaBackdropCheckBox.IsChecked == true;
+        _settings.TranslationHistoryLimit = NormalizeTranslationHistoryLimit(_settings.TranslationHistoryLimit);
         var sourceLanguage = SourceLanguageComboBox.SelectedItem as LanguageOption;
         var targetLanguage = TargetLanguageComboBox.SelectedItem as LanguageOption;
         _settings.SourceLanguageIndex = sourceLanguage is null ? 0 : Languages.IndexOf(sourceLanguage);

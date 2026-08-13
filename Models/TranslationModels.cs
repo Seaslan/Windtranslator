@@ -92,6 +92,11 @@ public sealed class AppSettings
 
     public string LocalModelPath { get; set; } = string.Empty;
 
+    // 0 disables history; -1 keeps every entry.
+    public int TranslationHistoryLimit { get; set; } = 20;
+
+    public List<string> TranslationHistory { get; set; } = new();
+
     public Dictionary<string, string> Endpoints { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public Dictionary<string, string> Models { get; set; } = new(StringComparer.OrdinalIgnoreCase);

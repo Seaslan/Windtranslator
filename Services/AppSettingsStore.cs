@@ -20,8 +20,10 @@ public static class AppSettingsStore
         {
             if (File.Exists(SettingsFile))
             {
-                return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsFile), JsonOptions)
+                var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsFile), JsonOptions)
                     ?? new AppSettings();
+                settings.TranslationHistory ??= new();
+                return settings;
             }
         }
         catch

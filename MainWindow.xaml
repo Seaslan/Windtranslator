@@ -215,6 +215,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
                         <Grid ColumnSpacing="8">
@@ -268,6 +269,17 @@
                             TextChanged="SourceTextBox_TextChanged"
                             TextWrapping="Wrap"
                             ScrollViewer.VerticalScrollBarVisibility="Auto" />
+
+                        <Button
+                            Grid.Row="2"
+                            Margin="0,10,0,0"
+                            HorizontalAlignment="Left"
+                            Click="TranslationHistoryButton_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <SymbolIcon Symbol="Clock" />
+                                <TextBlock Text="翻译历史" />
+                            </StackPanel>
+                        </Button>
                     </Grid>
                 </Border>
 
@@ -340,6 +352,107 @@
                 </Border>
             </Grid>
 
+            <Grid
+                x:Name="TranslationHistoryPageGrid"
+                Grid.Row="2"
+                Margin="24,18,24,24"
+                Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button
+                        Padding="8,6"
+                        Click="ReturnHomeFromTranslationHistoryButton_Click"
+                        ToolTipService.ToolTip="返回主页">
+                        <SymbolIcon Symbol="Back" />
+                    </Button>
+                    <TextBlock
+                        Grid.Column="1"
+                        Text="翻译历史"
+                        Style="{StaticResource SubtitleTextBlockStyle}"
+                        VerticalAlignment="Center" />
+                    <Button
+                        x:Name="ClearTranslationHistoryButton"
+                        Grid.Column="2"
+                        Click="ClearTranslationHistoryButton_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <SymbolIcon Symbol="Delete" />
+                            <TextBlock Text="清除翻译历史" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+
+                <Grid Grid.Row="1" Margin="0,16,0,0">
+                    <ListView
+                        x:Name="TranslationHistoryListView"
+                        IsItemClickEnabled="True"
+                        ItemClick="TranslationHistoryListView_ItemClick"
+                        SelectionMode="None">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="Margin" Value="0,0,0,8" />
+                                <Setter Property="Padding" Value="12" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListViewItem">
+                                            <Border
+                                                x:Name="HistoryItemBackground"
+                                                Padding="{TemplateBinding Padding}"
+                                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="8">
+                                                <ContentPresenter
+                                                    HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                    VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                    Content="{TemplateBinding Content}"
+                                                    ContentTemplate="{TemplateBinding ContentTemplate}" />
+                                            </Border>
+                                            <VisualStateManager.VisualStateGroups>
+                                                <VisualStateGroup x:Name="CommonStates">
+                                                    <VisualState x:Name="Normal" />
+                                                    <VisualState x:Name="PointerOver">
+                                                        <VisualState.Setters>
+                                                            <Setter Target="HistoryItemBackground.Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
+                                                        </VisualState.Setters>
+                                                    </VisualState>
+                                                    <VisualState x:Name="Pressed">
+                                                        <VisualState.Setters>
+                                                            <Setter Target="HistoryItemBackground.Background" Value="{ThemeResource SubtleFillColorTertiaryBrush}" />
+                                                        </VisualState.Setters>
+                                                    </VisualState>
+                                                </VisualStateGroup>
+                                            </VisualStateManager.VisualStateGroups>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <TextBlock
+                        x:Name="TranslationHistoryEmptyText"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        IsHitTestVisible="False"
+                        Text="暂无翻译历史" />
+                </Grid>
+            </Grid>
+
             <ScrollViewer
                 x:Name="SettingsPageScrollViewer"
                 Grid.Row="2"
@@ -352,7 +465,7 @@
                     Spacing="16">
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="API 翻译（阿里云机器翻译）" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="API 翻译（阿里云机器翻译）" FontSize="18" FontWeight="SemiBold" />
                         <TextBlock
                             Text="固定使用 TranslateECommerce 接口，密钥需手动输入。"
                             FontSize="12"
@@ -379,7 +492,7 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="AI 翻译（DeepSeek / 千问 / Kimi）" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="AI 翻译（DeepSeek / 千问 / Kimi）" FontSize="18" FontWeight="SemiBold" />
                         <TextBlock
                             Text="调用云端大模型翻译，可自定义补充提示词。"
                             FontSize="12"
@@ -419,7 +532,7 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="本地 AI 翻译" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="本地 AI 翻译" FontSize="18" FontWeight="SemiBold" />
                         <ComboBox
                             x:Name="LocalTranslationSourceComboBox"
                             SelectionChanged="LocalTranslationSourceComboBox_SelectionChanged" />
@@ -463,7 +576,7 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="外观" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="外观" FontSize="18" FontWeight="SemiBold" />
                         <ComboBox
                             x:Name="ThemeComboBox"
                             MinWidth="180"
@@ -476,7 +589,15 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="AI 提示词" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="翻译历史" FontSize="18" FontWeight="SemiBold" />
+                        <ComboBox
+                            x:Name="TranslationHistoryLimitComboBox"
+                            MinWidth="180"
+                            SelectionChanged="TranslationHistoryLimitComboBox_SelectionChanged" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="AI 提示词" FontSize="18" FontWeight="SemiBold" />
                         <TextBlock
                             x:Name="PromptHintText"
                             FontSize="12"
