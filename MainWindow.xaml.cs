@@ -3,15 +3,18 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.ApplicationModel;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
 using Windows.Security.Credentials;
@@ -73,7 +76,6 @@ public sealed partial class MainWindow : Window
     private string _aliyunAccessKeySecret = string.Empty;
     private bool _isTranslating;
     private bool _isImageTranslating;
-    private bool _isSidebarCollapsed;
     private bool _suppressEvents;
     private bool _suppressSidebarSync;
     private CancellationTokenSource? _cts;
@@ -90,7 +92,7 @@ public sealed partial class MainWindow : Window
 
         ExtendsContentIntoTitleBar = true;
         AppWindow.TitleBar.ExtendsContentIntoTitleBar = true;
-        AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Standard;
+        AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
         SetTitleBar(TitleBarDragRegion);
         InstallMinimumSizeHandler();
         AppWindow.Resize(new SizeInt32(MinWindowWidth, MinWindowHeight));
@@ -164,7 +166,8 @@ public sealed partial class MainWindow : Window
 
         ApplyTheme();
         ApplyMicaBackdrop();
-        SidebarNavList.SelectedIndex = 0;
+        AboutVersionTextBlock.Text = "版本 " + GetApplicationVersion();
+        SidebarNavigationView.SelectedItem = HomeNavigationItem;
         InitializeProviderSettings();
         UpdatePromptPreview();
         UpdateCounts();
@@ -645,8 +648,7 @@ public sealed partial class MainWindow : Window
     private void TranslationHistoryButton_Click(object sender, RoutedEventArgs e)
     {
         _suppressSidebarSync = true;
-        SidebarNavList.SelectedIndex = -1;
-        SidebarAboutNavList.SelectedIndex = -1;
+        SidebarNavigationView.SelectedItem = null;
         _suppressSidebarSync = false;
         ShowPage("History");
     }
@@ -654,7 +656,7 @@ public sealed partial class MainWindow : Window
     private void ReturnHomeFromTranslationHistoryButton_Click(object sender, RoutedEventArgs e)
     {
         _suppressSidebarSync = true;
-        SidebarNavList.SelectedIndex = 0;
+        SidebarNavigationView.SelectedItem = HomeNavigationItem;
         _suppressSidebarSync = false;
         ShowPage("Home");
     }
@@ -676,7 +678,7 @@ public sealed partial class MainWindow : Window
 
         SourceTextBox.Text = sourceText;
         _suppressSidebarSync = true;
-        SidebarNavList.SelectedIndex = 0;
+        SidebarNavigationView.SelectedItem = HomeNavigationItem;
         _suppressSidebarSync = false;
         ShowPage("Home");
         SourceTextBox.Focus(FocusState.Programmatic);
@@ -704,33 +706,53 @@ public sealed partial class MainWindow : Window
         ShowInfo("已恢复默认补充提示词。", InfoBarSeverity.Success);
     }
 
-    private void SidebarNavList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void SidebarNavigationView_SelectionChanged(
+        NavigationView sender,
+        NavigationViewSelectionChangedEventArgs args)
     {
-        var selectedItem = SidebarNavList.SelectedItem as ListViewItem;
-        var tag = selectedItem?.Tag?.ToString();
-
-        if (!_suppressSidebarSync && SidebarAboutNavList.SelectedIndex >= 0)
-        {
-            _suppressSidebarSync = true;
-            SidebarAboutNavList.SelectedIndex = -1;
-            _suppressSidebarSync = false;
-        }
-
-        ShowPage(tag);
-    }
-
-    private void SidebarAboutNavList_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressSidebarSync || SidebarAboutNavList.SelectedIndex < 0)
+        if (_suppressSidebarSync || args.SelectedItem is not NavigationViewItem selectedItem)
         {
             return;
         }
 
-        _suppressSidebarSync = true;
-        SidebarNavList.SelectedIndex = -1;
-        _suppressSidebarSync = false;
+        ShowPage(selectedItem.Tag?.ToString());
+    }
 
-        ShowPage("About");
+    private void SidebarNavigationView_PaneOpening(NavigationView sender, object args)
+    {
+        AnimateSidebarWidth(200d);
+    }
+
+    private void SidebarNavigationView_PaneClosing(
+        NavigationView sender,
+        NavigationViewPaneClosingEventArgs args)
+    {
+        AnimateSidebarWidth(64d);
+    }
+
+    private void SidebarHost_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        SidebarNavigationView.Clip = new RectangleGeometry
+        {
+            Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, e.NewSize.Height),
+        };
+    }
+
+    private void AnimateSidebarWidth(double targetWidth)
+    {
+        var animation = new DoubleAnimation
+        {
+            To = targetWidth,
+            Duration = new Duration(TimeSpan.FromMilliseconds(180)),
+            EnableDependentAnimation = true,
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+        };
+
+        Storyboard.SetTarget(animation, SidebarHost);
+        Storyboard.SetTargetProperty(animation, "Width");
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(animation);
+        storyboard.Begin();
     }
 
     private void ShowPage(string? tag)
@@ -753,22 +775,6 @@ public sealed partial class MainWindow : Window
         SettingsPageScrollViewer.Visibility = tag == "Settings" ? Visibility.Visible : Visibility.Collapsed;
         ImagePageGrid.Visibility = tag == "Image" ? Visibility.Visible : Visibility.Collapsed;
         AboutPagePanel.Visibility = tag == "About" ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private void SidebarToggleButton_Click(object sender, RoutedEventArgs e)
-    {
-        _isSidebarCollapsed = !_isSidebarCollapsed;
-        SidebarColumn.Width = _isSidebarCollapsed ? new GridLength(64) : new GridLength(200);
-        SidebarToggleIcon.Glyph = _isSidebarCollapsed ? "\uE8A0" : "\uE89F";
-        SidebarToggleText.Text = _isSidebarCollapsed ? "展开侧边栏" : "收起侧边栏";
-        SidebarToggleText.Visibility = _isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
-        HomeNavText.Visibility = _isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
-        SettingsNavText.Visibility = _isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
-        ImageNavText.Visibility = _isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
-        AboutNavText.Visibility = _isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
-        ToolTipService.SetToolTip(
-            SidebarToggleButton,
-            _isSidebarCollapsed ? "展开侧边栏" : "收起侧边栏");
     }
 
     private void InstallMinimumSizeHandler()
@@ -1405,6 +1411,19 @@ public sealed partial class MainWindow : Window
 
     private static int NormalizeTranslationHistoryLimit(int limit) =>
         TranslationHistoryLimits.Contains(limit) ? limit : 20;
+
+    private static string GetApplicationVersion()
+    {
+        try
+        {
+            var version = Package.Current.Id.Version;
+            return $"{version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
+        }
+        catch
+        {
+            return Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "未知";
+        }
+    }
 
     private void UpdateUiState()
     {

@@ -10,7 +10,7 @@
 
     <Grid x:Name="WindowRoot" Background="Transparent">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition x:Name="SidebarColumn" Width="200" />
+            <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
@@ -21,78 +21,32 @@
             Visibility="Collapsed" />
 
         <Border
+            x:Name="SidebarHost"
             Grid.Column="0"
-            Background="Transparent"
-            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-            BorderThickness="0,0,1,0">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <Button
-                    x:Name="SidebarToggleButton"
-                    Grid.Row="0"
-                    Height="40"
-                    Margin="8,10,8,6"
-                    Padding="8,0"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Left"
-                    Click="SidebarToggleButton_Click"
-                    ToolTipService.ToolTip="收起侧边栏">
-                    <StackPanel Orientation="Horizontal" Spacing="10">
-                        <FontIcon x:Name="SidebarToggleIcon" Glyph="&#xE89F;" FontSize="16" />
-                        <TextBlock x:Name="SidebarToggleText" Text="收起侧边栏" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-
-                <Grid Grid.Row="1" Margin="4,0,8,8">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-
-                    <ListView
-                        x:Name="SidebarNavList"
-                        Grid.Row="0"
-                        SelectionChanged="SidebarNavList_SelectionChanged"
-                        SelectionMode="Single">
-                        <ListViewItem Tag="Home">
-                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left">
-                                <FontIcon Glyph="&#xE80F;" FontSize="16" />
-                                <TextBlock x:Name="HomeNavText" Text="主页" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </ListViewItem>
-                        <ListViewItem Tag="Image">
-                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left">
-                                <FontIcon Glyph="&#xEB9F;" FontSize="16" />
-                                <TextBlock x:Name="ImageNavText" Text="图片翻译" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </ListViewItem>
-                        <ListViewItem Tag="Settings">
-                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left">
-                                <FontIcon Glyph="&#xE713;" FontSize="16" />
-                                <TextBlock x:Name="SettingsNavText" Text="设置" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </ListViewItem>
-                    </ListView>
-
-                    <ListView
-                        x:Name="SidebarAboutNavList"
-                        Grid.Row="1"
-                        Margin="0,8,0,0"
-                        SelectionChanged="SidebarAboutNavList_SelectionChanged"
-                        SelectionMode="Single">
-                        <ListViewItem Tag="About">
-                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left">
-                                <FontIcon Glyph="&#xE946;" FontSize="16" />
-                                <TextBlock x:Name="AboutNavText" Text="关于" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </ListViewItem>
-                    </ListView>
-                </Grid>
-            </Grid>
+            Width="200"
+            SizeChanged="SidebarHost_SizeChanged">
+            <NavigationView
+                x:Name="SidebarNavigationView"
+                Width="200"
+                HorizontalAlignment="Left"
+                PaneDisplayMode="Left"
+                IsPaneOpen="True"
+                OpenPaneLength="200"
+                CompactPaneLength="64"
+                IsBackButtonVisible="Collapsed"
+                IsSettingsVisible="False"
+                PaneOpening="SidebarNavigationView_PaneOpening"
+                PaneClosing="SidebarNavigationView_PaneClosing"
+                SelectionChanged="SidebarNavigationView_SelectionChanged">
+                <NavigationView.MenuItems>
+                    <NavigationViewItem x:Name="HomeNavigationItem" Icon="Home" Content="主页" Tag="Home" />
+                    <NavigationViewItem Icon="Pictures" Content="图片翻译" Tag="Image" />
+                    <NavigationViewItem Icon="Setting" Content="设置" Tag="Settings" />
+                </NavigationView.MenuItems>
+                <NavigationView.FooterMenuItems>
+                    <NavigationViewItem Icon="Help" Content="关于" Tag="About" />
+                </NavigationView.FooterMenuItems>
+            </NavigationView>
         </Border>
 
         <Grid Grid.Column="1">
@@ -105,7 +59,7 @@
 
             <Grid
                 Grid.Row="0"
-                Height="32"
+                Height="48"
                 Background="Transparent">
                 <Border
                     x:Name="TitleBarDragRegion"
@@ -793,7 +747,7 @@
                 </Border>
 
                 <TextBlock
-                    Text="版本 0.1.9"
+                    x:Name="AboutVersionTextBlock"
                     FontSize="12"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                     HorizontalAlignment="Center" />
