@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
+using Windows.Networking.Connectivity;
 using Windows.Security.Credentials;
 using Windows.Storage;
 using Windows.Storage.Pickers;
@@ -37,6 +38,10 @@ public sealed partial class MainWindow : Window
     private const int MinWindowWidth = 960;
     private const int MinWindowHeight = 660;
     private const uint WmGetMinMaxInfo = 0x0024;
+    private const uint WmXButtonUp = 0x020C;
+    private const uint WmSysKeyDown = 0x0104;
+    private const int VkLeft = 0x25;
+    private const int XButton1 = 1;
     private const int GwlWndProc = -4;
     private static readonly int[] TranslationHistoryLimits = { 0, 5, 20, -1 };
 
@@ -64,7 +69,8 @@ public sealed partial class MainWindow : Window
 
     private readonly HttpClient _httpClient = new();
     private readonly TranslationService _translationService;
-    private readonly LocalT5TranslationService _localT5TranslationService = new();
+    private readonly BergamotTranslationService _bergamotTranslationService = new();
+    private readonly OfflineModelService _offlineModelService;
     private readonly AliyunMachineTranslationService _machineTranslationService;
     private readonly SpeechInputService _speechInput = new();
     private readonly SpeechOutputService _speechOutput = new();
@@ -74,10 +80,18 @@ public sealed partial class MainWindow : Window
     private string _currentProvider = "DeepSeek";
     private string _aliyunAccessKeyId = string.Empty;
     private string _aliyunAccessKeySecret = string.Empty;
+    private string _selectedOfflineModelPath = string.Empty;
     private bool _isTranslating;
     private bool _isImageTranslating;
     private bool _suppressEvents;
     private bool _suppressSidebarSync;
+    private bool _isLoadingOfflineModels;
+    private bool _isDownloadingOfflineModel;
+    private double _offlineModelDownloadProgress;
+    private string? _downloadingOfflineModelId;
+    private List<OfflineTranslationModel> _onlineOfflineModels = new();
+    private string _currentPageTag = "Home";
+    private readonly Stack<string> _backStack = new();
     private CancellationTokenSource? _cts;
     private DispatcherQueueTimer? _infoBarTimer;
     private StorageFile? _selectedImageFile;
@@ -100,11 +114,13 @@ public sealed partial class MainWindow : Window
         _settings = AppSettingsStore.Load();
         _translationService = new TranslationService(_httpClient);
         _machineTranslationService = new AliyunMachineTranslationService(_httpClient);
+        _offlineModelService = new OfflineModelService(_httpClient);
+        NetworkInformation.NetworkStatusChanged += NetworkInformation_NetworkStatusChanged;
         _speechOutput.PlaybackEnded += (_, _) => DispatcherQueue.TryEnqueue(() => SetSpeakingState(false));
         Closed += (_, _) =>
         {
+            NetworkInformation.NetworkStatusChanged -= NetworkInformation_NetworkStatusChanged;
             RestoreWindowProcedure();
-            _localT5TranslationService.Dispose();
         };
         _infoBarTimer = DispatcherQueue.CreateTimer();
         _infoBarTimer.Interval = TimeSpan.FromSeconds(3);
@@ -121,14 +137,14 @@ public sealed partial class MainWindow : Window
     {
         _suppressEvents = true;
 
-        ModeComboBox.ItemsSource = new[] { "API 翻译", "AI 翻译", "本地 AI 翻译" };
+        ModeComboBox.ItemsSource = new[] { "API 翻译", "AI 翻译", "本地翻译" };
         ModeComboBox.SelectedIndex = Math.Clamp(_settings.ModeIndex, 0, 2);
-        LocalTranslationSourceComboBox.ItemsSource = new[] { "本地接口", "本地模型" };
+        LocalTranslationSourceComboBox.ItemsSource = new[] { "本地接口", "Mozilla Translations 模型" };
         LocalTranslationSourceComboBox.SelectedIndex = Math.Clamp(_settings.LocalTranslationSourceIndex, 0, 1);
 
         SourceLanguageComboBox.ItemsSource = Languages;
         ImageSourceLanguageComboBox.ItemsSource = Languages;
-        ImageProviderComboBox.ItemsSource = new[] { "千问", "Kimi" };
+        ImageProviderComboBox.ItemsSource = new[] { "DeepSeek", "千问", "Kimi" };
         ImageProviderComboBox.SelectedIndex = 0;
         SourceLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
         ImageSourceLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
@@ -161,6 +177,8 @@ public sealed partial class MainWindow : Window
             _settings.TranslationHistoryLimit);
         TrimTranslationHistory();
         RefreshTranslationHistory();
+        RefreshOfflineModelList();
+        UpdateOfflineModelDownloadAvailability();
 
         _suppressEvents = false;
 
@@ -168,10 +186,11 @@ public sealed partial class MainWindow : Window
         ApplyMicaBackdrop();
         AboutVersionTextBlock.Text = "版本 " + GetApplicationVersion();
         SidebarNavigationView.SelectedItem = HomeNavigationItem;
+        NavigateTo("Home", addBackEntry: false);
         InitializeProviderSettings();
-        UpdatePromptPreview();
         UpdateCounts();
         UpdateUiState();
+        _ = RefreshOfflineModelsAsync(showError: false);
     }
 
     private void ModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -183,11 +202,6 @@ public sealed partial class MainWindow : Window
 
         var isApi = ModeComboBox.SelectedIndex == 0;
         CustomPromptTextBox.IsEnabled = !isApi;
-        ResetPromptButton.IsEnabled = !isApi;
-        PromptHintText.Text = isApi
-            ? "API 模式使用默认翻译提示词，不附加补充提示词。"
-            : "AI 模式会保留默认翻译提示词，并把补充要求附加在后方。";
-        UpdatePromptPreview();
         SaveSettings();
     }
 
@@ -254,7 +268,9 @@ public sealed partial class MainWindow : Window
 
         AiModelComboBox.ItemsSource = profile.DefaultModels;
         AiModelComboBox.IsEditable = true;
-        var savedModel = _settings.Models.TryGetValue(_currentProvider, out var model) ? model : null;
+        var savedModel = _settings.Models.TryGetValue(_currentProvider, out var model)
+            ? NormalizeProviderModelName(_currentProvider, model)
+            : null;
         AiModelComboBox.Text = !string.IsNullOrWhiteSpace(savedModel)
             ? savedModel
             : profile.DefaultModels.Count > 0
@@ -298,7 +314,7 @@ public sealed partial class MainWindow : Window
             && !string.IsNullOrWhiteSpace(localModel)
                 ? localModel
                 : "qwen2.5:7b";
-        LocalT5ModelPathTextBox.Text = _settings.LocalModelPath;
+        _selectedOfflineModelPath = _settings.LocalModelPath;
         UpdateLocalTranslationSourceUi();
 
         _suppressEvents = false;
@@ -324,7 +340,9 @@ public sealed partial class MainWindow : Window
         AiEndpointTextBox.PlaceholderText = profile.DefaultEndpoint;
 
         AiModelComboBox.ItemsSource = profile.DefaultModels;
-        var savedModel = _settings.Models.TryGetValue(provider, out var model) ? model : null;
+        var savedModel = _settings.Models.TryGetValue(provider, out var model)
+            ? NormalizeProviderModelName(provider, model)
+            : null;
         AiModelComboBox.Text = !string.IsNullOrWhiteSpace(savedModel)
             ? savedModel
             : profile.DefaultModels.Count > 0
@@ -488,37 +506,318 @@ public sealed partial class MainWindow : Window
         SaveSettings();
     }
 
-    private void LocalT5ModelPathTextBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
-
-        _settings.LocalModelPath = LocalT5ModelPathTextBox.Text.Trim();
-        SaveSettings();
-    }
-
-    private async void PickLocalT5ModelFolderButton_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new FolderPicker();
-        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
-        picker.FileTypeFilter.Add("*");
-
-        var folder = await picker.PickSingleFolderAsync();
-        if (folder is null)
-        {
-            return;
-        }
-
-        LocalT5ModelPathTextBox.Text = folder.Path;
-    }
-
     private void UpdateLocalTranslationSourceUi()
     {
         var useModel = LocalTranslationSourceComboBox.SelectedIndex == 1;
         LocalEndpointPanel.Visibility = useModel ? Visibility.Collapsed : Visibility.Visible;
-        LocalT5ModelPanel.Visibility = useModel ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void NetworkInformation_NetworkStatusChanged(object sender)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            UpdateOfflineModelDownloadAvailability();
+            if (HasInternetAccess() && _onlineOfflineModels.Count == 0 && !_isLoadingOfflineModels)
+            {
+                _ = RefreshOfflineModelsAsync(showError: false);
+            }
+        });
+    }
+
+    private async void RefreshOfflineModelsButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RefreshOfflineModelsAsync(showError: true);
+    }
+
+    private async Task RefreshOfflineModelsAsync(bool showError)
+    {
+        if (!HasInternetAccess())
+        {
+            UpdateOfflineModelDownloadAvailability();
+            if (showError)
+            {
+                ShowInfo("网络不可用，无法获取离线语言模型。", InfoBarSeverity.Warning);
+            }
+
+            return;
+        }
+
+        _isLoadingOfflineModels = true;
+        UpdateOfflineModelDownloadAvailability();
+        try
+        {
+            _onlineOfflineModels = (await _offlineModelService.GetAvailableModelsAsync(CancellationToken.None)).ToList();
+            OfflineModelsStatusTextBlock.Text = $"已获取 {_onlineOfflineModels.Count} 个可下载模型";
+            RefreshOfflineModelList();
+        }
+        catch (Exception ex)
+        {
+            OfflineModelsStatusTextBlock.Text = "无法获取可下载模型";
+            if (showError)
+            {
+                ShowInfo("获取离线模型失败：" + ex.Message, InfoBarSeverity.Error);
+            }
+        }
+        finally
+        {
+            _isLoadingOfflineModels = false;
+            UpdateOfflineModelDownloadAvailability();
+        }
+    }
+
+    private async void OfflineModelPrimaryButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: OfflineTranslationModel model })
+        {
+            return;
+        }
+
+        if (model.IsInstalled)
+        {
+            UseOfflineModel(model);
+            return;
+        }
+
+        if (!HasInternetAccess())
+        {
+            ShowInfo("网络不可用，无法下载离线语言模型。", InfoBarSeverity.Warning);
+            return;
+        }
+
+        _isDownloadingOfflineModel = true;
+        _downloadingOfflineModelId = model.Id;
+        _offlineModelDownloadProgress = 0;
+        RefreshOfflineModelList();
+        try
+        {
+            var lastReportedPercent = -1;
+            var progress = new Progress<double>(value =>
+            {
+                var percent = (int)(value * 100);
+                if (percent == lastReportedPercent)
+                {
+                    return;
+                }
+
+                lastReportedPercent = percent;
+                _offlineModelDownloadProgress = value;
+                RefreshOfflineModelList();
+            });
+            await _offlineModelService.DownloadAsync(model, progress, CancellationToken.None);
+            RefreshOfflineModelList();
+            var installed = _offlineModelService.GetInstalledModels()
+                .FirstOrDefault(item => item.Id.Equals(model.Id, StringComparison.OrdinalIgnoreCase));
+            if (installed is not null)
+            {
+                UseOfflineModel(installed);
+            }
+
+            ShowInfo("离线语言模型下载完成。", InfoBarSeverity.Success);
+        }
+        catch (Exception ex)
+        {
+            ShowInfo("下载离线语言模型失败：" + ex.Message, InfoBarSeverity.Error);
+        }
+        finally
+        {
+            _isDownloadingOfflineModel = false;
+            _downloadingOfflineModelId = null;
+            _offlineModelDownloadProgress = 0;
+            RefreshOfflineModelList();
+        }
+    }
+
+    private void DeleteOfflineModelButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: OfflineTranslationModel model } || !model.IsInstalled)
+        {
+            return;
+        }
+
+        if (_isTranslating && PathsEqual(_selectedOfflineModelPath, model.LocalDirectory))
+        {
+            ShowInfo("当前离线模型正在翻译，完成后再删除。", InfoBarSeverity.Warning);
+            return;
+        }
+
+        try
+        {
+            _offlineModelService.Delete(model);
+            if (PathsEqual(_selectedOfflineModelPath, model.LocalDirectory))
+            {
+                _selectedOfflineModelPath = string.Empty;
+            }
+
+            RefreshOfflineModelList();
+            ShowInfo("已删除离线语言模型。", InfoBarSeverity.Success);
+        }
+        catch (Exception ex)
+        {
+            ShowInfo("删除离线语言模型失败：" + ex.Message, InfoBarSeverity.Error);
+        }
+    }
+
+    private void UseOfflineModel(OfflineTranslationModel model)
+    {
+        if (string.IsNullOrWhiteSpace(model.LocalDirectory))
+        {
+            return;
+        }
+
+        _suppressEvents = true;
+        ModeComboBox.SelectedIndex = 2;
+        LocalTranslationSourceComboBox.SelectedIndex = 1;
+        _selectedOfflineModelPath = model.LocalDirectory;
+        SelectModelLanguages(model);
+        _suppressEvents = false;
+        UpdateLocalTranslationSourceUi();
+        SaveSettings();
+        ShowInfo($"已选择 {model.Title} 离线模型。", InfoBarSeverity.Informational);
+    }
+
+    private void SelectModelLanguages(OfflineTranslationModel model)
+    {
+        var sourceCode = ToApplicationLanguageCode(model.SourceLanguageCode);
+        var targetCode = ToApplicationLanguageCode(model.TargetLanguageCode);
+        var source = Languages.FirstOrDefault(language => language.ApiCode == sourceCode);
+        var target = Languages.FirstOrDefault(language => language.ApiCode == targetCode);
+        if (source is null || target is null)
+        {
+            return;
+        }
+
+        SourceLanguageComboBox.SelectedItem = source;
+        RefreshTargetLanguageOptions(TargetLanguageComboBox, source, target);
+    }
+
+    private void RefreshOfflineModelList()
+    {
+        var installed = _offlineModelService.GetInstalledModels()
+            .ToDictionary(model => model.Id, StringComparer.OrdinalIgnoreCase);
+        var models = new List<OfflineTranslationModel>();
+        foreach (var onlineModel in _onlineOfflineModels)
+        {
+            installed.TryGetValue(onlineModel.Id, out var installedModel);
+            models.Add(CreateOfflineModelListItem(
+                new OfflineTranslationModel(
+                    onlineModel.Id,
+                    onlineModel.SourceLanguageCode,
+                    onlineModel.TargetLanguageCode,
+                    onlineModel.SizeBytes,
+                    onlineModel.Files,
+                    installedModel?.LocalDirectory)));
+        }
+
+        models.AddRange(installed.Values
+            .Where(model => _onlineOfflineModels.All(online => !online.Id.Equals(model.Id, StringComparison.OrdinalIgnoreCase)))
+            .Select(CreateOfflineModelListItem));
+        OfflineModelsHeaderTextBlock.Text = $"离线语言模型（已下载 {installed.Count} 个）";
+        OfflineModelsListView.ItemsSource = models
+            .OrderByDescending(model => model.IsInstalled)
+            .ThenBy(model => model.Title, StringComparer.CurrentCulture)
+            .ToList();
+    }
+
+    private OfflineTranslationModel CreateOfflineModelListItem(OfflineTranslationModel model)
+    {
+        model.Title = GetLanguageDisplayName(model.SourceLanguageCode) + " -> " + GetLanguageDisplayName(model.TargetLanguageCode);
+        var size = FormatModelSize(model.SizeBytes);
+        if (_isDownloadingOfflineModel && model.Id.Equals(_downloadingOfflineModelId, StringComparison.OrdinalIgnoreCase))
+        {
+            model.Details = "正在下载 " + (int)(_offlineModelDownloadProgress * 100) + "% · " + size;
+        }
+        else
+        {
+            model.Details = (model.IsInstalled ? "已下载" : "可下载") + " · " + size;
+        }
+
+        model.CanDownload = model.IsInstalled || (HasInternetAccess() && !_isLoadingOfflineModels && !_isDownloadingOfflineModel);
+        return model;
+    }
+
+    private void UpdateOfflineModelDownloadAvailability()
+    {
+        var online = HasInternetAccess();
+        RefreshOfflineModelsButton.IsEnabled = online && !_isLoadingOfflineModels && !_isDownloadingOfflineModel;
+        if (!online)
+        {
+            OfflineModelsStatusTextBlock.Text = $"网络不可用，已下载 {_offlineModelService.GetInstalledModels().Count} 个模型仍可使用";
+        }
+        else if (_isLoadingOfflineModels)
+        {
+            OfflineModelsStatusTextBlock.Text = "正在获取可下载模型...";
+        }
+        else if (!IsBergamotRuntimeAvailable())
+        {
+            OfflineModelsStatusTextBlock.Text = "已可下载模型；本地翻译引擎尚未随当前应用发布";
+        }
+
+        RefreshOfflineModelList();
+    }
+
+    private static bool HasInternetAccess() => NetworkInformation.GetInternetConnectionProfile()?
+        .GetNetworkConnectivityLevel() == NetworkConnectivityLevel.InternetAccess;
+
+    private static bool IsBergamotRuntimeAvailable()
+    {
+        var architecture = RuntimeInformation.ProcessArchitecture switch
+        {
+            Architecture.X64 => "x64",
+            Architecture.Arm64 => "arm64",
+            _ => string.Empty,
+        };
+        return !string.IsNullOrEmpty(architecture) && File.Exists(Path.Combine(
+            AppContext.BaseDirectory,
+            "Runtime",
+            "Bergamot",
+            architecture,
+            "translator-cli.exe"));
+    }
+
+    private static string ToApplicationLanguageCode(string code) => code.ToLowerInvariant() switch
+    {
+        "zh_hant" => "zh-tw",
+        _ => code.ToLowerInvariant(),
+    };
+
+    private static string GetLanguageDisplayName(string code) => ToApplicationLanguageCode(code) switch
+    {
+        "zh" => "简体中文",
+        "zh-tw" => "繁体中文",
+        "en" => "英语",
+        "ja" => "日语",
+        "ko" => "韩语",
+        "fr" => "法语",
+        "de" => "德语",
+        "es" => "西班牙语",
+        "ru" => "俄语",
+        "pt" => "葡萄牙语",
+        "it" => "意大利语",
+        "ar" => "阿拉伯语",
+        "th" => "泰语",
+        "vi" => "越南语",
+        "id" => "印尼语",
+        _ => code,
+    };
+
+    private static string FormatModelSize(long bytes) => bytes switch
+    {
+        <= 0 => "大小未知",
+        < 1024 * 1024 => (bytes / 1024d).ToString("0.0") + " KB",
+        _ => (bytes / (1024d * 1024d)).ToString("0.0") + " MB",
+    };
+
+    private static bool PathsEqual(string? first, string? second)
+    {
+        if (string.IsNullOrWhiteSpace(first) || string.IsNullOrWhiteSpace(second))
+        {
+            return false;
+        }
+
+        return string.Equals(
+            Path.GetFullPath(first).TrimEnd(Path.DirectorySeparatorChar),
+            Path.GetFullPath(second).TrimEnd(Path.DirectorySeparatorChar),
+            StringComparison.OrdinalIgnoreCase);
     }
 
     private void AliyunAccessKeyIdPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
@@ -558,7 +857,6 @@ public sealed partial class MainWindow : Window
 
         _settings.CustomPrompt = CustomPromptTextBox.Text;
         SaveSettings();
-        UpdatePromptPreview();
     }
 
     private void SourceTextBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -581,7 +879,6 @@ public sealed partial class MainWindow : Window
         }
 
         RefreshTargetLanguageOptions();
-        UpdatePromptPreview();
         SaveSettings();
     }
 
@@ -593,7 +890,6 @@ public sealed partial class MainWindow : Window
         }
 
         RefreshTargetLanguageOptions();
-        UpdatePromptPreview();
         SaveSettings();
     }
 
@@ -635,7 +931,6 @@ public sealed partial class MainWindow : Window
 
         RefreshTargetLanguageOptions();
         RefreshImageTargetLanguageOptions();
-        UpdatePromptPreview();
         SaveSettings();
     }
 
@@ -647,18 +942,7 @@ public sealed partial class MainWindow : Window
 
     private void TranslationHistoryButton_Click(object sender, RoutedEventArgs e)
     {
-        _suppressSidebarSync = true;
-        SidebarNavigationView.SelectedItem = null;
-        _suppressSidebarSync = false;
-        ShowPage("History");
-    }
-
-    private void ReturnHomeFromTranslationHistoryButton_Click(object sender, RoutedEventArgs e)
-    {
-        _suppressSidebarSync = true;
-        SidebarNavigationView.SelectedItem = HomeNavigationItem;
-        _suppressSidebarSync = false;
-        ShowPage("Home");
+        NavigateTo("History");
     }
 
     private void ClearTranslationHistoryButton_Click(object sender, RoutedEventArgs e)
@@ -677,10 +961,7 @@ public sealed partial class MainWindow : Window
         }
 
         SourceTextBox.Text = sourceText;
-        _suppressSidebarSync = true;
-        SidebarNavigationView.SelectedItem = HomeNavigationItem;
-        _suppressSidebarSync = false;
-        ShowPage("Home");
+        NavigateTo("Home");
         SourceTextBox.Focus(FocusState.Programmatic);
         TranslateButton_Click(TranslateButton, new RoutedEventArgs());
     }
@@ -699,13 +980,6 @@ public sealed partial class MainWindow : Window
         ShowInfo("译文已复制到剪贴板。", InfoBarSeverity.Success);
     }
 
-    private void ResetPromptButton_Click(object sender, RoutedEventArgs e)
-    {
-        CustomPromptTextBox.Text = string.Empty;
-        UpdatePromptPreview();
-        ShowInfo("已恢复默认补充提示词。", InfoBarSeverity.Success);
-    }
-
     private void SidebarNavigationView_SelectionChanged(
         NavigationView sender,
         NavigationViewSelectionChangedEventArgs args)
@@ -715,7 +989,50 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        ShowPage(selectedItem.Tag?.ToString());
+        NavigateTo(selectedItem.Tag?.ToString());
+    }
+
+    private void SidebarNavigationView_BackRequested(NavigationView sender, NavigationViewBackRequestedEventArgs args) =>
+        GoBack();
+
+    private void SidebarNavigationView_Loaded(object sender, RoutedEventArgs e)
+    {
+        var backButton = FindVisualChild<Button>(SidebarNavigationView, "NavigationViewBackButton");
+        if (backButton is not null)
+        {
+            backButton.Width = TitleBarDragRegion.ActualHeight;
+            ToolTipService.SetToolTip(backButton, null);
+        }
+    }
+
+    private static T? FindVisualChild<T>(DependencyObject root, string name)
+        where T : FrameworkElement
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+        {
+            var child = VisualTreeHelper.GetChild(root, index);
+            if (child is T element && element.Name == name)
+            {
+                return element;
+            }
+
+            var result = FindVisualChild<T>(child, name);
+            if (result is not null)
+            {
+                return result;
+            }
+        }
+
+        return null;
+    }
+
+    private void WindowRoot_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (e.GetCurrentPoint(WindowRoot).Properties.IsXButton1Pressed)
+        {
+            GoBack();
+            e.Handled = true;
+        }
     }
 
     private void SidebarNavigationView_PaneOpening(NavigationView sender, object args)
@@ -755,8 +1072,34 @@ public sealed partial class MainWindow : Window
         storyboard.Begin();
     }
 
+    private void NavigateTo(string? tag, bool addBackEntry = true)
+    {
+        tag ??= "Home";
+        if (tag == _currentPageTag)
+        {
+            return;
+        }
+
+        if (addBackEntry)
+        {
+            _backStack.Push(_currentPageTag);
+        }
+
+        ShowPage(tag);
+    }
+
+    private void GoBack()
+    {
+        if (_backStack.Count > 0)
+        {
+            ShowPage(_backStack.Pop());
+        }
+    }
+
     private void ShowPage(string? tag)
     {
+        tag ??= "Home";
+        _currentPageTag = tag;
         var pageTitle = tag switch
         {
             "Home" => "Windtranslator",
@@ -775,6 +1118,18 @@ public sealed partial class MainWindow : Window
         SettingsPageScrollViewer.Visibility = tag == "Settings" ? Visibility.Visible : Visibility.Collapsed;
         ImagePageGrid.Visibility = tag == "Image" ? Visibility.Visible : Visibility.Collapsed;
         AboutPagePanel.Visibility = tag == "About" ? Visibility.Visible : Visibility.Collapsed;
+
+        _suppressSidebarSync = true;
+        SidebarNavigationView.SelectedItem = tag switch
+        {
+            "Home" => HomeNavigationItem,
+            "Image" => ImageNavigationItem,
+            "Settings" => SettingsNavigationItem,
+            "About" => AboutNavigationItem,
+            _ => null,
+        };
+        _suppressSidebarSync = false;
+        SidebarNavigationView.IsBackEnabled = _backStack.Count > 0;
     }
 
     private void InstallMinimumSizeHandler()
@@ -807,6 +1162,18 @@ public sealed partial class MainWindow : Window
             minMaxInfo.MinimumTrackSize.X = (int)Math.Ceiling(MinWindowWidth * scale);
             minMaxInfo.MinimumTrackSize.Y = (int)Math.Ceiling(MinWindowHeight * scale);
             Marshal.StructureToPtr(minMaxInfo, lParam, false);
+        }
+
+        if (message == WmXButtonUp && ((wParam.ToInt64() >> 16) & 0xffff) == XButton1)
+        {
+            DispatcherQueue.TryEnqueue(GoBack);
+            return 0;
+        }
+
+        if (message == WmSysKeyDown && wParam.ToInt64() == VkLeft)
+        {
+            DispatcherQueue.TryEnqueue(GoBack);
+            return 0;
         }
 
         return CallWindowProc(_previousWindowProcedure, windowHandle, message, wParam, lParam);
@@ -884,8 +1251,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var imageProvider = ImageProviderComboBox.SelectedItem?.ToString() ?? "千问";
-        var providerKey = imageProvider == "Kimi" ? "Kimi" : "千问";
+        var providerKey = ImageProviderComboBox.SelectedItem?.ToString() ?? "千问";
         var apiKey = _apiKeys.GetValueOrDefault(providerKey);
         if (string.IsNullOrWhiteSpace(apiKey) && AiRememberKeyCheckBox.IsChecked == true)
         {
@@ -928,7 +1294,12 @@ public sealed partial class MainWindow : Window
         var request = new ImageTranslationRequest(
             endpoint,
             apiKey,
-            providerKey == "Kimi" ? "kimi-k2.6" : "qwen3.5-ocr",
+            providerKey switch
+            {
+                "DeepSeek" => "deepseek-v4-flash-vision-exp",
+                "Kimi" => "kimi-k2.6",
+                _ => "qwen3.5-ocr",
+            },
             systemPrompt,
             "请识别图片中的文字，并翻译成目标语言。",
             imageDataUrl);
@@ -1009,20 +1380,17 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var localT5TargetLanguage = string.Empty;
         if (useLocalModel)
         {
-            localT5TargetLanguage = GetLocalT5TargetLanguageCode(
-                TargetLanguageComboBox.SelectedItem as LanguageOption);
-            if (string.IsNullOrWhiteSpace(localT5TargetLanguage))
+            if (!IsBergamotRuntimeAvailable())
             {
-                ShowInfo("该本地模型仅支持翻译为简体中文、英语或俄语。", InfoBarSeverity.Warning);
+                ShowInfo("当前发布包未包含 Mozilla Translations 本地翻译引擎。请构建并重新发布 Runtime\\Bergamot 运行库。", InfoBarSeverity.Warning);
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(LocalT5ModelPathTextBox.Text))
+            if (string.IsNullOrWhiteSpace(_selectedOfflineModelPath))
             {
-                ShowInfo("请选择本地 ONNX 模型文件夹。", InfoBarSeverity.Warning);
+                ShowInfo("请先在设置中下载并选择离线语言模型。", InfoBarSeverity.Warning);
                 return;
             }
         }
@@ -1060,9 +1428,8 @@ public sealed partial class MainWindow : Window
         try
         {
             var result = useLocalModel
-                ? await _localT5TranslationService.TranslateAsync(
-                    LocalT5ModelPathTextBox.Text.Trim(),
-                    localT5TargetLanguage,
+                ? await _bergamotTranslationService.TranslateAsync(
+                    _selectedOfflineModelPath,
                     sourceText,
                     _cts.Token)
                 : await _translationService.TranslateAsync(
@@ -1330,13 +1697,6 @@ public sealed partial class MainWindow : Window
         _suppressEvents = previousSuppress;
     }
 
-    private void UpdatePromptPreview()
-    {
-        var sourceLanguage = SourceLanguageComboBox.SelectedItem as LanguageOption ?? Languages[0];
-        var targetLanguage = TargetLanguageComboBox.SelectedItem as LanguageOption ?? Languages[3];
-        DefaultPromptTextBox.Text = BuildDefaultPrompt(sourceLanguage, targetLanguage);
-    }
-
     private static string GetMimeType(string path)
     {
         return Path.GetExtension(path).ToLowerInvariant() switch
@@ -1450,7 +1810,7 @@ public sealed partial class MainWindow : Window
         _settings.RememberKeys = AiRememberKeyCheckBox.IsChecked == true;
         _settings.RememberAliyunKeys = AliyunRememberKeyCheckBox.IsChecked == true;
         _settings.LocalTranslationSourceIndex = Math.Clamp(LocalTranslationSourceComboBox.SelectedIndex, 0, 1);
-        _settings.LocalModelPath = LocalT5ModelPathTextBox.Text.Trim();
+        _settings.LocalModelPath = _selectedOfflineModelPath;
         _settings.Endpoints["本地 AI"] = LocalEndpointTextBox.Text.Trim();
         _settings.Models["本地 AI"] = LocalModelTextBox.Text.Trim();
         if (!string.IsNullOrEmpty(_currentProvider))
@@ -1538,20 +1898,12 @@ public sealed partial class MainWindow : Window
             + "只输出译文，不要添加解释、注释、代码块或任何额外内容。保持原文的语气、格式和专有名词。";
     }
 
-    private static string GetLocalT5TargetLanguageCode(LanguageOption? language) => language?.ApiCode switch
-    {
-        "zh" or "zh-tw" => "zh",
-        "en" => "en",
-        "ru" => "ru",
-        _ => string.Empty,
-    };
-
     private static ProviderProfile GetProviderProfile(string provider) => provider switch
     {
         "DeepSeek" => new ProviderProfile(
             "DeepSeek",
             "https://api.deepseek.com",
-            new[] { "v4flash", "v4pro" },
+            new[] { "deepseek-v4-flash", "deepseek-v4-pro" },
             true),
         "千问" => new ProviderProfile(
             "千问",
@@ -1569,6 +1921,15 @@ public sealed partial class MainWindow : Window
             Array.Empty<string>(),
             false),
     };
+
+    private static string NormalizeProviderModelName(string provider, string model) => provider == "DeepSeek"
+        ? model switch
+        {
+            "v4flash" => "deepseek-v4-flash",
+            "v4pro" => "deepseek-v4-pro",
+            _ => model,
+        }
+        : model;
 
     private static void SaveKeyToVault(string provider, string key)
     {

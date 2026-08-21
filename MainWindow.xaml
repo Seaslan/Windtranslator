@@ -8,7 +8,10 @@
     mc:Ignorable="d"
     Title="Windtranslator">
 
-    <Grid x:Name="WindowRoot" Background="Transparent">
+    <Grid
+        x:Name="WindowRoot"
+        Background="Transparent"
+        PointerPressed="WindowRoot_PointerPressed">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
@@ -33,18 +36,21 @@
                 IsPaneOpen="True"
                 OpenPaneLength="200"
                 CompactPaneLength="64"
-                IsBackButtonVisible="Collapsed"
+                IsBackButtonVisible="Visible"
+                IsBackEnabled="False"
                 IsSettingsVisible="False"
+                BackRequested="SidebarNavigationView_BackRequested"
+                Loaded="SidebarNavigationView_Loaded"
                 PaneOpening="SidebarNavigationView_PaneOpening"
                 PaneClosing="SidebarNavigationView_PaneClosing"
                 SelectionChanged="SidebarNavigationView_SelectionChanged">
                 <NavigationView.MenuItems>
                     <NavigationViewItem x:Name="HomeNavigationItem" Icon="Home" Content="主页" Tag="Home" />
-                    <NavigationViewItem Icon="Pictures" Content="图片翻译" Tag="Image" />
-                    <NavigationViewItem Icon="Setting" Content="设置" Tag="Settings" />
+                    <NavigationViewItem x:Name="ImageNavigationItem" Icon="Pictures" Content="图片翻译" Tag="Image" />
+                    <NavigationViewItem x:Name="SettingsNavigationItem" Icon="Setting" Content="设置" Tag="Settings" />
                 </NavigationView.MenuItems>
                 <NavigationView.FooterMenuItems>
-                    <NavigationViewItem Icon="Help" Content="关于" Tag="About" />
+                    <NavigationViewItem x:Name="AboutNavigationItem" Icon="Help" Content="关于" Tag="About" />
                 </NavigationView.FooterMenuItems>
             </NavigationView>
         </Border>
@@ -68,7 +74,7 @@
                     x:Name="PageTitleTextBlock"
                     Text="Windtranslator"
                     Margin="16,0,0,0"
-                    FontSize="14"
+                    FontSize="16"
                     FontWeight="SemiBold"
                     VerticalAlignment="Center" />
             </Grid>
@@ -76,7 +82,7 @@
             <Grid
                 x:Name="TranslationToolbar"
                 Grid.Row="1"
-                Padding="16,8,16,10"
+                Padding="16,8,16,8"
                 ColumnSpacing="8"
                 Background="Transparent">
                 <Grid.ColumnDefinitions>
@@ -151,8 +157,8 @@
             <Grid
                 x:Name="HomePageGrid"
                 Grid.Row="2"
-                Margin="12,10,12,12"
-                ColumnSpacing="10">
+                Margin="16,8,16,16"
+                ColumnSpacing="16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
@@ -160,7 +166,7 @@
 
                 <Border
                     Grid.Column="0"
-                    Padding="12"
+                    Padding="16"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
@@ -215,18 +221,20 @@
                         <TextBox
                             x:Name="SourceTextBox"
                             Grid.Row="1"
-                            Margin="0,10,0,0"
+                            Margin="0,8,0,0"
                             MinHeight="260"
                             AcceptsReturn="True"
-                            FontSize="14"
+                            FontFamily="Segoe UI"
+                            FontSize="16"
                             PlaceholderText="输入或粘贴需要翻译的内容，也可以使用语音输入"
                             TextChanged="SourceTextBox_TextChanged"
                             TextWrapping="Wrap"
+                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                             ScrollViewer.VerticalScrollBarVisibility="Auto" />
 
                         <Button
                             Grid.Row="2"
-                            Margin="0,10,0,0"
+                            Margin="0,8,0,0"
                             HorizontalAlignment="Left"
                             Click="TranslationHistoryButton_Click">
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -239,7 +247,7 @@
 
                 <Border
                     Grid.Column="1"
-                    Padding="12"
+                    Padding="16"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
@@ -293,14 +301,16 @@
                         <TextBox
                             x:Name="OutputTextBox"
                             Grid.Row="1"
-                            Margin="0,10,0,0"
+                            Margin="0,8,0,0"
                             MinHeight="260"
                             AcceptsReturn="True"
-                            FontSize="14"
+                            FontFamily="Segoe UI"
+                            FontSize="16"
                             IsReadOnly="True"
                             PlaceholderText="翻译结果会显示在这里"
                             TextChanged="OutputTextBox_TextChanged"
                             TextWrapping="Wrap"
+                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                             ScrollViewer.VerticalScrollBarVisibility="Auto" />
                     </Grid>
                 </Border>
@@ -309,7 +319,7 @@
             <Grid
                 x:Name="TranslationHistoryPageGrid"
                 Grid.Row="2"
-                Margin="24,18,24,24"
+                Margin="16,16,16,16"
                 Visibility="Collapsed">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -322,14 +332,8 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <Button
-                        Padding="8,6"
-                        Click="ReturnHomeFromTranslationHistoryButton_Click"
-                        ToolTipService.ToolTip="返回主页">
-                        <SymbolIcon Symbol="Back" />
-                    </Button>
                     <TextBlock
-                        Grid.Column="1"
+                        Grid.Column="0"
                         Text="翻译历史"
                         Style="{StaticResource SubtitleTextBlockStyle}"
                         VerticalAlignment="Center" />
@@ -418,7 +422,7 @@
                     Padding="24,18,24,24"
                     Spacing="16">
 
-                    <StackPanel Spacing="6">
+                    <StackPanel Spacing="8">
                         <TextBlock Text="API 翻译（阿里云机器翻译）" FontSize="18" FontWeight="SemiBold" />
                         <TextBlock
                             Text="固定使用 TranslateECommerce 接口，密钥需手动输入。"
@@ -440,12 +444,12 @@
 
                         <CheckBox
                             x:Name="AliyunRememberKeyCheckBox"
-                            Content="记住 AccessKey（默认不保存）"
+                            Content="记住 AccessKey"
                             Checked="AliyunRememberKeyCheckBox_Changed"
                             Unchecked="AliyunRememberKeyCheckBox_Changed" />
                     </StackPanel>
 
-                    <StackPanel Spacing="6">
+                    <StackPanel Spacing="8">
                         <TextBlock Text="AI 翻译（DeepSeek / 千问 / Kimi）" FontSize="18" FontWeight="SemiBold" />
                         <TextBlock
                             Text="调用云端大模型翻译，可自定义补充提示词。"
@@ -480,18 +484,18 @@
 
                         <CheckBox
                             x:Name="AiRememberKeyCheckBox"
-                            Content="记住 API Key（默认不保存）"
+                            Content="记住 API Key"
                             Checked="AiRememberKeyCheckBox_Changed"
                             Unchecked="AiRememberKeyCheckBox_Changed" />
                     </StackPanel>
 
-                    <StackPanel Spacing="6">
-                        <TextBlock Text="本地 AI 翻译" FontSize="18" FontWeight="SemiBold" />
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="本地翻译" FontSize="18" FontWeight="SemiBold" />
                         <ComboBox
                             x:Name="LocalTranslationSourceComboBox"
                             SelectionChanged="LocalTranslationSourceComboBox_SelectionChanged" />
 
-                        <StackPanel x:Name="LocalEndpointPanel" Spacing="6">
+                        <StackPanel x:Name="LocalEndpointPanel" Spacing="8">
                             <TextBlock Text="接口地址" />
                             <TextBox
                                 x:Name="LocalEndpointTextBox"
@@ -510,26 +514,64 @@
                                 Click="RefreshLocalModelsButton_Click" />
                         </StackPanel>
 
-                        <StackPanel x:Name="LocalT5ModelPanel" Spacing="6" Visibility="Collapsed">
-                            <TextBlock Text="本地模型目录" />
-                            <Grid ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBox
-                                    x:Name="LocalT5ModelPathTextBox"
-                                    PlaceholderText="本地翻译模型文件夹"
-                                    TextChanged="LocalT5ModelPathTextBox_TextChanged" />
-                                <Button
-                                    Grid.Column="1"
-                                    Content="选择文件夹"
-                                    Click="PickLocalT5ModelFolderButton_Click" />
-                            </Grid>
-                        </StackPanel>
                     </StackPanel>
 
-                    <StackPanel Spacing="6">
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Name="OfflineModelsHeaderTextBlock" Text="离线语言模型（已下载 0 个）" FontSize="18" FontWeight="SemiBold" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Button
+                                x:Name="RefreshOfflineModelsButton"
+                                Content="获取可下载模型"
+                                Click="RefreshOfflineModelsButton_Click" />
+                            <TextBlock
+                                x:Name="OfflineModelsStatusTextBlock"
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                TextWrapping="Wrap" />
+                        </Grid>
+                        <ListView
+                            x:Name="OfflineModelsListView"
+                            MaxHeight="360"
+                            SelectionMode="None">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Padding="4,6" ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                                            <TextBlock
+                                                Text="{Binding Details}"
+                                                FontSize="12"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                        <Button
+                                            Grid.Column="1"
+                                            MinWidth="64"
+                                            Content="{Binding PrimaryActionText}"
+                                            IsEnabled="{Binding CanDownload}"
+                                            Click="OfflineModelPrimaryButton_Click" />
+                                        <Button
+                                            Grid.Column="2"
+                                            MinWidth="64"
+                                            Content="删除"
+                                            IsEnabled="{Binding IsInstalled}"
+                                            Click="DeleteOfflineModelButton_Click" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </StackPanel>
+
+                    <StackPanel Spacing="8">
                         <TextBlock Text="外观" FontSize="18" FontWeight="SemiBold" />
                         <ComboBox
                             x:Name="ThemeComboBox"
@@ -542,7 +584,7 @@
                             Unchecked="MicaBackdropCheckBox_Changed" />
                     </StackPanel>
 
-                    <StackPanel Spacing="6">
+                    <StackPanel Spacing="8">
                         <TextBlock Text="翻译历史" FontSize="18" FontWeight="SemiBold" />
                         <ComboBox
                             x:Name="TranslationHistoryLimitComboBox"
@@ -550,23 +592,8 @@
                             SelectionChanged="TranslationHistoryLimitComboBox_SelectionChanged" />
                     </StackPanel>
 
-                    <StackPanel Spacing="6">
+                    <StackPanel Spacing="8">
                         <TextBlock Text="AI 提示词" FontSize="18" FontWeight="SemiBold" />
-                        <TextBlock
-                            x:Name="PromptHintText"
-                            FontSize="12"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            TextWrapping="Wrap" />
-
-                        <TextBlock Text="默认提示词（始终保留）" />
-                        <TextBox
-                            x:Name="DefaultPromptTextBox"
-                            MinHeight="88"
-                            AcceptsReturn="True"
-                            FontSize="12"
-                            IsReadOnly="True"
-                            TextWrapping="Wrap" />
-
                         <TextBlock Text="补充提示词" />
                         <TextBox
                             x:Name="CustomPromptTextBox"
@@ -575,11 +602,6 @@
                             PlaceholderText="例如：保持术语一致，正式语气，不要加注释"
                             TextChanged="CustomPromptTextBox_TextChanged"
                             TextWrapping="Wrap" />
-
-                        <Button
-                            x:Name="ResetPromptButton"
-                            Content="恢复默认补充提示词"
-                            Click="ResetPromptButton_Click" />
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>
@@ -587,8 +609,8 @@
             <Grid
                 x:Name="ImagePageGrid"
                 Grid.Row="2"
-                Margin="12,10,12,12"
-                ColumnSpacing="12"
+                Margin="16,8,16,16"
+                ColumnSpacing="16"
                 Visibility="Collapsed">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="380" />
@@ -597,14 +619,14 @@
 
                 <Border
                     Grid.Column="0"
-                    Padding="14"
+                    Padding="16"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="8">
-                    <StackPanel Spacing="12">
+                    <StackPanel Spacing="16">
                                     <TextBlock
-                                        Text="支持千问 qwen3.5-ocr 和 Kimi kimi-k2.6 模型。"
+                                        Text="支持 DeepSeek、千问和 Kimi 图片翻译模型。"
                                         FontSize="12"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                         TextWrapping="Wrap" />
@@ -662,7 +684,7 @@
 
                 <Border
                     Grid.Column="1"
-                    Padding="14"
+                    Padding="16"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
@@ -678,11 +700,14 @@
                         <TextBox
                             x:Name="ImageOutputTextBox"
                             Grid.Row="1"
-                            Margin="0,10,0,10"
+                            Margin="0,8,0,8"
                             MinHeight="260"
                             AcceptsReturn="True"
+                            FontFamily="Segoe UI"
+                            FontSize="16"
                             IsReadOnly="True"
                             TextWrapping="Wrap"
+                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                             ScrollViewer.VerticalScrollBarVisibility="Auto" />
 
                         <Button
@@ -762,7 +787,7 @@
             <InfoBar
                 x:Name="StatusInfoBar"
                 Grid.Row="3"
-                Margin="12,0,12,12"
+                Margin="16,0,16,16"
                 CornerRadius="8"
                 IsOpen="False"
                 Severity="Informational" />

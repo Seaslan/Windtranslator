@@ -25,6 +25,10 @@
     <Content Include="Assets\Square44x44Logo.scale-200.png" />
     <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
     <Content Include="Assets\Wide310x150Logo.scale-200.png" />
+    <Content Include="Runtime\Bergamot\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
@@ -42,15 +46,6 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2526" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" />
-    <!-- Windows App SDK also brings an older ONNX native DLL. Exclude its runtime assets so
-         the managed and native ONNX Runtime files are both supplied by version 1.28.0. -->
-    <PackageReference Include="Microsoft.Windows.AI.MachineLearning" Version="2.2.12" ExcludeAssets="runtime;native" PrivateAssets="all">
-      <IncludeAssets>compile; build; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Tokenizers.DotNet" Version="1.4.1" />
-    <PackageReference Include="Tokenizers.DotNet.runtime.win-x64" Version="1.4.1" />
-    <PackageReference Include="Tokenizers.DotNet.runtime.win-arm64" Version="1.4.1" />
   </ItemGroup>
 
   <!--
@@ -70,16 +65,18 @@
   <PropertyGroup>
     <PublishReadyToRun>False</PublishReadyToRun>
     <PublishTrimmed>False</PublishTrimmed>
-    <GenerateAppInstallerFile>True</GenerateAppInstallerFile>
-    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
+    <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
+    <!-- Microsoft Store signs the submitted package. The local temporary certificate has
+         CN=nonem and cannot sign the Store-associated package identity. -->
+    <AppxPackageSigningEnabled>False</AppxPackageSigningEnabled>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
     <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
-    <GenerateTestArtifacts>False</GenerateTestArtifacts>
-    <AppxBundle>Never</AppxBundle>
+    <GenerateTestArtifacts>True</GenerateTestArtifacts>
+    <AppxBundle>Auto</AppxBundle>
     <AppInstallerUri>https://github.com/Seaslan/Windtranslator/releases/</AppInstallerUri>
     <HoursBetweenUpdateChecks>336</HoursBetweenUpdateChecks>
-    <PackageCertificateThumbprint>B54FD08C59E42BDCDDC479B037FD4DDFBB7FC181</PackageCertificateThumbprint>
-    <DefaultLanguage>zh-Hans</DefaultLanguage>
+    <DefaultLanguage>zh-CN</DefaultLanguage>
     <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
+    <AppxBundlePlatforms>x64|arm64</AppxBundlePlatforms>
   </PropertyGroup>
 </Project>

@@ -101,3 +101,46 @@ public sealed class AppSettings
 
     public Dictionary<string, string> Models { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
+
+public sealed class OfflineTranslationModel
+{
+    public OfflineTranslationModel(
+        string id,
+        string sourceLanguageCode,
+        string targetLanguageCode,
+        long sizeBytes,
+        IReadOnlyList<OfflineModelFile> files,
+        string? localDirectory = null)
+    {
+        Id = id;
+        SourceLanguageCode = sourceLanguageCode;
+        TargetLanguageCode = targetLanguageCode;
+        SizeBytes = sizeBytes;
+        Files = files;
+        LocalDirectory = localDirectory;
+    }
+
+    public string Id { get; }
+
+    public string SourceLanguageCode { get; }
+
+    public string TargetLanguageCode { get; }
+
+    public long SizeBytes { get; }
+
+    public IReadOnlyList<OfflineModelFile> Files { get; }
+
+    public string? LocalDirectory { get; }
+
+    public bool IsInstalled => !string.IsNullOrWhiteSpace(LocalDirectory);
+
+    public string Title { get; set; } = string.Empty;
+
+    public string Details { get; set; } = string.Empty;
+
+    public string PrimaryActionText => IsInstalled ? "使用" : "下载";
+
+    public bool CanDownload { get; set; }
+}
+
+public sealed record OfflineModelFile(string Path);
