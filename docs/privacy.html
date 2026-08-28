@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>隐私政策 · WindTranslator</title>
+<meta name="description" content="WindTranslator 隐私政策：我们收集什么、不收集什么，以及您的数据如何被处理。">
+<meta property="og:title" content="隐私政策 · WindTranslator">
+<meta property="og:description" content="WindTranslator 隐私政策：本地优先，您的数据只属于您。">
+<meta property="og:type" content="website">
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-soft: #f6f8fa;
+    --text: #1f2328;
+    --text-secondary: #57606a;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent-soft: #ddf4ff;
+    --code-bg: #f6f8fa;
+    --max-width: 780px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container { max-width: var(--max-width); margin: 0 auto; padding: 0 24px; }
+
+  /* ---------- Header ---------- */
+  header {
+    background: var(--bg-soft);
+    border-bottom: 1px solid var(--border);
+    padding: 56px 0 40px;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid #9ec7f0;
+    border-radius: 999px;
+    padding: 3px 12px;
+    margin-bottom: 16px;
+  }
+
+  header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  header p.meta {
+    margin-top: 12px;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  header p.meta strong { color: var(--text); font-weight: 600; }
+
+  /* ---------- TOC ---------- */
+  nav.toc {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-soft);
+    padding: 20px 24px;
+    margin: 32px 0;
+  }
+
+  nav.toc h2 {
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+
+  nav.toc ol {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 4px 24px;
+    counter-reset: toc;
+  }
+
+  nav.toc li { counter-increment: toc; }
+
+  nav.toc a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 14.5px;
+    padding: 4px 0;
+    transition: color 0.15s;
+  }
+
+  nav.toc a::before {
+    content: counter(toc, decimal-leading-zero);
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  nav.toc a:hover { text-decoration: underline; }
+
+  /* ---------- Sections ---------- */
+  main { padding: 8px 0 64px; }
+
+  section { padding: 28px 0; border-bottom: 1px solid var(--border); scroll-margin-top: 24px; }
+
+  section:last-of-type { border-bottom: none; }
+
+  h2 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  h2 .sec-num {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 20px 0 8px;
+  }
+
+  p { margin: 10px 0; }
+
+  ul, ol { margin: 10px 0 10px 26px; }
+  li { margin: 5px 0; }
+
+  strong { font-weight: 600; }
+
+  a { color: var(--accent); }
+
+  /* ---------- Callout boxes ---------- */
+  .callout {
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 15px;
+  }
+
+  .callout.key {
+    background: var(--accent-soft);
+    border: 1px solid #9ec7f0;
+  }
+
+  .callout.warn {
+    background: #fff8c5;
+    border: 1px solid #d4a72c;
+  }
+
+  .callout .title { font-weight: 700; display: block; margin-bottom: 4px; }
+
+  /* ---------- Data flow table ---------- */
+  .flow-table-wrap { overflow-x: auto; margin: 16px 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14.5px;
+    min-width: 560px;
+  }
+
+  th, td {
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th { background: var(--bg-soft); font-weight: 600; white-space: nowrap; }
+
+  td .tag {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 4px;
+    padding: 1px 8px;
+    white-space: nowrap;
+  }
+
+  .tag.online { background: #fff8c5; color: #7a5c00; border: 1px solid #d4a72c; }
+  .tag.local { background: #dafbe1; color: #116329; border: 1px solid #aceebb; }
+
+  /* ---------- Code ---------- */
+  code {
+    font-family: "SF Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+    font-size: 0.9em;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+  }
+
+  /* ---------- Footer ---------- */
+  footer {
+    border-top: 1px solid var(--border);
+    background: var(--bg-soft);
+    padding: 32px 0 48px;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  footer .row { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; }
+  footer .license { font-size: 13px; margin-top: 8px; }
+
+  /* ---------- Back to top ---------- */
+  .back-top {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(9, 105, 218, 0.35);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+  }
+
+  .back-top.show { opacity: 1; visibility: visible; }
+  .back-top:hover { background: #0550ae; }
+
+  /* ---------- Print ---------- */
+  @media print {
+    header { padding: 24px 0; }
+    nav.toc, .back-top { display: none; }
+    body { font-size: 12px; }
+  }
+
+  @media (max-width: 600px) {
+    header { padding: 40px 0 28px; }
+    header h1 { font-size: 1.6rem; }
+    nav.toc ol { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <span class="badge">PRIVACY POLICY</span>
+    <h1>WindTranslator 隐私政策</h1>
+    <p class="meta">
+      <strong>生效日期：</strong>2026 年 8 月 28 日 &nbsp;·&nbsp;
+      <strong>适用版本：</strong>WindTranslator v0.1.9.0 及后续版本
+    </p>
+    <p class="meta">本文档说明 WindTranslator 如何处理您的数据。核心原则只有一句话：<strong>您的数据只属于您，软件本身不收集、不存储、不上传任何用户数据。</strong></p>
+  </div>
+</header>
+
+<div class="container">
+
+  <nav class="toc" aria-label="目录">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#overview">概述</a></li>
+      <li><a href="#data-collection">我们收集什么</a></li>
+      <li><a href="#data-processing">数据如何被处理</a></li>
+      <li><a href="#api-keys">API 密钥的保存</a></li>
+      <li><a href="#offline">离线翻译</a></li>
+      <li><a href="#security">数据安全措施</a></li>
+      <li><a href="#third-party">第三方服务免责声明</a></li>
+      <li><a href="#children">儿童隐私</a></li>
+      <li><a href="#changes">政策更新</a></li>
+      <li><a href="#contact">联系方式</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <section id="overview">
+      <h2><span class="sec-num">01</span>概述</h2>
+      <p>WindTranslator 是一款由个人开发者自主开发的本地翻译软件，提供四种翻译功能：</p>
+      <ul>
+        <li><strong>AI 翻译</strong>：通过用户自行配置的大模型 API 进行翻译；</li>
+        <li><strong>API 机器翻译</strong>：通过用户自行配置的机器翻译服务 API 进行翻译；</li>
+        <li><strong>图片翻译</strong>：通过用户自行配置的 OCR / 视觉 API 识别图片文字并进行翻译；</li>
+        <li><strong>离线翻译</strong>：使用本地翻译引擎，首次使用前需联网下载翻译模型；模型下载完成后，翻译全程在本地进行、无需网络。</li>
+      </ul>
+      <div class="callout key">
+        <span class="title">一句话总结</span>
+        前三种功能必须由您手动填入第三方 API 密钥才能使用；待翻译的内容仅在您主动选择在线翻译时，才会被发送至您自行配置的第三方服务。软件本体不收集任何数据；离线翻译除首次下载翻译模型外全程不联网。
+      </div>
+    </section>
+
+    <section id="data-collection">
+      <h2><span class="sec-num">02</span>我们收集什么</h2>
+      <p>简单直接的回答：<strong>什么都不收集。</strong></p>
+      <ul>
+        <li>我们不注册账号，不需要您提供姓名、邮箱、手机号等任何个人信息。</li>
+        <li>我们不使用任何形式的遥测、统计或分析 SDK，没有“匿名使用数据”。</li>
+        <li>我们不设任何接收用户内容的服务器，没有任何将您的翻译内容传输给开发者的通道；离线翻译所需的模型文件仅通过公开的分发源（如开源模型仓库、GitHub Releases 等）提供下载。</li>
+        <li>我们不显示广告，也没有与广告相关的数据追踪（如广告 ID）。</li>
+        <li>我们不写入 Cookie，本软件也没有可记录行为的 Web 服务。</li>
+      </ul>
+      <p>换句话说，WindTranslator 是“本地优先（local-first）”软件：除首次下载翻译模型外，安装、启动、翻译的全过程均可在断网状态下完成，翻译功能不依赖开发者的任何在线基础设施。</p>
+    </section>
+
+    <section id="data-processing">
+      <h2><span class="sec-num">03</span>您的数据如何被处理</h2>
+      <p>根据您选择的翻译模式，待翻译的文本和图片会走完全不同的路径：</p>
+
+      <div class="flow-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>功能</th>
+              <th>数据流向</th>
+              <th>需要网络</th>
+              <th>发送给谁</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>AI 翻译</td>
+              <td>文本 → 您配置的大模型 API</td>
+              <td><span class="tag online">在线</span></td>
+              <td>仅发送至您自行填写的 API 服务商</td>
+            </tr>
+            <tr>
+              <td>API 机器翻译</td>
+              <td>文本 → 您配置的翻译服务 API</td>
+              <td><span class="tag online">在线</span></td>
+              <td>仅发送至您自行填写的 API 服务商</td>
+            </tr>
+            <tr>
+              <td>图片翻译</td>
+              <td>图片 → 您配置的 OCR / 视觉 API</td>
+              <td><span class="tag online">在线</span></td>
+              <td>仅发送至您自行填写的 API 服务商</td>
+            </tr>
+            <tr>
+              <td>离线翻译</td>
+              <td>文本 → 本地翻译引擎（本机处理）</td>
+              <td><span class="tag local">翻译时离线</span><br><span class="tag online">仅模型下载时在线</span></td>
+              <td>翻译内容不发送给任何一方；仅模型下载请求发送至模型分发源</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>关键承诺</h3>
+      <ul>
+        <li><strong>主动触发：</strong>只有在您主动选择使用在线翻译功能时，内容才会被发送。软件不会在您不知情的情况下后台发送任何内容。</li>
+        <li><strong>开发者不可见：</strong>发送到第三方 API 的数据由您与对应服务商之间直接传输，开发者无法查看、截取或存储这些内容。</li>
+        <li><strong>翻译后即弃：</strong>除必要的本地缓存（见下节）外，软件不保存您的翻译记录或历史。</li>
+        <li><strong>模型下载不含内容：</strong>离线翻译所需的模型下载仅传输模型文件本身，不包含您的任何文本、图片或个人信息。</li>
+      </ul>
+
+      <div class="callout warn">
+        <span class="title">请注意</span>
+        一旦您选择在线翻译，您的内容将受到您所选第三方服务商自身隐私政策与条款的约束。我们建议您在配置密钥前，阅读对应服务商（如 OpenAI、DeepL、Google、百度等）的隐私政策与服务条款。
+      </div>
+    </section>
+
+    <section id="api-keys">
+      <h2><span class="sec-num">04</span>API 密钥的保存与安全</h2>
+      <ul>
+        <li><strong>仅存本地：</strong>API 密钥只保存在您的本地设备上（写入您设备上的配置文件，并使用操作系统的安全机制进行保护）。</li>
+        <li><strong>不传输给开发者：</strong>密钥不会上传、同步或传输给开发者，也不会出现在任何统计数据中。</li>
+        <li><strong>不经第三方转发：</strong>密钥仅用于在您本机上直接调用您所配置的服务商 API，不经过任何中间服务器。</li>
+        <li><strong>由您掌控：</strong>您可以随时在软件设置中查看、修改或删除您的 API 密钥。</li>
+        <li><strong>卸载即清除：</strong>卸载软件或删除其配置目录后，本地保存的密钥即被移除。</li>
+      </ul>
+      <div class="callout key">
+        <span class="title">建议</span>
+        请妥善保管您的 API 密钥。密钥等同于您在这些服务商处的账户凭据，任何获得该密钥的人都可以使用您的账户额度。请勿将配置文件分享给他人，也不要在公开场合粘贴密钥内容。
+      </div>
+    </section>
+
+    <section id="offline">
+      <h2><span class="sec-num">05</span>离线翻译：本地处理，模型需先下载</h2>
+      <p>离线翻译功能使用运行在您本机上的翻译引擎。为了让引擎能够工作，您需要在首次使用前联网下载翻译模型：</p>
+      <ul>
+        <li><strong>首次使用前需联网：</strong>软件会从模型分发源下载翻译模型文件。该下载仅涉及模型文件本身，不会上传您的任何文本、图片或个人信息。</li>
+        <li><strong>一次下载、长期可用：</strong>模型下载到本地后长期保存，可重复使用；仅在模型发布更新且您主动选择时才会重新下载。</li>
+        <li><strong>翻译全程本地：</strong>模型下载完成后，翻译过程完全在本机进行——待翻译文本不会离开您的设备，不建立任何网络连接，无任何数据包发送或接收。</li>
+        <li><strong>不留痕迹：</strong>不记录翻译历史，翻译完成后内容即被释放。</li>
+        <li><strong>断网可用：</strong>只要模型已下载，即使完全断开网络，翻译功能也可正常使用。</li>
+      </ul>
+      <p>为保证“离线”的纯粹性，软件仅在您主动执行“下载模型”操作时建立网络连接，翻译过程中不会在后台悄悄联网。如果您希望绝对确认，可在系统防火墙或任务管理器中对 WindTranslator 进行网络行为监控。</p>
+    </section>
+
+    <section id="security">
+      <h2><span class="sec-num">06</span>数据安全措施</h2>
+      <p>尽管软件不收集数据，我们仍采取以下措施保护您设备上的本地数据：</p>
+      <ul>
+        <li><strong>本地存储保护：</strong>API 密钥存储在受操作系统权限保护的本地配置中，并对关键字段进行脱敏显示。</li>
+        <li><strong>安全传输：</strong>所有与第三方 API 及翻译模型分发源的通信均通过 HTTPS（TLS 加密）进行，防止内容在传输途中被窃听或篡改。</li>
+        <li><strong>最小权限：</strong>软件仅申请运行所必需的权限，不访问通讯录、定位、短信、麦克风等无关数据。</li>
+        <li><strong>代码开源：</strong>WindTranslator 的源代码公开可查，任何安全研究人员都可以审查其数据处理逻辑。我们欢迎并感谢通过负责任披露方式提交的安全问题报告。</li>
+      </ul>
+      <p>由于软件不持有任何用户数据，因此不存在“数据泄露”的传统风险面；您设备本身的安全（如系统密码、设备丢失等）由操作系统安全机制与您的使用习惯共同保障。</p>
+    </section>
+
+    <section id="third-party">
+      <h2><span class="sec-num">07</span>第三方服务免责声明</h2>
+      <p>WindTranslator 本身不提供任何在线翻译服务。在线翻译功能仅作为“客户端”，将请求转发至您自行选择并配置的第三方服务商。</p>
+      <ul>
+        <li>第三方服务商独立于本软件运营，其服务可用性、稳定性、内容质量及安全水平不在我们的控制范围内。</li>
+        <li>您在第三方服务商处产生的费用（包括但不限于 API 调用费、订阅费等）由您与该服务商自行结算，与本软件无关。</li>
+        <li>您发送至第三方服务商的内容，其收集、使用、存储与披露行为受该服务商自身隐私政策约束，开发者不承担相应责任。</li>
+        <li>因第三方服务商服务中断、政策变更、数据泄露或任何其他原因造成的损失，开发者不承担责任。</li>
+      </ul>
+      <p>我们建议您在配置任何第三方 API 之前，仔细阅读并理解对应服务商的最新隐私政策与服务条款。</p>
+    </section>
+
+    <section id="children">
+      <h2><span class="sec-num">08</span>儿童隐私</h2>
+      <p>WindTranslator 不面向 13 周岁以下的儿童设计，也不提供任何针对儿童的在线服务或社交功能。</p>
+      <p>由于软件不收集任何用户的个人信息（包括儿童的个人信息），本软件不存在收集、使用或共享儿童数据的行为。如果您是家长或监护人，并认为您的孩子在使用本软件时向第三方服务商提供了个人信息，请直接联系相应的第三方服务商处理，或联系我们以便我们提供必要的协助。</p>
+    </section>
+
+    <section id="changes">
+      <h2><span class="sec-num">09</span>本政策的更新方式</h2>
+      <p>我们可能会不时更新本隐私政策，以反映软件功能的变化或法律法规的要求。更新方式如下：</p>
+      <ul>
+        <li>每次修订都会更新本页面顶部的“生效日期”；</li>
+        <li>重大变更会在软件的新版本说明（Release Notes）中予以标注；</li>
+        <li>本政策的历史版本可通过软件的版本控制仓库（Git 提交历史）查阅。</li>
+      </ul>
+      <p>继续使用软件即表示您知悉并接受更新后的政策。由于本政策可能发生变更，我们建议您定期查阅本页面。</p>
+    </section>
+
+    <section id="contact">
+      <h2><span class="sec-num">10</span>联系我们</h2>
+      <p>如果您对本隐私政策或 WindTranslator 的隐私实践有任何疑问、建议或顾虑，欢迎通过以下方式联系我们：</p>
+      <ul>
+        <li><strong>项目主页：</strong><a href="https://github.com/Seaslan/Windtranslator" rel="noopener" target="_blank">GitHub 仓库</a></li>
+        <li><strong>Issues 反馈：</strong>在 GitHub 仓库的 Issues 中提交（涉及隐私的问题请说明，我们会在不公开敏感信息的前提下处理）</li>
+        <li><strong>联系邮箱：</strong><a href="mailto:nonemeow@hotmail.com">nonemeow@hotmail.com</a></li>
+      </ul>
+      <p>我们通常会在 7 个工作日内回复您的邮件。请勿在邮件中发送您的 API 密钥或其他敏感凭据。</p>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <div class="container">
+    <div class="row">
+      <span>© <span id="year"></span> Seaslan </span>
+    </div>
+    <p class="license">本政策页面采用 MIT 许可证发布，欢迎在其他开源项目中使用或修改。本政策不构成法律意见，如需合规咨询请咨询专业律师。</p>
+  </div>
+</footer>
+
+<button class="back-top" id="backTop" aria-label="返回顶部">↑</button>
+
+<script>
+  // 自动填充年份
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  // 返回顶部
+  var btn = document.getElementById('backTop');
+  window.addEventListener('scroll', function () {
+    if (window.scrollY > 400) { btn.classList.add('show'); }
+    else { btn.classList.remove('show'); }
+  });
+  btn.addEventListener('click', function () {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+</script>
+
+</body>
+</html>

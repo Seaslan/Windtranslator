@@ -10,7 +10,7 @@
 
   <Identity
     Name="Seaslan.Windtranslator"
-    Publisher="CN=B50811DA-BFEC-45C0-BC31-47681FE27AF1"
+    Publisher="CN=nonem"
     Version="0.3.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="76d62256-6dc0-4dfb-a4ad-a1eac03d5955" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>

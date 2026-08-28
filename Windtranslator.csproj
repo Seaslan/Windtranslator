@@ -47,6 +47,9 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2526" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="docs\" />
+  </ItemGroup>
 
   <!--
     Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution
@@ -65,10 +68,10 @@
   <PropertyGroup>
     <PublishReadyToRun>False</PublishReadyToRun>
     <PublishTrimmed>False</PublishTrimmed>
-    <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
+    <GenerateAppInstallerFile>True</GenerateAppInstallerFile>
     <!-- Microsoft Store signs the submitted package. The local temporary certificate has
          CN=nonem and cannot sign the Store-associated package identity. -->
-    <AppxPackageSigningEnabled>False</AppxPackageSigningEnabled>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
     <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>True</GenerateTestArtifacts>
@@ -78,5 +81,6 @@
     <DefaultLanguage>zh-CN</DefaultLanguage>
     <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
     <AppxBundlePlatforms>x64|arm64</AppxBundlePlatforms>
+    <PackageCertificateThumbprint>B54FD08C59E42BDCDDC479B037FD4DDFBB7FC181</PackageCertificateThumbprint>
   </PropertyGroup>
 </Project>
