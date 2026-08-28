@@ -613,7 +613,7 @@
                 ColumnSpacing="16"
                 Visibility="Collapsed">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="380" />
+                    <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
@@ -625,57 +625,87 @@
                     BorderThickness="1"
                     CornerRadius="8">
                     <StackPanel Spacing="16">
-                                    <TextBlock
-                                        Text="支持 DeepSeek、千问和 Kimi 图片翻译模型。"
-                                        FontSize="12"
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        TextWrapping="Wrap" />
+                        <ComboBox
+                            x:Name="ImageProviderComboBox"
+                            Header="图片翻译服务"
+                            SelectionChanged="ImageProviderComboBox_SelectionChanged" />
 
-                                    <TextBlock Text="图片翻译服务" />
-                                    <ComboBox
-                                        x:Name="ImageProviderComboBox"
-                                        SelectionChanged="ImageProviderComboBox_SelectionChanged" />
-
-                                    <Button
+                        <Button
                             x:Name="PickImageButton"
+                            HorizontalAlignment="Left"
                             Padding="12,8"
                             Click="PickImageButton_Click">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon Glyph="&#xE8B9;" FontSize="16" />
-                                <TextBlock Text="选择图片" />
+                                <SymbolIcon Symbol="Add" />
+                                <TextBlock Text="添加图片" />
                             </StackPanel>
                         </Button>
 
-                        <TextBlock
-                            x:Name="ImageFileNameText"
-                            Text="未选择图片"
-                            FontSize="12"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            TextWrapping="Wrap" />
+                        <Grid Height="184">
+                            <Border
+                                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4">
+                                <Grid>
+                                    <Image
+                                        x:Name="ImagePreview"
+                                        Margin="8"
+                                        Stretch="Uniform"
+                                        Visibility="Collapsed" />
+                                    <TextBlock
+                                        x:Name="ImagePreviewPlaceholderText"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Text="尚未选择图片" />
+                                </Grid>
+                            </Border>
+                        </Grid>
 
-                        <Image
-                            x:Name="ImagePreview"
-                            MaxHeight="180"
-                            Stretch="Uniform"
-                            Visibility="Collapsed" />
+                        <StackPanel Spacing="4">
+                            <TextBlock
+                                x:Name="ImageSelectionSummaryText"
+                                Text="未选择图片"
+                                Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <ListView
+                                x:Name="SelectedImagesListView"
+                                MaxHeight="112"
+                                IsHitTestVisible="False"
+                                SelectionMode="None">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock
+                                            FontSize="12"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Text="{Binding}"
+                                            TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </StackPanel>
 
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="源语言" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
                             <ComboBox
                                 x:Name="ImageSourceLanguageComboBox"
+                                Header="源语言"
                                 DisplayMemberPath="Display"
                                 SelectionChanged="ImageSourceLanguageComboBox_SelectionChanged" />
-
-                            <TextBlock Text="目标语言" />
                             <ComboBox
                                 x:Name="ImageTargetLanguageComboBox"
+                                Grid.Column="1"
+                                Header="目标语言"
                                 DisplayMemberPath="Display"
                                 SelectionChanged="ImageTargetLanguageComboBox_SelectionChanged" />
-                        </StackPanel>
+                        </Grid>
 
                         <Button
                             x:Name="TranslateImageButton"
-                            Content="翻译图片中的文字"
+                            Content="翻译所选图片"
                             Style="{StaticResource AccentButtonStyle}"
                             IsEnabled="False"
                             Click="TranslateImageButton_Click" />
@@ -696,7 +726,18 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <TextBlock Text="译文" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="译文" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock
+                                x:Name="ImageTranslationProgressText"
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Grid>
                         <TextBox
                             x:Name="ImageOutputTextBox"
                             Grid.Row="1"
@@ -706,6 +747,7 @@
                             FontFamily="Segoe UI"
                             FontSize="16"
                             IsReadOnly="True"
+                            PlaceholderText="翻译结果会按排序后的图片顺序显示在这里"
                             TextWrapping="Wrap"
                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                             ScrollViewer.VerticalScrollBarVisibility="Auto" />
@@ -722,14 +764,15 @@
             <StackPanel
                 x:Name="AboutPagePanel"
                 Grid.Row="2"
+                Width="420"
+                MaxWidth="420"
+                Margin="24,16,24,24"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
-                Spacing="16"
+                Spacing="8"
                 Visibility="Collapsed">
                 <Border
-                    MinWidth="360"
-                    Padding="28,24"
-                    HorizontalAlignment="Center"
+                    Padding="24"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
@@ -737,51 +780,66 @@
                     <StackPanel Spacing="16">
                         <StackPanel
                             Orientation="Horizontal"
-                            Spacing="16"
-                            HorizontalAlignment="Center">
-                            <PersonPicture
-                                Width="96"
-                                Height="96"
+                            Spacing="16">
+                            <Image
+                                Width="64"
+                                Height="64"
                                 VerticalAlignment="Center"
-                                DisplayName="Seaslan"
-                                ProfilePicture="https://avatars.githubusercontent.com/u/282963855?v=4" />
+                                Source="ms-appx:///Assets/Square150x150Logo.scale-200.png" />
 
                             <StackPanel VerticalAlignment="Center" Spacing="4">
-                                <HyperlinkButton
-                                    NavigateUri="https://github.com/seaslan"
-                                    Padding="0"
-                                    HorizontalAlignment="Left">
-                                    <TextBlock
-                                        Text="Seaslan"
-                                        FontSize="20"
-                                        FontWeight="Bold" />
-                                </HyperlinkButton>
                                 <TextBlock
-                                    Text="一个无所事事的学生"
-                                    FontSize="14"
+                                    Text="Windtranslator"
+                                    Style="{StaticResource SubtitleTextBlockStyle}" />
+                                <TextBlock
+                                    x:Name="AboutVersionTextBlock"
+                                    FontSize="12"
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
                         </StackPanel>
 
-                        <HyperlinkButton
-                            NavigateUri="https://github.com/Seaslan/Windtranslator"
-                            HorizontalAlignment="Center">
-                            <TextBlock Text="项目链接" />
-                        </HyperlinkButton>
+                        <TextBlock
+                            Text="简洁、快速的桌面翻译工具。"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            TextWrapping="Wrap" />
+
+                        <Rectangle
+                            Height="1"
+                            Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="开发者" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <HyperlinkButton
+                                Padding="0"
+                                HorizontalAlignment="Left"
+                                NavigateUri="https://github.com/seaslan">
+                                Seaslan
+                            </HyperlinkButton>
+                        </StackPanel>
+
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="相关链接" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <HyperlinkButton
+                                Padding="0"
+                                HorizontalAlignment="Left"
+                                NavigateUri="https://github.com/Seaslan/Windtranslator">
+                                项目主页
+                            </HyperlinkButton>
+                            <HyperlinkButton
+                                Padding="0"
+                                HorizontalAlignment="Left"
+                                NavigateUri="https://seaslan.github.io/Windtranslator/privacy">
+                                隐私政策
+                            </HyperlinkButton>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
                 <TextBlock
-                    x:Name="AboutVersionTextBlock"
                     FontSize="12"
+                    HorizontalAlignment="Center"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    HorizontalAlignment="Center" />
-
-                <TextBlock
-                    Text="本软件的生成借助了 AI。"
-                    FontSize="12"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    HorizontalAlignment="Center" />
+                    Text="本软件的生成借助了 AI。" />
             </StackPanel>
 
             <InfoBar

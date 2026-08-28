@@ -94,7 +94,7 @@ public sealed partial class MainWindow : Window
     private readonly Stack<string> _backStack = new();
     private CancellationTokenSource? _cts;
     private DispatcherQueueTimer? _infoBarTimer;
-    private StorageFile? _selectedImageFile;
+    private readonly List<StorageFile> _selectedImageFiles = new();
     private readonly WindowProcedure _windowProcedure;
     private nint _windowHandle;
     private nint _previousWindowProcedure;
@@ -673,6 +673,7 @@ public sealed partial class MainWindow : Window
         UpdateLocalTranslationSourceUi();
         SaveSettings();
         ShowInfo($"已选择 {model.Title} 离线模型。", InfoBarSeverity.Informational);
+        NavigateTo("Home");
     }
 
     private void SelectModelLanguages(OfflineTranslationModel model)
@@ -1226,27 +1227,37 @@ public sealed partial class MainWindow : Window
         picker.FileTypeFilter.Add(".webp");
 
         InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
-        var file = await picker.PickSingleFileAsync();
-        if (file is null)
+        var files = await picker.PickMultipleFilesAsync();
+        if (files.Count == 0)
         {
             return;
         }
 
-        _selectedImageFile = file;
-        ImageFileNameText.Text = file.Name;
+        var existingPaths = _selectedImageFiles
+            .Select(file => file.Path)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        _selectedImageFiles.AddRange(files.Where(file => existingPaths.Add(file.Path)));
+        _selectedImageFiles.Sort((left, right) =>
+            StringComparer.CurrentCultureIgnoreCase.Compare(left.Name, right.Name));
+        SelectedImagesListView.ItemsSource = _selectedImageFiles.Select(file => file.Name).ToList();
+        ImageSelectionSummaryText.Text = _selectedImageFiles.Count == 1
+            ? "已选择 1 张图片"
+            : $"已选择 {_selectedImageFiles.Count} 张图片（将按文件名排序）";
         ImageOutputTextBox.Text = string.Empty;
+        ImageTranslationProgressText.Text = string.Empty;
 
-        var stream = await file.OpenReadAsync();
+        var stream = await _selectedImageFiles[0].OpenReadAsync();
         var bitmap = new BitmapImage();
         await bitmap.SetSourceAsync(stream);
         ImagePreview.Source = bitmap;
         ImagePreview.Visibility = Visibility.Visible;
+        ImagePreviewPlaceholderText.Visibility = Visibility.Collapsed;
         UpdateUiState();
     }
 
     private async void TranslateImageButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_selectedImageFile is null || _isImageTranslating)
+        if (_selectedImageFiles.Count == 0 || _isImageTranslating)
         {
             return;
         }
@@ -1281,16 +1292,64 @@ public sealed partial class MainWindow : Window
                 ? savedEndpoint
                 : GetProviderProfile(providerKey).DefaultEndpoint;
 
+        _isImageTranslating = true;
+        ImageOutputTextBox.Text = string.Empty;
+        ShowInfo($"正在翻译 {_selectedImageFiles.Count} 张图片...", InfoBarSeverity.Informational);
+        UpdateUiState();
+
+        try
+        {
+            var results = new List<string>();
+            for (var index = 0; index < _selectedImageFiles.Count; index++)
+            {
+                var file = _selectedImageFiles[index];
+                ImageTranslationProgressText.Text = $"{index + 1} / {_selectedImageFiles.Count}";
+
+                try
+                {
+                    var result = await TranslateImageFileAsync(
+                        file,
+                        endpoint,
+                        apiKey,
+                        providerKey,
+                        systemPrompt);
+                    results.Add(result);
+                }
+                catch (Exception ex)
+                {
+                    results.Add($"翻译失败：{ex.Message}");
+                }
+            }
+
+            ImageOutputTextBox.Text = string.Join(
+                Environment.NewLine + Environment.NewLine + "--------------------" + Environment.NewLine + Environment.NewLine,
+                results);
+            ImageTranslationProgressText.Text = $"已完成 {_selectedImageFiles.Count} 张";
+            ShowInfo("图片翻译完成。", InfoBarSeverity.Success);
+        }
+        finally
+        {
+            _isImageTranslating = false;
+            UpdateUiState();
+        }
+    }
+
+    private async Task<string> TranslateImageFileAsync(
+        StorageFile file,
+        string endpoint,
+        string apiKey,
+        string providerKey,
+        string systemPrompt)
+    {
         byte[] imageBytes;
-        using (var imageStream = await _selectedImageFile.OpenStreamForReadAsync())
+        using (var imageStream = await file.OpenStreamForReadAsync())
         using (var memoryStream = new MemoryStream())
         {
             await imageStream.CopyToAsync(memoryStream);
             imageBytes = memoryStream.ToArray();
         }
 
-        var mimeType = GetMimeType(_selectedImageFile.Path);
-        var imageDataUrl = $"data:{mimeType};base64,{Convert.ToBase64String(imageBytes)}";
+        var imageDataUrl = $"data:{GetMimeType(file.Path)};base64,{Convert.ToBase64String(imageBytes)}";
         var request = new ImageTranslationRequest(
             endpoint,
             apiKey,
@@ -1304,25 +1363,7 @@ public sealed partial class MainWindow : Window
             "请识别图片中的文字，并翻译成目标语言。",
             imageDataUrl);
 
-        _isImageTranslating = true;
-        TranslateImageButton.IsEnabled = false;
-        ShowInfo("正在翻译图片...", InfoBarSeverity.Informational);
-
-        try
-        {
-            var result = await _translationService.TranslateImageAsync(request, CancellationToken.None);
-            ImageOutputTextBox.Text = result;
-            ShowInfo("图片翻译完成。", InfoBarSeverity.Success);
-        }
-        catch (Exception ex)
-        {
-            ShowInfo(ex.Message, InfoBarSeverity.Error);
-        }
-        finally
-        {
-            _isImageTranslating = false;
-            UpdateUiState();
-        }
+        return await _translationService.TranslateImageAsync(request, CancellationToken.None);
     }
 
     private void CopyImageOutputButton_Click(object sender, RoutedEventArgs e)
@@ -1791,7 +1832,7 @@ public sealed partial class MainWindow : Window
         MicButton.IsEnabled = !_isTranslating;
         SpeakButton.IsEnabled = _speechOutput.IsSpeaking || OutputTextBox.Text.Trim().Length > 0;
         PickImageButton.IsEnabled = !_isImageTranslating;
-        TranslateImageButton.IsEnabled = !_isImageTranslating && _selectedImageFile is not null;
+        TranslateImageButton.IsEnabled = !_isImageTranslating && _selectedImageFiles.Count > 0;
         CopyImageOutputButton.IsEnabled = ImageOutputTextBox.Text.Trim().Length > 0;
     }
 
