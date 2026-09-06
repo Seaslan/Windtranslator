@@ -12,50 +12,36 @@
         x:Name="WindowRoot"
         Background="Transparent"
         PointerPressed="WindowRoot_PointerPressed">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-
         <Border
             x:Name="AcrylicFallbackLayer"
             Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
             IsHitTestVisible="False"
             Visibility="Collapsed" />
 
-        <Border
-            x:Name="SidebarHost"
-            Grid.Column="0"
-            Width="200"
-            SizeChanged="SidebarHost_SizeChanged">
-            <NavigationView
-                x:Name="SidebarNavigationView"
-                Width="200"
-                HorizontalAlignment="Left"
-                PaneDisplayMode="Left"
-                IsPaneOpen="True"
-                OpenPaneLength="200"
-                CompactPaneLength="64"
-                IsBackButtonVisible="Visible"
-                IsBackEnabled="False"
-                IsSettingsVisible="False"
-                BackRequested="SidebarNavigationView_BackRequested"
-                Loaded="SidebarNavigationView_Loaded"
-                PaneOpening="SidebarNavigationView_PaneOpening"
-                PaneClosing="SidebarNavigationView_PaneClosing"
-                SelectionChanged="SidebarNavigationView_SelectionChanged">
-                <NavigationView.MenuItems>
-                    <NavigationViewItem x:Name="HomeNavigationItem" Icon="Home" Content="主页" Tag="Home" />
-                    <NavigationViewItem x:Name="ImageNavigationItem" Icon="Pictures" Content="图片翻译" Tag="Image" />
-                    <NavigationViewItem x:Name="SettingsNavigationItem" Icon="Setting" Content="设置" Tag="Settings" />
-                </NavigationView.MenuItems>
-                <NavigationView.FooterMenuItems>
-                    <NavigationViewItem x:Name="AboutNavigationItem" Icon="Help" Content="关于" Tag="About" />
-                </NavigationView.FooterMenuItems>
-            </NavigationView>
-        </Border>
+        <NavigationView
+            x:Name="SidebarNavigationView"
+            Background="Transparent"
+            PaneDisplayMode="Left"
+            IsPaneOpen="True"
+            OpenPaneLength="200"
+            CompactPaneLength="64"
+            IsBackButtonVisible="Visible"
+            IsBackEnabled="False"
+            IsSettingsVisible="False"
+            BackRequested="SidebarNavigationView_BackRequested"
+            Loaded="SidebarNavigationView_Loaded"
+            SelectionChanged="SidebarNavigationView_SelectionChanged">
+            <NavigationView.MenuItems>
+                <NavigationViewItem x:Name="HomeNavigationItem" Icon="Home" Content="主页" Tag="Home" />
+                <NavigationViewItem x:Name="ImageNavigationItem" Icon="Pictures" Content="图片翻译" Tag="Image" />
+                <NavigationViewItem x:Name="SettingsNavigationItem" Icon="Setting" Content="设置" Tag="Settings" />
+            </NavigationView.MenuItems>
+            <NavigationView.FooterMenuItems>
+                <NavigationViewItem x:Name="AboutNavigationItem" Icon="Help" Content="关于" Tag="About" />
+            </NavigationView.FooterMenuItems>
+            <NavigationView.Content>
 
-        <Grid Grid.Column="1">
+        <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -82,7 +68,7 @@
             <Grid
                 x:Name="TranslationToolbar"
                 Grid.Row="1"
-                Padding="16,8,16,8"
+                Padding="16,4,16,4"
                 ColumnSpacing="8"
                 Background="Transparent">
                 <Grid.ColumnDefinitions>
@@ -157,7 +143,7 @@
             <Grid
                 x:Name="HomePageGrid"
                 Grid.Row="2"
-                Margin="16,8,16,16"
+                Margin="16,0,16,16"
                 ColumnSpacing="16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -166,7 +152,7 @@
 
                 <Border
                     Grid.Column="0"
-                    Padding="16"
+                    Padding="16,12,16,16"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
@@ -247,7 +233,7 @@
 
                 <Border
                     Grid.Column="1"
-                    Padding="16"
+                    Padding="16,12,16,16"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
@@ -414,16 +400,47 @@
             <ScrollViewer
                 x:Name="SettingsPageScrollViewer"
                 Grid.Row="2"
+                HorizontalContentAlignment="Stretch"
+                HorizontalScrollBarVisibility="Disabled"
+                SizeChanged="SettingsPageScrollViewer_SizeChanged"
                 VerticalScrollBarVisibility="Auto"
                 Visibility="Collapsed">
+                <ScrollViewer.Resources>
+                    <Style x:Key="SettingsCardStyle" TargetType="Border">
+                        <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                        <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                        <Setter Property="BorderThickness" Value="1" />
+                        <Setter Property="CornerRadius" Value="8" />
+                        <Setter Property="HorizontalAlignment" Value="Stretch" />
+                    </Style>
+                    <Style x:Key="SettingsExpanderStyle" TargetType="Expander">
+                        <Setter Property="IsExpanded" Value="True" />
+                        <Setter Property="HorizontalAlignment" Value="Stretch" />
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    </Style>
+                    <Style x:Key="SettingsIconButtonStyle" TargetType="Button">
+                        <Setter Property="Width" Value="28" />
+                        <Setter Property="Height" Value="28" />
+                        <Setter Property="MinWidth" Value="0" />
+                        <Setter Property="MinHeight" Value="0" />
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="BorderBrush" Value="Transparent" />
+                        <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="CornerRadius" Value="4" />
+                    </Style>
+                </ScrollViewer.Resources>
                 <StackPanel
+                    x:Name="SettingsCardsPanel"
+                    Width="760"
                     MaxWidth="760"
-                    HorizontalAlignment="Left"
-                    Padding="24,18,24,24"
-                    Spacing="16">
+                    HorizontalAlignment="Center"
+                    Padding="24,16,24,24"
+                    Spacing="12">
 
-                    <StackPanel Spacing="8">
-                        <TextBlock Text="API 翻译（阿里云机器翻译）" FontSize="18" FontWeight="SemiBold" />
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Expander Header="API 翻译" Style="{StaticResource SettingsExpanderStyle}">
+                            <StackPanel Padding="16,0,16,16" Spacing="8">
                         <TextBlock
                             Text="固定使用 TranslateECommerce 接口，密钥需手动输入。"
                             FontSize="12"
@@ -447,10 +464,13 @@
                             Content="记住 AccessKey"
                             Checked="AliyunRememberKeyCheckBox_Changed"
                             Unchecked="AliyunRememberKeyCheckBox_Changed" />
-                    </StackPanel>
+                            </StackPanel>
+                        </Expander>
+                    </Border>
 
-                    <StackPanel Spacing="8">
-                        <TextBlock Text="AI 翻译（DeepSeek / 千问 / Kimi）" FontSize="18" FontWeight="SemiBold" />
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Expander Header="AI 翻译" Style="{StaticResource SettingsExpanderStyle}">
+                            <StackPanel Padding="16,0,16,16" Spacing="8">
                         <TextBlock
                             Text="调用云端大模型翻译，可自定义补充提示词。"
                             FontSize="12"
@@ -468,29 +488,164 @@
                             PlaceholderText="https://api.deepseek.com"
                             TextChanged="AiEndpointTextBox_TextChanged" />
 
-                        <TextBlock Text="API Key" />
-                        <PasswordBox
-                            x:Name="AiApiKeyPasswordBox"
-                            PasswordChanged="AiApiKeyPasswordBox_PasswordChanged"
-                            PlaceholderText="手动输入 API Key" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Text="模型"
+                                Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <Button
+                                Grid.Column="1"
+                                Click="AddAiModelButton_Click"
+                                Style="{StaticResource SettingsIconButtonStyle}"
+                                ToolTipService.ToolTip="添加模型">
+                                <FontIcon FontSize="14" Glyph="&#xE710;" />
+                            </Button>
+                        </Grid>
 
-                        <TextBlock Text="模型" />
-                        <ComboBox
-                            x:Name="AiModelComboBox"
-                            MinWidth="220"
-                            IsEditable="True"
-                            SelectionChanged="AiModelComboBox_SelectionChanged"
-                            TextSubmitted="AiModelComboBox_TextSubmitted" />
+                        <ListView
+                            x:Name="AiModelsListView"
+                            HorizontalContentAlignment="Stretch"
+                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                            ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                            ScrollViewer.VerticalScrollMode="Disabled"
+                            SelectionChanged="AiModelsListView_SelectionChanged"
+                            SelectionMode="Single">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid
+                                        MinHeight="40"
+                                        Padding="4"
+                                        ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            Text="{Binding}"
+                                            TextTrimming="CharacterEllipsis" />
+                                        <StackPanel
+                                            Grid.Column="1"
+                                            Orientation="Horizontal"
+                                            Spacing="4">
+                                            <Button
+                                                Click="EditAiModelApiKeyButton_Click"
+                                                Style="{StaticResource SettingsIconButtonStyle}"
+                                                ToolTipService.ToolTip="修改 API Key">
+                                                <FontIcon FontSize="14" Glyph="&#xE70F;" />
+                                            </Button>
+                                            <Button
+                                                Click="DeleteAiModelButton_Click"
+                                                Style="{StaticResource SettingsIconButtonStyle}"
+                                                ToolTipService.ToolTip="删除模型">
+                                                <FontIcon FontSize="14" Glyph="&#xE74D;" />
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
 
                         <CheckBox
                             x:Name="AiRememberKeyCheckBox"
                             Content="记住 API Key"
                             Checked="AiRememberKeyCheckBox_Changed"
                             Unchecked="AiRememberKeyCheckBox_Changed" />
-                    </StackPanel>
+                            </StackPanel>
+                        </Expander>
+                    </Border>
 
-                    <StackPanel Spacing="8">
-                        <TextBlock Text="本地翻译" FontSize="18" FontWeight="SemiBold" />
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Expander Header="图片翻译" Style="{StaticResource SettingsExpanderStyle}">
+                            <StackPanel Padding="16,0,16,16" Spacing="8">
+                                <ComboBox
+                                    x:Name="ImageProviderComboBox"
+                                    Header="服务商"
+                                    MinWidth="220"
+                                    SelectionChanged="ImageProviderComboBox_SelectionChanged" />
+                                <TextBox
+                                    x:Name="ImageEndpointTextBox"
+                                    Header="接口地址"
+                                    PlaceholderText="https://api.example.com"
+                                    TextChanged="ImageEndpointTextBox_TextChanged" />
+
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        Text="模型"
+                                        Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                    <Button
+                                        Grid.Column="1"
+                                        Click="AddImageModelButton_Click"
+                                        Style="{StaticResource SettingsIconButtonStyle}"
+                                        ToolTipService.ToolTip="添加图片模型">
+                                        <FontIcon FontSize="14" Glyph="&#xE710;" />
+                                    </Button>
+                                </Grid>
+
+                                <ListView
+                                    x:Name="ImageModelsListView"
+                                    HorizontalContentAlignment="Stretch"
+                                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                    ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                    ScrollViewer.VerticalScrollMode="Disabled"
+                                    SelectionChanged="ImageModelsListView_SelectionChanged"
+                                    SelectionMode="Single">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid
+                                                MinHeight="40"
+                                                Padding="4"
+                                                ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock
+                                                    VerticalAlignment="Center"
+                                                    Text="{Binding}"
+                                                    TextTrimming="CharacterEllipsis" />
+                                                <StackPanel
+                                                    Grid.Column="1"
+                                                    Orientation="Horizontal"
+                                                    Spacing="4">
+                                                    <Button
+                                                        Click="EditImageModelApiKeyButton_Click"
+                                                        Style="{StaticResource SettingsIconButtonStyle}"
+                                                        ToolTipService.ToolTip="修改 API Key">
+                                                        <FontIcon FontSize="14" Glyph="&#xE70F;" />
+                                                    </Button>
+                                                    <Button
+                                                        Click="DeleteImageModelButton_Click"
+                                                        Style="{StaticResource SettingsIconButtonStyle}"
+                                                        ToolTipService.ToolTip="删除图片模型">
+                                                        <FontIcon FontSize="14" Glyph="&#xE74D;" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                                <CheckBox
+                                    x:Name="ImageRememberKeyCheckBox"
+                                    Content="记住 API Key"
+                                    Checked="ImageRememberKeyCheckBox_Changed"
+                                    Unchecked="ImageRememberKeyCheckBox_Changed" />
+                            </StackPanel>
+                        </Expander>
+                    </Border>
+
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Expander Header="本地翻译" Style="{StaticResource SettingsExpanderStyle}">
+                            <StackPanel Padding="16,0,16,16" Spacing="8">
                         <ComboBox
                             x:Name="LocalTranslationSourceComboBox"
                             SelectionChanged="LocalTranslationSourceComboBox_SelectionChanged" />
@@ -514,10 +669,16 @@
                                 Click="RefreshLocalModelsButton_Click" />
                         </StackPanel>
 
-                    </StackPanel>
+                            </StackPanel>
+                        </Expander>
+                    </Border>
 
-                    <StackPanel Spacing="8">
-                        <TextBlock x:Name="OfflineModelsHeaderTextBlock" Text="离线语言模型（已下载 0 个）" FontSize="18" FontWeight="SemiBold" />
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Expander Style="{StaticResource SettingsExpanderStyle}">
+                            <Expander.Header>
+                                <TextBlock x:Name="OfflineModelsHeaderTextBlock" Text="离线语言模型（已下载 0 个）" />
+                            </Expander.Header>
+                            <StackPanel Padding="16,0,16,16" Spacing="8">
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -536,7 +697,11 @@
                         </Grid>
                         <ListView
                             x:Name="OfflineModelsListView"
-                            MaxHeight="360"
+                            MaxWidth="640"
+                            HorizontalAlignment="Left"
+                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                            ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                            ScrollViewer.VerticalScrollMode="Disabled"
                             SelectionMode="None">
                             <ListView.ItemTemplate>
                                 <DataTemplate>
@@ -551,7 +716,8 @@
                                             <TextBlock
                                                 Text="{Binding Details}"
                                                 FontSize="12"
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                TextWrapping="Wrap" />
                                         </StackPanel>
                                         <Button
                                             Grid.Column="1"
@@ -569,10 +735,13 @@
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                         </ListView>
-                    </StackPanel>
+                            </StackPanel>
+                        </Expander>
+                    </Border>
 
-                    <StackPanel Spacing="8">
-                        <TextBlock Text="外观" FontSize="18" FontWeight="SemiBold" />
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Expander Header="外观" Style="{StaticResource SettingsExpanderStyle}">
+                            <StackPanel Padding="16,0,16,16" Spacing="8">
                         <ComboBox
                             x:Name="ThemeComboBox"
                             MinWidth="180"
@@ -582,18 +751,34 @@
                             Content="启用 Mica / Acrylic 材质"
                             Checked="MicaBackdropCheckBox_Changed"
                             Unchecked="MicaBackdropCheckBox_Changed" />
-                    </StackPanel>
+                            </StackPanel>
+                        </Expander>
+                    </Border>
 
-                    <StackPanel Spacing="8">
-                        <TextBlock Text="翻译历史" FontSize="18" FontWeight="SemiBold" />
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Expander Header="翻译历史" Style="{StaticResource SettingsExpanderStyle}">
+                            <StackPanel Padding="16,0,16,16" Spacing="8">
                         <ComboBox
                             x:Name="TranslationHistoryLimitComboBox"
                             MinWidth="180"
                             SelectionChanged="TranslationHistoryLimitComboBox_SelectionChanged" />
-                    </StackPanel>
+                            </StackPanel>
+                        </Expander>
+                    </Border>
 
-                    <StackPanel Spacing="8">
-                        <TextBlock Text="AI 提示词" FontSize="18" FontWeight="SemiBold" />
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Expander Header="AI 提示词" Style="{StaticResource SettingsExpanderStyle}">
+                            <StackPanel Padding="16,0,16,16" Spacing="8">
+                        <TextBlock Text="提示词风格" />
+                        <ComboBox
+                            x:Name="AiPromptStyleComboBox"
+                            MinWidth="180"
+                            SelectionChanged="AiPromptStyleComboBox_SelectionChanged" />
+                        <CheckBox
+                            x:Name="AiIncludeLanguageDetailsCheckBox"
+                            Content="提供解释、读音和词性"
+                            Checked="AiIncludeLanguageDetailsCheckBox_Changed"
+                            Unchecked="AiIncludeLanguageDetailsCheckBox_Changed" />
                         <TextBlock Text="补充提示词" />
                         <TextBox
                             x:Name="CustomPromptTextBox"
@@ -602,7 +787,9 @@
                             PlaceholderText="例如：保持术语一致，正式语气，不要加注释"
                             TextChanged="CustomPromptTextBox_TextChanged"
                             TextWrapping="Wrap" />
-                    </StackPanel>
+                            </StackPanel>
+                        </Expander>
+                    </Border>
                 </StackPanel>
             </ScrollViewer>
 
@@ -626,9 +813,9 @@
                     CornerRadius="8">
                     <StackPanel Spacing="16">
                         <ComboBox
-                            x:Name="ImageProviderComboBox"
-                            Header="图片翻译服务"
-                            SelectionChanged="ImageProviderComboBox_SelectionChanged" />
+                            x:Name="ImageModelComboBox"
+                            Header="模型"
+                            SelectionChanged="ImageModelComboBox_SelectionChanged" />
 
                         <Button
                             x:Name="PickImageButton"
@@ -748,6 +935,7 @@
                             FontSize="16"
                             IsReadOnly="True"
                             PlaceholderText="翻译结果会按排序后的图片顺序显示在这里"
+                            TextChanged="ImageOutputTextBox_TextChanged"
                             TextWrapping="Wrap"
                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                             ScrollViewer.VerticalScrollBarVisibility="Auto" />
@@ -850,5 +1038,7 @@
                 IsOpen="False"
                 Severity="Informational" />
         </Grid>
+            </NavigationView.Content>
+        </NavigationView>
     </Grid>
 </Window>

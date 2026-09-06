@@ -25,7 +25,11 @@
     <Content Include="Assets\Square44x44Logo.scale-200.png" />
     <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
     <Content Include="Assets\Wide310x150Logo.scale-200.png" />
-    <Content Include="Runtime\Bergamot\**\*">
+    <Content Include="Runtime\Bergamot\x64\**\*" Condition="'$(RuntimeIdentifier)' == 'win-x64' Or '$(Platform)' == 'x64'">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="Runtime\Bergamot\arm64\**\*" Condition="'$(RuntimeIdentifier)' == 'win-arm64' Or '$(Platform)' == 'ARM64'">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
@@ -68,19 +72,21 @@
   <PropertyGroup>
     <PublishReadyToRun>False</PublishReadyToRun>
     <PublishTrimmed>False</PublishTrimmed>
-    <GenerateAppInstallerFile>True</GenerateAppInstallerFile>
+    <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
     <!-- Microsoft Store signs the submitted package. The local temporary certificate has
          CN=nonem and cannot sign the Store-associated package identity. -->
+    <!-- Store upload packages retain the Store-assigned identity and are signed by
+         Microsoft during ingestion. Do not sign them with the local CN=nonem test cert. -->
     <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
-    <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
-    <GenerateTestArtifacts>True</GenerateTestArtifacts>
-    <AppxBundle>Auto</AppxBundle>
+    <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
+    <GenerateTestArtifacts>False</GenerateTestArtifacts>
+    <AppxBundle>Never</AppxBundle>
     <AppInstallerUri>https://github.com/Seaslan/Windtranslator/releases/</AppInstallerUri>
     <HoursBetweenUpdateChecks>336</HoursBetweenUpdateChecks>
     <DefaultLanguage>zh-CN</DefaultLanguage>
     <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
     <AppxBundlePlatforms>x64|arm64</AppxBundlePlatforms>
-    <PackageCertificateThumbprint>B54FD08C59E42BDCDDC479B037FD4DDFBB7FC181</PackageCertificateThumbprint>
+    <PackageCertificateThumbprint>078FC7E14BB94CA9F17803094A46394969733126</PackageCertificateThumbprint>
   </PropertyGroup>
 </Project>

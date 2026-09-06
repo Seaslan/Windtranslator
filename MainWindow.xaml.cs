@@ -3,7 +3,6 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System;
 using System.Collections.Generic;
@@ -37,6 +36,7 @@ public sealed partial class MainWindow : Window
     private const string AliyunAccessKeySecretResource = "阿里云机器翻译:AccessKeySecret";
     private const int MinWindowWidth = 960;
     private const int MinWindowHeight = 660;
+    private const double SettingsPanelMaxWidth = 760d;
     private const uint WmGetMinMaxInfo = 0x0024;
     private const uint WmXButtonUp = 0x020C;
     private const uint WmSysKeyDown = 0x0104;
@@ -45,7 +45,7 @@ public sealed partial class MainWindow : Window
     private const int GwlWndProc = -4;
     private static readonly int[] TranslationHistoryLimits = { 0, 5, 20, -1 };
 
-    private static readonly List<string> CloudProviders = new() { "DeepSeek", "千问", "Kimi" };
+    private static readonly List<string> CloudProviders = new() { "DeepSeek", "千问", "Kimi", "智谱" };
 
     private static readonly List<LanguageOption> Languages = new()
     {
@@ -144,8 +144,7 @@ public sealed partial class MainWindow : Window
 
         SourceLanguageComboBox.ItemsSource = Languages;
         ImageSourceLanguageComboBox.ItemsSource = Languages;
-        ImageProviderComboBox.ItemsSource = new[] { "DeepSeek", "千问", "Kimi" };
-        ImageProviderComboBox.SelectedIndex = 0;
+        InitializeImageModelSettings();
         SourceLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
         ImageSourceLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
         TargetLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
@@ -165,7 +164,11 @@ public sealed partial class MainWindow : Window
             Languages[targetIndex]);
 
         CustomPromptTextBox.Text = _settings.CustomPrompt;
+        AiPromptStyleComboBox.ItemsSource = new[] { "标准", "正式", "自然", "简洁" };
+        AiPromptStyleComboBox.SelectedIndex = Math.Clamp(_settings.AiPromptStyleIndex, 0, 3);
+        AiIncludeLanguageDetailsCheckBox.IsChecked = _settings.AiIncludeLanguageDetails;
         AiRememberKeyCheckBox.IsChecked = _settings.RememberKeys;
+        ImageRememberKeyCheckBox.IsChecked = _settings.RememberImageKeys;
         AliyunRememberKeyCheckBox.IsChecked = _settings.RememberAliyunKeys;
         ThemeComboBox.ItemsSource = new[] { "跟随系统", "浅色", "深色" };
         ThemeComboBox.SelectedIndex = Math.Clamp(_settings.ThemeIndex, 0, 2);
@@ -182,6 +185,10 @@ public sealed partial class MainWindow : Window
 
         _suppressEvents = false;
 
+        var aiPromptSettingsEnabled = ModeComboBox.SelectedIndex != 0;
+        CustomPromptTextBox.IsEnabled = aiPromptSettingsEnabled;
+        AiPromptStyleComboBox.IsEnabled = aiPromptSettingsEnabled;
+        AiIncludeLanguageDetailsCheckBox.IsEnabled = aiPromptSettingsEnabled;
         ApplyTheme();
         ApplyMicaBackdrop();
         AboutVersionTextBlock.Text = "版本 " + GetApplicationVersion();
@@ -190,7 +197,6 @@ public sealed partial class MainWindow : Window
         InitializeProviderSettings();
         UpdateCounts();
         UpdateUiState();
-        _ = RefreshOfflineModelsAsync(showError: false);
     }
 
     private void ModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -202,6 +208,8 @@ public sealed partial class MainWindow : Window
 
         var isApi = ModeComboBox.SelectedIndex == 0;
         CustomPromptTextBox.IsEnabled = !isApi;
+        AiPromptStyleComboBox.IsEnabled = !isApi;
+        AiIncludeLanguageDetailsCheckBox.IsEnabled = !isApi;
         SaveSettings();
     }
 
@@ -266,16 +274,10 @@ public sealed partial class MainWindow : Window
                 : profile.DefaultEndpoint;
         AiEndpointTextBox.PlaceholderText = profile.DefaultEndpoint;
 
-        AiModelComboBox.ItemsSource = profile.DefaultModels;
-        AiModelComboBox.IsEditable = true;
         var savedModel = _settings.Models.TryGetValue(_currentProvider, out var model)
             ? NormalizeProviderModelName(_currentProvider, model)
             : null;
-        AiModelComboBox.Text = !string.IsNullOrWhiteSpace(savedModel)
-            ? savedModel
-            : profile.DefaultModels.Count > 0
-                ? profile.DefaultModels[0]
-                : "qwen2.5:7b";
+        RefreshAiModelOptions(profile, savedModel);
 
         if (_settings.RememberKeys)
         {
@@ -285,10 +287,6 @@ public sealed partial class MainWindow : Window
                 _apiKeys[_currentProvider] = rememberedKey;
             }
         }
-
-        AiApiKeyPasswordBox.Password = _apiKeys.TryGetValue(_currentProvider, out var apiKey)
-            ? apiKey
-            : string.Empty;
 
         if (_settings.RememberAliyunKeys)
         {
@@ -339,25 +337,18 @@ public sealed partial class MainWindow : Window
                 : profile.DefaultEndpoint;
         AiEndpointTextBox.PlaceholderText = profile.DefaultEndpoint;
 
-        AiModelComboBox.ItemsSource = profile.DefaultModels;
         var savedModel = _settings.Models.TryGetValue(provider, out var model)
             ? NormalizeProviderModelName(provider, model)
             : null;
-        AiModelComboBox.Text = !string.IsNullOrWhiteSpace(savedModel)
-            ? savedModel
-            : profile.DefaultModels.Count > 0
-                ? profile.DefaultModels[0]
-                : "qwen2.5:7b";
+        RefreshAiModelOptions(profile, savedModel);
 
-        var key = _apiKeys.TryGetValue(provider, out var memoryKey)
-            ? memoryKey
-            : AiRememberKeyCheckBox.IsChecked == true
-                ? LoadKeyFromVault(provider) ?? string.Empty
-                : string.Empty;
-        AiApiKeyPasswordBox.Password = key;
-        if (!string.IsNullOrEmpty(key))
+        if (AiRememberKeyCheckBox.IsChecked == true)
         {
-            _apiKeys[provider] = key;
+            var legacyKey = LoadKeyFromVault(provider);
+            if (!string.IsNullOrEmpty(legacyKey))
+            {
+                _apiKeys[provider] = legacyKey;
+            }
         }
 
         _suppressEvents = false;
@@ -375,47 +366,219 @@ public sealed partial class MainWindow : Window
         SaveSettings();
     }
 
-    private void AiApiKeyPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+    private void AiModelsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressEvents || string.IsNullOrEmpty(_currentProvider))
         {
             return;
         }
 
-        var key = AiApiKeyPasswordBox.Password;
-        _apiKeys[_currentProvider] = key;
-        if (AiRememberKeyCheckBox.IsChecked == true && !string.IsNullOrEmpty(key))
-        {
-            SaveKeyToVault(_currentProvider, key);
-        }
-    }
-
-    private void AiModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressEvents || string.IsNullOrEmpty(_currentProvider))
-        {
-            return;
-        }
-
-        if (AiModelComboBox.SelectedItem is string model && !string.IsNullOrWhiteSpace(model))
+        if (AiModelsListView.SelectedItem is string model)
         {
             _settings.Models[_currentProvider] = model;
             SaveSettings();
         }
     }
 
-    private void AiModelComboBox_TextSubmitted(ComboBox sender, ComboBoxTextSubmittedEventArgs args)
+    private string GetSelectedAiModel()
     {
-        if (string.IsNullOrEmpty(_currentProvider))
+        return AiModelsListView.SelectedItem?.ToString()?.Trim() ?? string.Empty;
+    }
+
+    private List<string> GetAvailableAiModels(ProviderProfile profile)
+    {
+        _settings.AvailableModels ??= new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        if (!_settings.AvailableModels.TryGetValue(profile.Name, out var models) || models is null)
+        {
+            models = profile.DefaultModels
+                .Where(model => !string.IsNullOrWhiteSpace(model))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            _settings.AvailableModels[profile.Name] = models;
+        }
+
+        return models;
+    }
+
+    private void RefreshAiModelOptions(ProviderProfile profile, string? preferredModel)
+    {
+        var models = GetAvailableAiModels(profile);
+        if (!string.IsNullOrWhiteSpace(preferredModel)
+            && !models.Contains(preferredModel, StringComparer.OrdinalIgnoreCase))
+        {
+            models.Add(preferredModel);
+        }
+
+        AiModelsListView.ItemsSource = models.ToList();
+        AiModelsListView.SelectedItem = models.FirstOrDefault(model =>
+            string.Equals(model, preferredModel, StringComparison.OrdinalIgnoreCase))
+            ?? models.FirstOrDefault();
+    }
+
+    private async void AddAiModelButton_Click(object sender, RoutedEventArgs e)
+    {
+        var modelTextBox = new TextBox
+        {
+            Header = "模型名称",
+            PlaceholderText = "输入模型名称",
+        };
+        var apiKeyPasswordBox = new PasswordBox
+        {
+            Header = "API Key",
+            PlaceholderText = "可稍后通过列表右侧按钮修改",
+        };
+        var content = new StackPanel { Spacing = 12 };
+        content.Children.Add(modelTextBox);
+        content.Children.Add(apiKeyPasswordBox);
+        var dialog = new ContentDialog
+        {
+            XamlRoot = WindowRoot.XamlRoot,
+            Title = "添加 AI 模型",
+            Content = content,
+            PrimaryButtonText = "添加",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
         {
             return;
         }
 
-        var model = args.Text.Trim();
-        if (!string.IsNullOrEmpty(model))
+        var model = modelTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(model))
         {
-            _settings.Models[_currentProvider] = model;
-            SaveSettings();
+            ShowInfo("请输入要添加的模型名称。", InfoBarSeverity.Warning);
+            return;
+        }
+
+        var profile = GetProviderProfile(_currentProvider);
+        var models = GetAvailableAiModels(profile);
+        var existingModel = models.FirstOrDefault(item =>
+            string.Equals(item, model, StringComparison.OrdinalIgnoreCase));
+        if (existingModel is null)
+        {
+            models.Add(model);
+            existingModel = model;
+        }
+
+        _suppressEvents = true;
+        RefreshAiModelOptions(profile, existingModel);
+        _suppressEvents = false;
+        _settings.Models[_currentProvider] = existingModel;
+
+        var apiKey = apiKeyPasswordBox.Password.Trim();
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            SetApiKeyForModel(_currentProvider, existingModel, apiKey);
+        }
+
+        SaveSettings();
+    }
+
+    private void DeleteAiModelButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: string model })
+        {
+            return;
+        }
+
+        var profile = GetProviderProfile(_currentProvider);
+        var models = GetAvailableAiModels(profile);
+        if (models.Count <= 1)
+        {
+            ShowInfo("至少需要保留一个 AI 翻译模型。", InfoBarSeverity.Warning);
+            return;
+        }
+
+        var selectedModel = GetSelectedAiModel();
+        models.RemoveAll(item => string.Equals(item, model, StringComparison.OrdinalIgnoreCase));
+        var preferredModel = string.Equals(selectedModel, model, StringComparison.OrdinalIgnoreCase)
+            ? models.FirstOrDefault()
+            : selectedModel;
+        var credentialKey = GetModelCredentialKey(_currentProvider, model);
+        _apiKeys.Remove(credentialKey);
+        RemoveKeyFromVault(credentialKey);
+        _suppressEvents = true;
+        RefreshAiModelOptions(profile, preferredModel);
+        _suppressEvents = false;
+        _settings.Models[_currentProvider] = GetSelectedAiModel();
+        SaveSettings();
+    }
+
+    private async void EditAiModelApiKeyButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: string model })
+        {
+            return;
+        }
+
+        var passwordBox = new PasswordBox
+        {
+            Header = "API Key",
+            Password = GetApiKeyForModel(_currentProvider, model),
+            PlaceholderText = "输入 API Key",
+        };
+        var dialog = new ContentDialog
+        {
+            XamlRoot = WindowRoot.XamlRoot,
+            Title = $"修改 {model} 的 API Key",
+            Content = passwordBox,
+            PrimaryButtonText = "保存",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            SetApiKeyForModel(_currentProvider, model, passwordBox.Password.Trim());
+            ShowInfo("API Key 已更新。", InfoBarSeverity.Success);
+        }
+    }
+
+    private static string GetModelCredentialKey(string provider, string model) =>
+        $"{provider}:Model:{model}";
+
+    private static string GetImageModelCredentialKey(string provider, string model) =>
+        $"Image:{provider}:Model:{model}";
+
+    private string GetApiKeyForModel(string provider, string model)
+    {
+        var credentialKey = GetModelCredentialKey(provider, model);
+        if (_apiKeys.TryGetValue(credentialKey, out var apiKey))
+        {
+            return apiKey;
+        }
+
+        if (_settings.RememberKeys)
+        {
+            apiKey = LoadKeyFromVault(credentialKey) ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(apiKey))
+            {
+                _apiKeys[credentialKey] = apiKey;
+                return apiKey;
+            }
+        }
+
+        return _apiKeys.GetValueOrDefault(provider)
+            ?? (_settings.RememberKeys ? LoadKeyFromVault(provider) : null)
+            ?? string.Empty;
+    }
+
+    private void SetApiKeyForModel(string provider, string model, string apiKey)
+    {
+        var credentialKey = GetModelCredentialKey(provider, model);
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            _apiKeys.Remove(credentialKey);
+            RemoveKeyFromVault(credentialKey);
+            return;
+        }
+
+        _apiKeys[credentialKey] = apiKey;
+        if (_settings.RememberKeys)
+        {
+            SaveKeyToVault(credentialKey, apiKey);
         }
     }
 
@@ -429,16 +592,26 @@ public sealed partial class MainWindow : Window
         _settings.RememberKeys = AiRememberKeyCheckBox.IsChecked == true;
         SaveSettings();
 
-        var key = AiApiKeyPasswordBox.Password;
+        var models = GetAvailableAiModels(GetProviderProfile(_currentProvider));
         if (_settings.RememberKeys)
         {
-            if (!string.IsNullOrEmpty(key))
+            foreach (var model in models)
             {
-                SaveKeyToVault(_currentProvider, key);
+                var credentialKey = GetModelCredentialKey(_currentProvider, model);
+                if (_apiKeys.TryGetValue(credentialKey, out var apiKey)
+                    && !string.IsNullOrWhiteSpace(apiKey))
+                {
+                    SaveKeyToVault(credentialKey, apiKey);
+                }
             }
         }
         else
         {
+            foreach (var model in models)
+            {
+                RemoveKeyFromVault(GetModelCredentialKey(_currentProvider, model));
+            }
+
             RemoveKeyFromVault(_currentProvider);
         }
     }
@@ -510,6 +683,80 @@ public sealed partial class MainWindow : Window
     {
         var useModel = LocalTranslationSourceComboBox.SelectedIndex == 1;
         LocalEndpointPanel.Visibility = useModel ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private string GetApiKeyForImageModel(string provider, string model)
+    {
+        var credentialKey = GetImageModelCredentialKey(provider, model);
+        if (_apiKeys.TryGetValue(credentialKey, out var apiKey))
+        {
+            return apiKey;
+        }
+
+        if (_settings.RememberImageKeys)
+        {
+            apiKey = LoadKeyFromVault(credentialKey) ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(apiKey))
+            {
+                _apiKeys[credentialKey] = apiKey;
+            }
+        }
+
+        return apiKey ?? string.Empty;
+    }
+
+    private void SetApiKeyForImageModel(string provider, string model, string apiKey)
+    {
+        var credentialKey = GetImageModelCredentialKey(provider, model);
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            _apiKeys.Remove(credentialKey);
+            RemoveKeyFromVault(credentialKey);
+            return;
+        }
+
+        _apiKeys[credentialKey] = apiKey;
+        if (_settings.RememberImageKeys)
+        {
+            SaveKeyToVault(credentialKey, apiKey);
+        }
+    }
+
+    private void ImageRememberKeyCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_suppressEvents)
+        {
+            return;
+        }
+
+        _settings.RememberImageKeys = ImageRememberKeyCheckBox.IsChecked == true;
+        if (_settings.RememberImageKeys)
+        {
+            foreach (var provider in CloudProviders)
+            {
+                foreach (var model in _settings.ImageModels)
+                {
+                    var credentialKey = GetImageModelCredentialKey(provider, model);
+                    if (_apiKeys.TryGetValue(credentialKey, out var apiKey)
+                        && !string.IsNullOrWhiteSpace(apiKey))
+                    {
+                        SaveKeyToVault(credentialKey, apiKey);
+                    }
+                }
+            }
+        }
+        else
+        {
+            foreach (var provider in CloudProviders)
+            {
+                foreach (var model in _settings.ImageModels)
+                {
+                    RemoveKeyFromVault(GetImageModelCredentialKey(provider, model));
+                }
+            }
+        }
+
+        SaveSettings();
     }
 
     private void NetworkInformation_NetworkStatusChanged(object sender)
@@ -860,6 +1107,28 @@ public sealed partial class MainWindow : Window
         SaveSettings();
     }
 
+    private void AiPromptStyleComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressEvents)
+        {
+            return;
+        }
+
+        _settings.AiPromptStyleIndex = Math.Clamp(AiPromptStyleComboBox.SelectedIndex, 0, 3);
+        SaveSettings();
+    }
+
+    private void AiIncludeLanguageDetailsCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_suppressEvents)
+        {
+            return;
+        }
+
+        _settings.AiIncludeLanguageDetails = AiIncludeLanguageDetailsCheckBox.IsChecked == true;
+        SaveSettings();
+    }
+
     private void SourceTextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         UpdateCounts();
@@ -869,6 +1138,11 @@ public sealed partial class MainWindow : Window
     private void OutputTextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         UpdateCounts();
+        UpdateUiState();
+    }
+
+    private void ImageOutputTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
         UpdateUiState();
     }
 
@@ -904,11 +1178,233 @@ public sealed partial class MainWindow : Window
         RefreshImageTargetLanguageOptions();
     }
 
-    private void ImageProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void ImageModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressEvents)
         {
             return;
+        }
+
+        if (ImageModelComboBox.SelectedItem is string model)
+        {
+            _settings.ImageModel = model;
+            _suppressEvents = true;
+            ImageModelsListView.SelectedItem = model;
+            _suppressEvents = false;
+            SaveSettings();
+        }
+    }
+
+    private void ImageModelsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressEvents)
+        {
+            return;
+        }
+
+        if (ImageModelsListView.SelectedItem is string model)
+        {
+            _settings.ImageModel = model;
+            _suppressEvents = true;
+            ImageModelComboBox.SelectedItem = model;
+            _suppressEvents = false;
+            SaveSettings();
+        }
+    }
+
+    private void ImageEndpointTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_suppressEvents)
+        {
+            return;
+        }
+
+        _settings.ImageEndpoint = ImageEndpointTextBox.Text.Trim();
+        _settings.ImageEndpoints[GetImageProvider()] = _settings.ImageEndpoint;
+        SaveSettings();
+    }
+
+    private void ImageProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressEvents || ImageProviderComboBox.SelectedItem is not string provider)
+        {
+            return;
+        }
+
+        _settings.ImageProviderName = provider;
+        _suppressEvents = true;
+        ImageEndpointTextBox.Text = GetImageEndpoint(provider);
+        ImageEndpointTextBox.PlaceholderText = GetProviderProfile(provider).DefaultEndpoint;
+        _suppressEvents = false;
+        _settings.ImageEndpoint = ImageEndpointTextBox.Text.Trim();
+        SaveSettings();
+    }
+
+    private void InitializeImageModelSettings()
+    {
+        _settings.ImageModels ??= new List<string>();
+        _settings.ImageEndpoints ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var provider = CloudProviders.Contains(_settings.ImageProviderName)
+            ? _settings.ImageProviderName
+            : "DeepSeek";
+        _settings.ImageProviderName = provider;
+        if (!_settings.ImageEndpoints.ContainsKey(provider)
+            && !string.IsNullOrWhiteSpace(_settings.ImageEndpoint))
+        {
+            _settings.ImageEndpoints[provider] = _settings.ImageEndpoint;
+        }
+
+        ImageProviderComboBox.ItemsSource = CloudProviders;
+        ImageProviderComboBox.SelectedItem = provider;
+        ImageEndpointTextBox.Text = GetImageEndpoint(provider);
+        ImageEndpointTextBox.PlaceholderText = GetProviderProfile(provider).DefaultEndpoint;
+        _settings.ImageEndpoint = ImageEndpointTextBox.Text.Trim();
+
+        if (!string.IsNullOrWhiteSpace(_settings.ImageModel)
+            && !_settings.ImageModels.Contains(_settings.ImageModel, StringComparer.OrdinalIgnoreCase))
+        {
+            _settings.ImageModels.Add(_settings.ImageModel);
+        }
+
+        if (_settings.ImageModels.Count == 0)
+        {
+            _settings.ImageModels.Add(GetDefaultImageModel(provider));
+        }
+
+        RefreshImageModelOptions(_settings.ImageModel);
+    }
+
+    private void RefreshImageModelOptions(string? preferredModel)
+    {
+        var models = _settings.ImageModels
+            .Where(model => !string.IsNullOrWhiteSpace(model))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        _settings.ImageModels = models;
+        ImageModelsListView.ItemsSource = models.ToList();
+        ImageModelComboBox.ItemsSource = models.ToList();
+        var selectedModel = models.FirstOrDefault(model =>
+            string.Equals(model, preferredModel, StringComparison.OrdinalIgnoreCase))
+            ?? models.FirstOrDefault();
+        ImageModelsListView.SelectedItem = selectedModel;
+        ImageModelComboBox.SelectedItem = selectedModel;
+    }
+
+    private string GetImageProvider()
+    {
+        return ImageProviderComboBox.SelectedItem as string is { Length: > 0 } provider
+            ? provider
+            : _settings.ImageProviderName;
+    }
+
+    private string GetImageEndpoint(string provider)
+    {
+        return _settings.ImageEndpoints.TryGetValue(provider, out var endpoint)
+            && !string.IsNullOrWhiteSpace(endpoint)
+                ? endpoint
+                : GetProviderProfile(provider).DefaultEndpoint;
+    }
+
+    private async void AddImageModelButton_Click(object sender, RoutedEventArgs e)
+    {
+        var modelTextBox = new TextBox
+        {
+            Header = "模型名称",
+            PlaceholderText = "输入支持图片的模型名称",
+        };
+        var dialog = new ContentDialog
+        {
+            XamlRoot = WindowRoot.XamlRoot,
+            Title = "添加图片翻译模型",
+            Content = modelTextBox,
+            PrimaryButtonText = "添加",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        var model = modelTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(model))
+        {
+            ShowInfo("请输入要添加的图片模型名称。", InfoBarSeverity.Warning);
+            return;
+        }
+
+        var existingModel = _settings.ImageModels.FirstOrDefault(item =>
+            string.Equals(item, model, StringComparison.OrdinalIgnoreCase));
+        if (existingModel is null)
+        {
+            _settings.ImageModels.Add(model);
+            existingModel = model;
+        }
+
+        _suppressEvents = true;
+        RefreshImageModelOptions(existingModel);
+        _suppressEvents = false;
+        _settings.ImageModel = existingModel;
+        SaveSettings();
+    }
+
+    private void DeleteImageModelButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: string model })
+        {
+            return;
+        }
+
+        if (_settings.ImageModels.Count <= 1)
+        {
+            ShowInfo("至少需要保留一个图片翻译模型。", InfoBarSeverity.Warning);
+            return;
+        }
+
+        _settings.ImageModels.RemoveAll(item =>
+            string.Equals(item, model, StringComparison.OrdinalIgnoreCase));
+        var credentialKey = GetImageModelCredentialKey(GetImageProvider(), model);
+        _apiKeys.Remove(credentialKey);
+        RemoveKeyFromVault(credentialKey);
+        var preferredModel = string.Equals(_settings.ImageModel, model, StringComparison.OrdinalIgnoreCase)
+            ? _settings.ImageModels.FirstOrDefault()
+            : _settings.ImageModel;
+        _suppressEvents = true;
+        RefreshImageModelOptions(preferredModel);
+        _suppressEvents = false;
+        _settings.ImageModel = ImageModelComboBox.SelectedItem?.ToString() ?? string.Empty;
+        SaveSettings();
+    }
+
+    private async void EditImageModelApiKeyButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: string model })
+        {
+            return;
+        }
+
+        var provider = GetImageProvider();
+        var passwordBox = new PasswordBox
+        {
+            Header = "API Key",
+            Password = GetApiKeyForImageModel(provider, model),
+            PlaceholderText = "输入 API Key",
+        };
+        var dialog = new ContentDialog
+        {
+            XamlRoot = WindowRoot.XamlRoot,
+            Title = $"修改 {model} 的 API Key",
+            Content = passwordBox,
+            PrimaryButtonText = "保存",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            SetApiKeyForImageModel(provider, model, passwordBox.Password.Trim());
+            ShowInfo("API Key 已更新。", InfoBarSeverity.Success);
         }
     }
 
@@ -1036,41 +1532,9 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void SidebarNavigationView_PaneOpening(NavigationView sender, object args)
+    private void SettingsPageScrollViewer_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        AnimateSidebarWidth(200d);
-    }
-
-    private void SidebarNavigationView_PaneClosing(
-        NavigationView sender,
-        NavigationViewPaneClosingEventArgs args)
-    {
-        AnimateSidebarWidth(64d);
-    }
-
-    private void SidebarHost_SizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        SidebarNavigationView.Clip = new RectangleGeometry
-        {
-            Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, e.NewSize.Height),
-        };
-    }
-
-    private void AnimateSidebarWidth(double targetWidth)
-    {
-        var animation = new DoubleAnimation
-        {
-            To = targetWidth,
-            Duration = new Duration(TimeSpan.FromMilliseconds(180)),
-            EnableDependentAnimation = true,
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
-        };
-
-        Storyboard.SetTarget(animation, SidebarHost);
-        Storyboard.SetTargetProperty(animation, "Width");
-        var storyboard = new Storyboard();
-        storyboard.Children.Add(animation);
-        storyboard.Begin();
+        SettingsCardsPanel.Width = Math.Min(SettingsPanelMaxWidth, Math.Max(0d, e.NewSize.Width));
     }
 
     private void NavigateTo(string? tag, bool addBackEntry = true)
@@ -1119,6 +1583,12 @@ public sealed partial class MainWindow : Window
         SettingsPageScrollViewer.Visibility = tag == "Settings" ? Visibility.Visible : Visibility.Collapsed;
         ImagePageGrid.Visibility = tag == "Image" ? Visibility.Visible : Visibility.Collapsed;
         AboutPagePanel.Visibility = tag == "About" ? Visibility.Visible : Visibility.Collapsed;
+
+        // The online catalog is only needed when the user opens model settings.
+        if (tag == "Settings" && HasInternetAccess() && _onlineOfflineModels.Count == 0 && !_isLoadingOfflineModels)
+        {
+            _ = RefreshOfflineModelsAsync(showError: false);
+        }
 
         _suppressSidebarSync = true;
         SidebarNavigationView.SelectedItem = tag switch
@@ -1262,35 +1732,54 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var providerKey = ImageProviderComboBox.SelectedItem?.ToString() ?? "千问";
-        var apiKey = _apiKeys.GetValueOrDefault(providerKey);
-        if (string.IsNullOrWhiteSpace(apiKey) && AiRememberKeyCheckBox.IsChecked == true)
-        {
-            apiKey = LoadKeyFromVault(providerKey) ?? string.Empty;
-            if (!string.IsNullOrWhiteSpace(apiKey))
-            {
-                _apiKeys[providerKey] = apiKey;
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            ShowInfo($"图片翻译使用{providerKey} API，请先在设置中填写对应 API Key。", InfoBarSeverity.Warning);
-            return;
-        }
-
         var sourceLanguage = ImageSourceLanguageComboBox.SelectedItem as LanguageOption ?? Languages[0];
         var targetLanguage = ImageTargetLanguageComboBox.SelectedItem as LanguageOption ?? Languages[3];
-        var systemPrompt = BuildDefaultPrompt(sourceLanguage, targetLanguage);
+        var systemPrompt = BuildDefaultPrompt(
+            sourceLanguage,
+            targetLanguage,
+            AiPromptStyleComboBox.SelectedIndex,
+            AiIncludeLanguageDetailsCheckBox.IsChecked == true);
         if (!string.IsNullOrWhiteSpace(CustomPromptTextBox.Text))
         {
             systemPrompt += "\n\n补充要求：" + CustomPromptTextBox.Text.Trim();
         }
 
-        var endpoint = _settings.Endpoints.TryGetValue(providerKey, out var savedEndpoint)
-            && !string.IsNullOrWhiteSpace(savedEndpoint)
-                ? savedEndpoint
-                : GetProviderProfile(providerKey).DefaultEndpoint;
+        var endpoint = ImageEndpointTextBox.Text.Trim();
+        var model = ImageModelComboBox.SelectedItem?.ToString()?.Trim() ?? string.Empty;
+        var providerKey = GetImageProvider();
+        var apiKey = GetApiKeyForImageModel(providerKey, model);
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            apiKey = GetApiKeyForModel(providerKey, model);
+        }
+
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            var selectedAiModel = GetSelectedAiModelForProvider(providerKey);
+            apiKey = GetApiKeyForImageModel(providerKey, selectedAiModel);
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                apiKey = GetApiKeyForModel(providerKey, selectedAiModel);
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(endpoint))
+        {
+            ShowInfo("请填写图片翻译接口地址。", InfoBarSeverity.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(model))
+        {
+            ShowInfo("请填写支持图片的模型名称。", InfoBarSeverity.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            ShowInfo($"图片翻译使用{providerKey} API，请先在设置中为对应模型填写 API Key。", InfoBarSeverity.Warning);
+            return;
+        }
 
         _isImageTranslating = true;
         ImageOutputTextBox.Text = string.Empty;
@@ -1311,7 +1800,7 @@ public sealed partial class MainWindow : Window
                         file,
                         endpoint,
                         apiKey,
-                        providerKey,
+                        model,
                         systemPrompt);
                     results.Add(result);
                 }
@@ -1338,7 +1827,7 @@ public sealed partial class MainWindow : Window
         StorageFile file,
         string endpoint,
         string apiKey,
-        string providerKey,
+        string model,
         string systemPrompt)
     {
         byte[] imageBytes;
@@ -1353,12 +1842,7 @@ public sealed partial class MainWindow : Window
         var request = new ImageTranslationRequest(
             endpoint,
             apiKey,
-            providerKey switch
-            {
-                "DeepSeek" => "deepseek-v4-flash-vision-exp",
-                "Kimi" => "kimi-k2.6",
-                _ => "qwen3.5-ocr",
-            },
+            model,
             systemPrompt,
             "请识别图片中的文字，并翻译成目标语言。",
             imageDataUrl);
@@ -1408,7 +1892,10 @@ public sealed partial class MainWindow : Window
             : AiEndpointTextBox.Text.Trim();
         var model = isLocalMode
             ? LocalModelTextBox.Text.Trim()
-            : AiModelComboBox.Text.Trim();
+            : GetSelectedAiModel();
+        var apiKey = isLocalMode
+            ? null
+            : GetApiKeyForModel(_currentProvider, model);
         if (!useLocalModel && string.IsNullOrWhiteSpace(endpoint))
         {
             ShowInfo("请填写接口地址。", InfoBarSeverity.Warning);
@@ -1436,9 +1923,9 @@ public sealed partial class MainWindow : Window
             }
         }
 
-        if (!isLocalMode && string.IsNullOrWhiteSpace(_apiKeys.GetValueOrDefault(_currentProvider)))
+        if (!isLocalMode && string.IsNullOrWhiteSpace(apiKey))
         {
-            ShowInfo("请手动输入 API Key。", InfoBarSeverity.Warning);
+            ShowInfo("请在设置中为当前模型填写 API Key。", InfoBarSeverity.Warning);
             return;
         }
 
@@ -1452,7 +1939,11 @@ public sealed partial class MainWindow : Window
 
         var sourceLanguage = SourceLanguageComboBox.SelectedItem as LanguageOption ?? Languages[0];
         var targetLanguage = TargetLanguageComboBox.SelectedItem as LanguageOption ?? Languages[3];
-        var systemPrompt = BuildDefaultPrompt(sourceLanguage, targetLanguage);
+        var systemPrompt = BuildDefaultPrompt(
+            sourceLanguage,
+            targetLanguage,
+            AiPromptStyleComboBox.SelectedIndex,
+            AiIncludeLanguageDetailsCheckBox.IsChecked == true);
 
         if (ModeComboBox.SelectedIndex != 0 && !string.IsNullOrWhiteSpace(CustomPromptTextBox.Text))
         {
@@ -1476,12 +1967,13 @@ public sealed partial class MainWindow : Window
                 : await _translationService.TranslateAsync(
                     new TranslationRequest(
                         endpoint,
-                        isLocalMode ? null : _apiKeys.GetValueOrDefault(_currentProvider),
+                        apiKey,
                         model,
                         systemPrompt,
                         sourceText),
                     _cts.Token);
             OutputTextBox.Text = result;
+            UpdateCounts();
             AddTranslationHistory(sourceText);
             ShowInfo("翻译完成。", InfoBarSeverity.Success);
         }
@@ -1547,6 +2039,7 @@ public sealed partial class MainWindow : Window
         {
             var result = await _machineTranslationService.TranslateAsync(request, _cts.Token);
             OutputTextBox.Text = result;
+            UpdateCounts();
             AddTranslationHistory(sourceText);
             ShowInfo("翻译完成。", InfoBarSeverity.Success);
         }
@@ -1848,6 +2341,17 @@ public sealed partial class MainWindow : Window
         _settings.SourceLanguageIndex = sourceLanguage is null ? 0 : Languages.IndexOf(sourceLanguage);
         _settings.TargetLanguageIndex = targetLanguage is null ? 3 : Languages.IndexOf(targetLanguage);
         _settings.CustomPrompt = CustomPromptTextBox.Text;
+        _settings.AiPromptStyleIndex = Math.Clamp(AiPromptStyleComboBox.SelectedIndex, 0, 3);
+        _settings.AiIncludeLanguageDetails = AiIncludeLanguageDetailsCheckBox.IsChecked == true;
+        _settings.ImageEndpoint = ImageEndpointTextBox.Text.Trim();
+        _settings.ImageProviderName = GetImageProvider();
+        _settings.ImageEndpoints[_settings.ImageProviderName] = _settings.ImageEndpoint;
+        _settings.ImageModel = ImageModelComboBox.SelectedItem?.ToString() ?? string.Empty;
+        _settings.ImageModels = _settings.ImageModels
+            .Where(model => !string.IsNullOrWhiteSpace(model))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        _settings.RememberImageKeys = ImageRememberKeyCheckBox.IsChecked == true;
         _settings.RememberKeys = AiRememberKeyCheckBox.IsChecked == true;
         _settings.RememberAliyunKeys = AliyunRememberKeyCheckBox.IsChecked == true;
         _settings.LocalTranslationSourceIndex = Math.Clamp(LocalTranslationSourceComboBox.SelectedIndex, 0, 1);
@@ -1857,7 +2361,7 @@ public sealed partial class MainWindow : Window
         if (!string.IsNullOrEmpty(_currentProvider))
         {
             _settings.Endpoints[_currentProvider] = AiEndpointTextBox.Text.Trim();
-            _settings.Models[_currentProvider] = AiModelComboBox.Text.Trim();
+            _settings.Models[_currentProvider] = GetSelectedAiModel();
         }
 
         AppSettingsStore.Save(_settings);
@@ -1927,16 +2431,31 @@ public sealed partial class MainWindow : Window
         _infoBarTimer?.Start();
     }
 
-    private static string BuildDefaultPrompt(LanguageOption source, LanguageOption target)
+    private string BuildDefaultPrompt(
+        LanguageOption source,
+        LanguageOption target,
+        int styleIndex = 0,
+        bool includeLanguageDetails = false)
     {
-        if (source.PromptName == "自动检测")
+        var instruction = source.PromptName == "自动检测"
+            ? $"请自动识别用户输入的语言，并翻译成{target.PromptName}。"
+            : $"请把用户输入的内容从{source.PromptName}翻译成{target.PromptName}。";
+        var styleInstruction = styleIndex switch
         {
-            return $"你是一名专业的翻译引擎。请自动识别用户输入的语言，并翻译成{target.PromptName}。"
-                + "只输出译文，不要添加解释、注释、代码块或任何额外内容。保持原文的语气、格式和专有名词。";
+            1 => "使用正式、严谨、专业的表达方式。",
+            2 => "使用自然、流畅、符合目标语言习惯的表达方式。",
+            3 => "使用简洁、精炼的表达方式，在不遗漏信息的前提下避免冗余。",
+            _ => "保持准确、清晰、自然的表达方式。",
+        };
+
+        if (includeLanguageDetails)
+        {
+            return $"你是一名专业的翻译引擎。{instruction}{styleInstruction}"
+                + "请使用 Markdown 格式组织输出，先给出译文，再简要给出必要的解释、读音和词性；如果某项不适用，可以省略。保持原文的格式和专有名词，不要输出原始 HTML。";
         }
 
-        return $"你是一名专业的翻译引擎。请把用户输入的内容从{source.PromptName}翻译成{target.PromptName}。"
-            + "只输出译文，不要添加解释、注释、代码块或任何额外内容。保持原文的语气、格式和专有名词。";
+        return $"你是一名专业的翻译引擎。{instruction}{styleInstruction}"
+            + "只输出译文；如有多段内容，请使用 Markdown 段落或列表组织，不要添加解释、注释、读音、词性、代码块或任何额外内容。保持原文的格式和专有名词。";
     }
 
     private static ProviderProfile GetProviderProfile(string provider) => provider switch
@@ -1956,6 +2475,11 @@ public sealed partial class MainWindow : Window
             "https://api.moonshot.cn/v1",
             new[] { "kimi-k2.6" },
             true),
+        "智谱" => new ProviderProfile(
+            "智谱",
+            "https://open.bigmodel.cn/api/paas/v4",
+            new[] { "glm-5.3-flash" },
+            true),
         _ => new ProviderProfile(
             "本地 AI",
             "http://localhost:11434/v1",
@@ -1971,6 +2495,25 @@ public sealed partial class MainWindow : Window
             _ => model,
         }
         : model;
+
+    private string GetSelectedAiModelForProvider(string provider)
+    {
+        if (_settings.Models.TryGetValue(provider, out var model)
+            && !string.IsNullOrWhiteSpace(model))
+        {
+            return model.Trim();
+        }
+
+        return GetProviderProfile(provider).DefaultModels.FirstOrDefault() ?? string.Empty;
+    }
+
+    private static string GetDefaultImageModel(string provider) => provider switch
+    {
+        "DeepSeek" => "deepseek-v4-flash-vision-exp",
+        "Kimi" => "kimi-k2.6",
+        "智谱" => "glm-5.3-flash",
+        _ => "qwen3.5-ocr",
+    };
 
     private static void SaveKeyToVault(string provider, string key)
     {

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -24,6 +25,9 @@ public sealed class BergamotTranslationService
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            StandardInputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+            StandardOutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+            StandardErrorEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
             UseShellExecute = false,
             CreateNoWindow = true,
         };
@@ -38,7 +42,8 @@ public sealed class BergamotTranslationService
 
         var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
         var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.StandardInput.WriteAsync(sourceText.AsMemory(), cancellationToken);
+        // translator-cli consumes one UTF-8 paragraph per line. Do not inherit the device console code page.
+        await process.StandardInput.WriteLineAsync(sourceText.AsMemory(), cancellationToken);
         await process.StandardInput.FlushAsync(cancellationToken);
         process.StandardInput.Close();
 
@@ -55,7 +60,11 @@ public sealed class BergamotTranslationService
 
         if (string.IsNullOrWhiteSpace(output))
         {
-            throw new InvalidOperationException("Mozilla Translations 模型没有生成可用的译文。");
+            var diagnostic = string.IsNullOrWhiteSpace(error)
+                ? "请确认已重新下载模型，且设备 CPU 支持当前发布版本。"
+                : error;
+            throw new InvalidOperationException(
+                "Mozilla Translations 模型没有生成可用的译文。" + diagnostic);
         }
 
         return output;

@@ -9,11 +9,11 @@ Windtranslator 是一款基于 WinUI 3 的 Windows 桌面翻译工具，支持�
 ### 功能
 
 - 多种翻译方式：API 翻译、AI 翻译和本地翻译
-- 云端服务商：DeepSeek、千问，以及本地 OpenAI 兼容服务（例如 Ollama、LM Studio）
+- 云端服务商：DeepSeek、千问、Kimi、智谱，以及本地 OpenAI 兼容服务（例如 Ollama、LM Studio）
 - 预置模型：DeepSeek `v4-flash` / `v4-pro`，千问 `qwen3.7-plus` / `qwen3.7-flash` / `qwen3.7-max`
-- API Key 由用户手动输入，可选择保存到 Windows 凭据库
-- 支持自定义 AI 提示词和补充要求
-- 图片翻译：使用千问 `qwen3.5-ocr` / `v4-flash-vision-exp`模型识别并翻译图片文字
+- API Key 由用户手动输入，可按模型分别管理，并可选择保存到 Windows 凭据库
+- AI 翻译支持提示词风格、补充提示词，以及解释、读音和词性选项
+- 图片翻译：可配置接口地址和多个图片模型，使用视觉模型识别并翻译图片文字
 - 本地翻译：支持 OpenAI 兼容接口，也支持 Mozilla Translations（Bergamot）模型
 - 语音输入：Windows 语音识别
 - 语音输出：Windows 文本转语音
@@ -37,6 +37,10 @@ dotnet build Windtranslator.slnx -p:Platform=x64
 也可以在 Visual Studio 中打开 `Windtranslator.slnx`，选择 `Windtranslator (Unpackaged)` 配置运行。
 
 项目提供 `x86`、`x64` 和 `ARM64` 配置。Mozilla Translations 本地引擎仅支持 `x64` 和 `ARM64`，因此使用本地模型时应选择对应的平台。
+
+### 安装和更新 MSIX
+
+侧载测试包包含 `.msix` 和同目录的 `.cer` 证书。首次安装前需在当前设备信任该证书，然后运行生成目录中的 `Add-AppDevPackage.ps1`，或直接使用 Visual Studio 生成的安装脚本。更新时必须保持包的名称、发布者和签名证书一致；如果设备上安装的是其他证书签名的包，应先卸载旧包或使用同一证书重新生成更新包。`x64` 和 `ARM64` MSIX 不能交叉安装。
 
 ### 构建 Mozilla Translations 运行库
 
@@ -94,7 +98,7 @@ Windtranslator is a WinUI 3 desktop translation tool for Windows. It supports cl
 - Preset models: DeepSeek `v4-flash` / `v4-pro`, and Qwen `qwen3.7-plus` / `qwen3.7-flash` / `qwen3.7-max`
 - API keys are entered manually and can optionally be stored in Windows Credential Manager
 - Custom additional instructions for AI prompts
-- Image translation with Qwen `qwen3.5-ocr` Deepseek`v4-flash-vision-exp`
+- Configurable image translation endpoint and multiple vision models
 - Local translation through an OpenAI-compatible endpoint or Mozilla Translations (Bergamot) models
 - Windows speech recognition for voice input
 - Windows text-to-speech for voice output
@@ -118,6 +122,10 @@ dotnet build Windtranslator.slnx -p:Platform=x64
 Alternatively, open `Windtranslator.slnx` in Visual Studio and run the `Windtranslator (Unpackaged)` configuration.
 
 The project provides `x86`, `x64`, and `ARM64` configurations. The Mozilla Translations runtime supports only `x64` and `ARM64`, so use the matching platform when local model translation is required.
+
+### Install and update MSIX
+
+Side-loaded test packages include an `.msix` file and a matching `.cer` certificate in the same folder. Trust the certificate on the target device before the first installation, then run the generated `Add-AppDevPackage.ps1` script or the Visual Studio installation script. Updates must keep the same package name, publisher, and signing certificate. If the existing installation was signed with a different certificate, uninstall it first or publish the update with the original certificate. `x64` and `ARM64` MSIX packages are not interchangeable.
 
 ### Build the Mozilla Translations runtime
 

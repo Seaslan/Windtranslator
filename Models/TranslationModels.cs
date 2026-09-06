@@ -80,6 +80,22 @@ public sealed class AppSettings
 
     public string CustomPrompt { get; set; } = string.Empty;
 
+    public int AiPromptStyleIndex { get; set; }
+
+    public bool AiIncludeLanguageDetails { get; set; }
+
+    public string ImageEndpoint { get; set; } = string.Empty;
+
+    public string ImageProviderName { get; set; } = "DeepSeek";
+
+    public Dictionary<string, string> ImageEndpoints { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public string ImageModel { get; set; } = string.Empty;
+
+    public List<string> ImageModels { get; set; } = new();
+
+    public bool RememberImageKeys { get; set; }
+
     public bool RememberKeys { get; set; }
 
     public bool RememberAliyunKeys { get; set; }
@@ -100,6 +116,8 @@ public sealed class AppSettings
     public Dictionary<string, string> Endpoints { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public Dictionary<string, string> Models { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public Dictionary<string, List<string>> AvailableModels { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 public sealed class OfflineTranslationModel
