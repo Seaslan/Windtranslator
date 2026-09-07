@@ -8,9 +8,27 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
-                <!-- Other merged dictionaries here -->
             </ResourceDictionary.MergedDictionaries>
-            <!-- Other app resources here -->
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="WindPageBackgroundBrush" Color="Transparent" />
+                    <SolidColorBrush x:Key="WindCardBackgroundBrush" Color="#B3FFFFFF" />
+                    <SolidColorBrush x:Key="WindCardStrokeBrush" Color="#0F000000" />
+                    <SolidColorBrush x:Key="WindLayerBackgroundBrush" Color="#80FFFFFF" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="WindPageBackgroundBrush" Color="Transparent" />
+                    <SolidColorBrush x:Key="WindCardBackgroundBrush" Color="#B3FFFFFF" />
+                    <SolidColorBrush x:Key="WindCardStrokeBrush" Color="#0F000000" />
+                    <SolidColorBrush x:Key="WindLayerBackgroundBrush" Color="#80FFFFFF" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="WindPageBackgroundBrush" Color="Transparent" />
+                    <SolidColorBrush x:Key="WindCardBackgroundBrush" Color="#A6242424" />
+                    <SolidColorBrush x:Key="WindCardStrokeBrush" Color="#20FFFFFF" />
+                    <SolidColorBrush x:Key="WindLayerBackgroundBrush" Color="#B3202020" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

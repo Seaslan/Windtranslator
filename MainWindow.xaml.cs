@@ -50,21 +50,21 @@ public sealed partial class MainWindow : Window
     private static readonly List<LanguageOption> Languages = new()
     {
         new LanguageOption("自动检测", "自动检测", null, "auto"),
-        new LanguageOption("简体中文", "简体中文", "zh", "zh"),
-        new LanguageOption("繁体中文", "繁体中文", "zh-Hant", "zh-tw"),
-        new LanguageOption("英语", "英语", "en", "en"),
-        new LanguageOption("日语", "日语", "ja", "ja"),
-        new LanguageOption("韩语", "韩语", "ko", "ko"),
-        new LanguageOption("法语", "法语", "fr", "fr"),
-        new LanguageOption("德语", "德语", "de", "de"),
-        new LanguageOption("西班牙语", "西班牙语", "es", "es"),
-        new LanguageOption("俄语", "俄语", "ru", "ru"),
-        new LanguageOption("葡萄牙语", "葡萄牙语", "pt", "pt"),
-        new LanguageOption("意大利语", "意大利语", "it", "it"),
-        new LanguageOption("阿拉伯语", "阿拉伯语", "ar", "ar"),
-        new LanguageOption("泰语", "泰语", "th", "th"),
-        new LanguageOption("越南语", "越南语", "vi", "vi"),
-        new LanguageOption("印尼语", "印尼语", "id", "id"),
+        new LanguageOption("简体中文", "简体中文", "zh-CN", "zh"),
+        new LanguageOption("繁体中文", "繁体中文", "zh-TW", "zh-tw"),
+        new LanguageOption("英语", "英语", "en-US", "en"),
+        new LanguageOption("日语", "日语", "ja-JP", "ja"),
+        new LanguageOption("韩语", "韩语", "ko-KR", "ko"),
+        new LanguageOption("法语", "法语", "fr-FR", "fr"),
+        new LanguageOption("德语", "德语", "de-DE", "de"),
+        new LanguageOption("西班牙语", "西班牙语", "es-ES", "es"),
+        new LanguageOption("俄语", "俄语", "ru-RU", "ru"),
+        new LanguageOption("葡萄牙语", "葡萄牙语", "pt-PT", "pt"),
+        new LanguageOption("意大利语", "意大利语", "it-IT", "it"),
+        new LanguageOption("阿拉伯语", "阿拉伯语", "ar-SA", "ar"),
+        new LanguageOption("泰语", "泰语", "th-TH", "th"),
+        new LanguageOption("越南语", "越南语", "vi-VN", "vi"),
+        new LanguageOption("印尼语", "印尼语", "id-ID", "id"),
     };
 
     private readonly HttpClient _httpClient = new();
@@ -83,6 +83,7 @@ public sealed partial class MainWindow : Window
     private string _selectedOfflineModelPath = string.Empty;
     private bool _isTranslating;
     private bool _isImageTranslating;
+    private bool _isStartingSpeechInput;
     private bool _suppressEvents;
     private bool _suppressSidebarSync;
     private bool _isLoadingOfflineModels;
@@ -120,6 +121,8 @@ public sealed partial class MainWindow : Window
         Closed += (_, _) =>
         {
             NetworkInformation.NetworkStatusChanged -= NetworkInformation_NetworkStatusChanged;
+            _ = _speechInput.StopAsync();
+            _speechOutput.Stop();
             RestoreWindowProcedure();
         };
         _infoBarTimer = DispatcherQueue.CreateTimer();
@@ -2064,6 +2067,11 @@ public sealed partial class MainWindow : Window
 
     private async void MicButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_isStartingSpeechInput)
+        {
+            return;
+        }
+
         if (_speechInput.IsListening)
         {
             await _speechInput.StopAsync();
@@ -2074,17 +2082,42 @@ public sealed partial class MainWindow : Window
 
         try
         {
+            _isStartingSpeechInput = true;
+            UpdateUiState();
+            var languageTag = (SourceLanguageComboBox.SelectedItem as LanguageOption)?.SpeechTag;
             await _speechInput.StartAsync(
+                languageTag,
                 text => DispatcherQueue.TryEnqueue(() => AppendSpeechResult(text)),
-                text => DispatcherQueue.TryEnqueue(() => ShowInfo(text, InfoBarSeverity.Informational)));
+                text => DispatcherQueue.TryEnqueue(() => ShowInfo(text, InfoBarSeverity.Informational)),
+                error => DispatcherQueue.TryEnqueue(() => HandleSpeechRecognitionCompleted(error)));
             SetMicListeningState(true);
             ShowInfo("正在聆听，请开始说话。", InfoBarSeverity.Informational);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            SetMicListeningState(false);
+            ShowInfo(
+                "无法使用麦克风，请在 Windows 隐私设置中允许 Windtranslator 和桌面应用访问麦克风。",
+                InfoBarSeverity.Error);
         }
         catch (Exception ex)
         {
             SetMicListeningState(false);
             ShowInfo("无法启动语音识别：" + ex.Message, InfoBarSeverity.Error);
         }
+        finally
+        {
+            _isStartingSpeechInput = false;
+            UpdateUiState();
+        }
+    }
+
+    private void HandleSpeechRecognitionCompleted(string? error)
+    {
+        SetMicListeningState(false);
+        ShowInfo(
+            error ?? "语音识别已结束。",
+            error is null ? InfoBarSeverity.Informational : InfoBarSeverity.Error);
     }
 
     private void AppendSpeechResult(string text)
@@ -2322,7 +2355,7 @@ public sealed partial class MainWindow : Window
     private void UpdateUiState()
     {
         TranslateButton.IsEnabled = !_isTranslating && SourceTextBox.Text.Trim().Length > 0;
-        MicButton.IsEnabled = !_isTranslating;
+        MicButton.IsEnabled = !_isTranslating && !_isStartingSpeechInput;
         SpeakButton.IsEnabled = _speechOutput.IsSpeaking || OutputTextBox.Text.Trim().Length > 0;
         PickImageButton.IsEnabled = !_isImageTranslating;
         TranslateImageButton.IsEnabled = !_isImageTranslating && _selectedImageFiles.Count > 0;

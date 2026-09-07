@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Windows.Globalization;
 using Windows.Media.Core;
 using Windows.Media.Playback;
 using Windows.Media.SpeechRecognition;
@@ -11,35 +12,63 @@ namespace Windtranslator.Services;
 public sealed class SpeechInputService
 {
     private SpeechRecognizer? _recognizer;
+    private bool _isStopping;
 
     public bool IsListening => _recognizer is not null;
 
-    public async Task StartAsync(Action<string> onResult, Action<string> onStateChanged)
+    public async Task StartAsync(
+        string? languageTag,
+        Action<string> onResult,
+        Action<string> onStateChanged,
+        Action<string?> onCompleted)
     {
         if (_recognizer is not null)
         {
             return;
         }
 
-        var recognizer = new SpeechRecognizer();
+        var language = ResolveRecognitionLanguage(languageTag);
+        var recognizer = new SpeechRecognizer(language);
+        recognizer.Constraints.Add(
+            new SpeechRecognitionTopicConstraint(SpeechRecognitionScenario.Dictation, "dictation"));
+
         var compilation = await recognizer.CompileConstraintsAsync();
         if (compilation.Status != SpeechRecognitionResultStatus.Success)
         {
             recognizer.Dispose();
-            throw new InvalidOperationException("语音识别器无法初始化，请检查麦克风权限。");
+            throw new InvalidOperationException($"语音识别器无法初始化（{compilation.Status}）。");
         }
 
         recognizer.ContinuousRecognitionSession.ResultGenerated += (_, args) =>
         {
             var text = args.Result.Text;
-            if (!string.IsNullOrWhiteSpace(text))
+            if (args.Result.Confidence != SpeechRecognitionConfidence.Rejected
+                && !string.IsNullOrWhiteSpace(text))
             {
                 onResult(text);
             }
         };
 
-        recognizer.StateChanged += (_, args) => onStateChanged($"语音识别状态：{args.State}");
+        recognizer.StateChanged += (_, args) =>
+        {
+            if (args.State == SpeechRecognizerState.Capturing)
+            {
+                onStateChanged($"正在使用 {language.DisplayName} 进行语音识别。");
+            }
+        };
+        recognizer.ContinuousRecognitionSession.Completed += (_, args) =>
+        {
+            if (_isStopping || !ReferenceEquals(_recognizer, recognizer))
+            {
+                return;
+            }
 
+            _recognizer = null;
+            recognizer.Dispose();
+            onCompleted(GetCompletionError(args.Status));
+        };
+
+        _isStopping = false;
         _recognizer = recognizer;
         try
         {
@@ -62,6 +91,7 @@ public sealed class SpeechInputService
 
         var recognizer = _recognizer;
         _recognizer = null;
+        _isStopping = true;
         try
         {
             await recognizer.ContinuousRecognitionSession.StopAsync();
@@ -72,6 +102,46 @@ public sealed class SpeechInputService
         }
 
         recognizer.Dispose();
+        _isStopping = false;
+    }
+
+    private static Language ResolveRecognitionLanguage(string? languageTag)
+    {
+        if (string.IsNullOrWhiteSpace(languageTag))
+        {
+            return SpeechRecognizer.SystemSpeechLanguage
+                ?? throw new InvalidOperationException(
+                    "Windows 未安装语音识别语言包，请先在系统语言设置中安装。");
+        }
+
+        var exactMatch = SpeechRecognizer.SupportedTopicLanguages.FirstOrDefault(
+            language => string.Equals(language.LanguageTag, languageTag, StringComparison.OrdinalIgnoreCase));
+        if (exactMatch is not null)
+        {
+            return exactMatch;
+        }
+
+        var languagePrefix = languageTag.Split('-')[0];
+        var languageMatch = SpeechRecognizer.SupportedTopicLanguages.FirstOrDefault(
+            language => language.LanguageTag.StartsWith(languagePrefix + "-", StringComparison.OrdinalIgnoreCase));
+        return languageMatch
+            ?? throw new InvalidOperationException(
+                $"Windows 未安装 {languageTag} 的语音识别语言包，请在系统语言设置中安装后重试。");
+    }
+
+    private static string? GetCompletionError(SpeechRecognitionResultStatus status)
+    {
+        return status switch
+        {
+            SpeechRecognitionResultStatus.Success => null,
+            SpeechRecognitionResultStatus.UserCanceled => null,
+            SpeechRecognitionResultStatus.MicrophoneUnavailable => "麦克风不可用，请检查设备连接以及 Windows 麦克风权限。",
+            SpeechRecognitionResultStatus.NetworkFailure => "语音识别网络连接失败，请检查网络后重试。",
+            SpeechRecognitionResultStatus.TopicLanguageNotSupported => "当前语言不支持 Windows 在线语音识别。",
+            SpeechRecognitionResultStatus.TimeoutExceeded => "长时间未检测到语音，语音识别已自动停止。",
+            SpeechRecognitionResultStatus.PauseLimitExceeded => "停顿时间过长，语音识别已自动停止。",
+            _ => $"语音识别已停止（{status}）。",
+        };
     }
 }
 
@@ -92,8 +162,11 @@ public sealed class SpeechOutputService
 
         if (languageTag is not null)
         {
+            var languagePrefix = languageTag.Split('-')[0];
             var voice = SpeechSynthesizer.AllVoices.FirstOrDefault(
-                voice => voice.Language.StartsWith(languageTag, StringComparison.OrdinalIgnoreCase));
+                    voice => string.Equals(voice.Language, languageTag, StringComparison.OrdinalIgnoreCase))
+                ?? SpeechSynthesizer.AllVoices.FirstOrDefault(
+                    voice => voice.Language.StartsWith(languagePrefix + "-", StringComparison.OrdinalIgnoreCase));
             if (voice is not null)
             {
                 Synthesizer.Voice = voice;
