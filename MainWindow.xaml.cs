@@ -11,6 +11,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
@@ -96,6 +97,9 @@ public sealed partial class MainWindow : Window
     private CancellationTokenSource? _cts;
     private DispatcherQueueTimer? _infoBarTimer;
     private readonly List<StorageFile> _selectedImageFiles = new();
+    private StorageFile? _selectedTextFile;
+    private CancellationTokenSource? _fileTranslationCts;
+    private bool _isFileTranslating;
     private readonly WindowProcedure _windowProcedure;
     private nint _windowHandle;
     private nint _previousWindowProcedure;
@@ -113,6 +117,7 @@ public sealed partial class MainWindow : Window
         AppWindow.Resize(new SizeInt32(MinWindowWidth, MinWindowHeight));
 
         _settings = AppSettingsStore.Load();
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         _translationService = new TranslationService(_httpClient);
         _machineTranslationService = new AliyunMachineTranslationService(_httpClient);
         _offlineModelService = new OfflineModelService(_httpClient);
@@ -147,6 +152,9 @@ public sealed partial class MainWindow : Window
 
         SourceLanguageComboBox.ItemsSource = Languages;
         ImageSourceLanguageComboBox.ItemsSource = Languages;
+        FileSourceLanguageComboBox.ItemsSource = Languages;
+        FileTargetLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
+        FileSourceLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
         InitializeImageModelSettings();
         SourceLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
         ImageSourceLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
@@ -157,12 +165,17 @@ public sealed partial class MainWindow : Window
         var targetIndex = Math.Clamp(_settings.TargetLanguageIndex, 0, Languages.Count - 1);
         SourceLanguageComboBox.SelectedIndex = sourceIndex;
         ImageSourceLanguageComboBox.SelectedIndex = sourceIndex;
+        FileSourceLanguageComboBox.SelectedIndex = sourceIndex;
         RefreshTargetLanguageOptions(
             TargetLanguageComboBox,
             Languages[sourceIndex],
             Languages[targetIndex]);
         RefreshTargetLanguageOptions(
             ImageTargetLanguageComboBox,
+            Languages[sourceIndex],
+            Languages[targetIndex]);
+        RefreshTargetLanguageOptions(
+            FileTargetLanguageComboBox,
             Languages[sourceIndex],
             Languages[targetIndex]);
 
@@ -198,6 +211,12 @@ public sealed partial class MainWindow : Window
         SidebarNavigationView.SelectedItem = HomeNavigationItem;
         NavigateTo("Home", addBackEntry: false);
         InitializeProviderSettings();
+        FileModeComboBox.Items.Clear();
+        FileModeComboBox.Items.Add(new ComboBoxItem { Content = "API 翻译" });
+        FileModeComboBox.Items.Add(new ComboBoxItem { Content = "AI 翻译" });
+        FileModeComboBox.Items.Add(new ComboBoxItem { Content = "本地翻译" });
+        FileModeComboBox.SelectedIndex = Math.Clamp(_settings.ModeIndex, 0, 2);
+        UpdateFileModeAvailability();
         UpdateCounts();
         UpdateUiState();
     }
@@ -400,6 +419,16 @@ public sealed partial class MainWindow : Window
             _settings.AvailableModels[profile.Name] = models;
         }
 
+        if (profile.Name == "DeepSeek")
+        {
+            models = models
+                .Select(model => NormalizeProviderModelName(profile.Name, model))
+                .Where(model => !string.IsNullOrWhiteSpace(model))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            _settings.AvailableModels[profile.Name] = models;
+        }
+
         return models;
     }
 
@@ -448,7 +477,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var model = modelTextBox.Text.Trim();
+        var model = NormalizeProviderModelName(_currentProvider, modelTextBox.Text);
         if (string.IsNullOrWhiteSpace(model))
         {
             ShowInfo("请输入要添加的模型名称。", InfoBarSeverity.Warning);
@@ -559,6 +588,24 @@ public sealed partial class MainWindow : Window
             if (!string.IsNullOrWhiteSpace(apiKey))
             {
                 _apiKeys[credentialKey] = apiKey;
+                return apiKey;
+            }
+        }
+
+        foreach (var legacyModel in GetLegacyDeepSeekModelNames(provider, model))
+        {
+            var legacyCredentialKey = GetModelCredentialKey(provider, legacyModel);
+            apiKey = _apiKeys.GetValueOrDefault(legacyCredentialKey)
+                ?? (_settings.RememberKeys ? LoadKeyFromVault(legacyCredentialKey) : null)
+                ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(apiKey))
+            {
+                _apiKeys[credentialKey] = apiKey;
+                if (_settings.RememberKeys)
+                {
+                    SaveKeyToVault(credentialKey, apiKey);
+                }
+
                 return apiKey;
             }
         }
@@ -702,6 +749,24 @@ public sealed partial class MainWindow : Window
             if (!string.IsNullOrWhiteSpace(apiKey))
             {
                 _apiKeys[credentialKey] = apiKey;
+            }
+        }
+
+        foreach (var legacyModel in GetLegacyDeepSeekModelNames(provider, model))
+        {
+            var legacyCredentialKey = GetImageModelCredentialKey(provider, legacyModel);
+            apiKey = _apiKeys.GetValueOrDefault(legacyCredentialKey)
+                ?? (_settings.RememberImageKeys ? LoadKeyFromVault(legacyCredentialKey) : null)
+                ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(apiKey))
+            {
+                _apiKeys[credentialKey] = apiKey;
+                if (_settings.RememberImageKeys)
+                {
+                    SaveKeyToVault(credentialKey, apiKey);
+                }
+
+                return apiKey;
             }
         }
 
@@ -1247,6 +1312,12 @@ public sealed partial class MainWindow : Window
     {
         _settings.ImageModels ??= new List<string>();
         _settings.ImageEndpoints ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        _settings.ImageModel = NormalizeProviderModelName("DeepSeek", _settings.ImageModel);
+        _settings.ImageModels = _settings.ImageModels
+            .Select(model => NormalizeProviderModelName("DeepSeek", model))
+            .Where(model => !string.IsNullOrWhiteSpace(model))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
         var provider = CloudProviders.Contains(_settings.ImageProviderName)
             ? _settings.ImageProviderName
             : "DeepSeek";
@@ -1330,7 +1401,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var model = modelTextBox.Text.Trim();
+        var model = NormalizeProviderModelName(GetImageProvider(), modelTextBox.Text);
         if (string.IsNullOrWhiteSpace(model))
         {
             ShowInfo("请输入要添加的图片模型名称。", InfoBarSeverity.Warning);
@@ -1492,6 +1563,21 @@ public sealed partial class MainWindow : Window
         NavigateTo(selectedItem.Tag?.ToString());
     }
 
+    private void FileSourceLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressEvents)
+        {
+            return;
+        }
+
+        var source = FileSourceLanguageComboBox.SelectedItem as LanguageOption ?? Languages[0];
+        RefreshTargetLanguageOptions(FileTargetLanguageComboBox, source, FileTargetLanguageComboBox.SelectedItem as LanguageOption);
+    }
+
+    private void FileTargetLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateFileModeAvailability();
+
+    private void FileModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateFileModeAvailability();
+
     private void SidebarNavigationView_BackRequested(NavigationView sender, NavigationViewBackRequestedEventArgs args) =>
         GoBack();
 
@@ -1572,6 +1658,7 @@ public sealed partial class MainWindow : Window
         {
             "Home" => "Windtranslator",
             "Image" => "图片翻译",
+            "File" => "文件翻译",
             "History" => "翻译历史",
             "Settings" => "设置",
             "About" => "关于",
@@ -1585,6 +1672,7 @@ public sealed partial class MainWindow : Window
         TranslationHistoryPageGrid.Visibility = tag == "History" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPageScrollViewer.Visibility = tag == "Settings" ? Visibility.Visible : Visibility.Collapsed;
         ImagePageGrid.Visibility = tag == "Image" ? Visibility.Visible : Visibility.Collapsed;
+        FilePageGrid.Visibility = tag == "File" ? Visibility.Visible : Visibility.Collapsed;
         AboutPagePanel.Visibility = tag == "About" ? Visibility.Visible : Visibility.Collapsed;
 
         // The online catalog is only needed when the user opens model settings.
@@ -1598,6 +1686,7 @@ public sealed partial class MainWindow : Window
         {
             "Home" => HomeNavigationItem,
             "Image" => ImageNavigationItem,
+            "File" => FileNavigationItem,
             "Settings" => SettingsNavigationItem,
             "About" => AboutNavigationItem,
             _ => null,
@@ -1726,6 +1815,30 @@ public sealed partial class MainWindow : Window
         ImagePreview.Visibility = Visibility.Visible;
         ImagePreviewPlaceholderText.Visibility = Visibility.Collapsed;
         UpdateUiState();
+    }
+
+    private async void ClearImageSelectionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isImageTranslating || _selectedImageFiles.Count == 0)
+        {
+            return;
+        }
+
+        if (!await ConfirmClearSelectionAsync("清除已选图片", "将清除已选图片、预览和当前译文。"))
+        {
+            return;
+        }
+
+        _selectedImageFiles.Clear();
+        SelectedImagesListView.ItemsSource = null;
+        ImageSelectionSummaryText.Text = "未选择图片";
+        ImagePreview.Source = null;
+        ImagePreview.Visibility = Visibility.Collapsed;
+        ImagePreviewPlaceholderText.Visibility = Visibility.Visible;
+        ImageOutputTextBox.Text = string.Empty;
+        ImageTranslationProgressText.Text = string.Empty;
+        UpdateUiState();
+        ShowInfo("已清除选择的图片。", InfoBarSeverity.Success);
     }
 
     private async void TranslateImageButton_Click(object sender, RoutedEventArgs e)
@@ -1867,6 +1980,386 @@ public sealed partial class MainWindow : Window
         ShowInfo("图片译文已复制到剪贴板。", InfoBarSeverity.Success);
     }
 
+    private async void PickTextFileButton_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileOpenPicker
+        {
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+        };
+        picker.FileTypeFilter.Add(".txt");
+        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
+
+        var file = await picker.PickSingleFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        var properties = await file.GetBasicPropertiesAsync();
+        const ulong maximumFileBytes = 5UL * 1024 * 1024;
+        if (properties.Size > maximumFileBytes)
+        {
+            ShowInfo("文件超过 5 MB 上限，无法进行文件翻译。", InfoBarSeverity.Warning);
+            return;
+        }
+
+        _selectedTextFile = file;
+        SelectedTextFilePathText.Text = file.Path;
+        SelectedTextFileSizeText.Text = $"{FormatFileSize(properties.Size)}";
+        FileOutputTextBox.Text = string.Empty;
+        FileProgressText.Text = string.Empty;
+        UpdateFileModeAvailability();
+    }
+
+    private async void TranslateFileButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isFileTranslating || _selectedTextFile is null)
+        {
+            return;
+        }
+
+        var configurationError = GetTranslationConfigurationError(FileModeComboBox.SelectedIndex);
+        if (configurationError is not null)
+        {
+            ShowInfo(configurationError, InfoBarSeverity.Warning);
+            UpdateFileModeAvailability();
+            return;
+        }
+
+        try
+        {
+            var sourceText = await ReadTextFileAsync(_selectedTextFile.Path);
+            if (sourceText.Length == 0)
+            {
+                ShowInfo("所选文本文件为空。", InfoBarSeverity.Warning);
+                return;
+            }
+
+            var chunks = SplitTextIntoChunks(sourceText);
+            if (chunks.Count == 0)
+            {
+                ShowInfo("所选文本文件为空。", InfoBarSeverity.Warning);
+                return;
+            }
+
+            var sourceLanguage = FileSourceLanguageComboBox.SelectedItem as LanguageOption ?? Languages[0];
+            var targetLanguage = FileTargetLanguageComboBox.SelectedItem as LanguageOption ?? Languages[3];
+            _fileTranslationCts = new CancellationTokenSource();
+            _isFileTranslating = true;
+            FileOutputTextBox.Text = string.Empty;
+            FileProgressRing.IsActive = true;
+            FileProgressText.Text = $"第 0/{chunks.Count} 块";
+            ShowInfo("正在翻译文件...", InfoBarSeverity.Informational);
+            UpdateFileModeAvailability();
+
+            var translatedChunks = new List<string>(chunks.Count);
+            for (var index = 0; index < chunks.Count; index++)
+            {
+                _fileTranslationCts.Token.ThrowIfCancellationRequested();
+                try
+                {
+                    translatedChunks.Add(await TranslateFileChunkWithRetryAsync(
+                        chunks[index],
+                        FileModeComboBox.SelectedIndex,
+                        sourceLanguage,
+                        targetLanguage,
+                        _fileTranslationCts.Token));
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    ShowInfo($"第 {index + 1}/{chunks.Count} 块翻译失败：{ex.Message}", InfoBarSeverity.Error);
+                    return;
+                }
+
+                FileProgressText.Text = $"第 {index + 1}/{chunks.Count} 块";
+            }
+
+            FileOutputTextBox.Text = string.Concat(translatedChunks);
+            ShowInfo("文件翻译完成。", InfoBarSeverity.Success);
+        }
+        catch (OperationCanceledException)
+        {
+            FileOutputTextBox.Text = string.Empty;
+            ShowInfo("已取消文件翻译，未生成任何文件。", InfoBarSeverity.Warning);
+        }
+        catch (InvalidDataException ex)
+        {
+            ShowInfo(ex.Message, InfoBarSeverity.Error);
+        }
+        catch (Exception ex)
+        {
+            ShowInfo("读取或翻译文件失败：" + ex.Message, InfoBarSeverity.Error);
+        }
+        finally
+        {
+            _isFileTranslating = false;
+            _fileTranslationCts?.Dispose();
+            _fileTranslationCts = null;
+            FileProgressRing.IsActive = false;
+            UpdateFileModeAvailability();
+        }
+    }
+
+    private async void ClearTextFileButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isFileTranslating || _selectedTextFile is null)
+        {
+            return;
+        }
+
+        if (!await ConfirmClearSelectionAsync("清除已选文件", "将清除已选文件和当前译文。"))
+        {
+            return;
+        }
+
+        _selectedTextFile = null;
+        SelectedTextFilePathText.Text = "尚未选择文件";
+        SelectedTextFileSizeText.Text = string.Empty;
+        FileOutputTextBox.Text = string.Empty;
+        FileProgressText.Text = string.Empty;
+        UpdateFileModeAvailability();
+        ShowInfo("已清除选择的文件。", InfoBarSeverity.Success);
+    }
+
+    private async Task<bool> ConfirmClearSelectionAsync(string title, string message)
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = WindowRoot.XamlRoot,
+            Title = title,
+            Content = message,
+            PrimaryButtonText = "清除",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
+    }
+
+    private void CopyFileOutputButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(FileOutputTextBox.Text))
+        {
+            return;
+        }
+
+        var dataPackage = new DataPackage();
+        dataPackage.SetText(FileOutputTextBox.Text);
+        Clipboard.SetContent(dataPackage);
+        ShowInfo("文件译文已复制到剪贴板。", InfoBarSeverity.Success);
+    }
+
+    private async void ExportFileOutputButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedTextFile is null || string.IsNullOrEmpty(FileOutputTextBox.Text))
+        {
+            return;
+        }
+
+        var picker = new FileSavePicker
+        {
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+            SuggestedFileName = Path.GetFileNameWithoutExtension(_selectedTextFile.Name) + "_译文",
+        };
+        picker.FileTypeChoices.Add("文本文件", new List<string> { ".txt" });
+        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
+        var file = await picker.PickSaveFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await File.WriteAllTextAsync(file.Path, FileOutputTextBox.Text, new UTF8Encoding(false));
+            ShowInfo("译文已导出到：" + file.Path, InfoBarSeverity.Success);
+        }
+        catch (Exception ex)
+        {
+            ShowInfo("导出失败：" + ex.Message, InfoBarSeverity.Error);
+        }
+    }
+
+    private async Task<string> TranslateFileChunkWithRetryAsync(
+        string chunk,
+        int mode,
+        LanguageOption sourceLanguage,
+        LanguageOption targetLanguage,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return RestoreOriginalLineEndings(
+                await TranslateTextAsync(chunk, mode, sourceLanguage, targetLanguage, cancellationToken),
+                chunk);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return RestoreOriginalLineEndings(
+                await TranslateTextAsync(chunk, mode, sourceLanguage, targetLanguage, cancellationToken),
+                chunk);
+        }
+    }
+
+    private static async Task<string> ReadTextFileAsync(string path)
+    {
+        var bytes = await File.ReadAllBytesAsync(path);
+        if (bytes.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+            {
+                return new UTF8Encoding(false, true).GetString(bytes, 3, bytes.Length - 3);
+            }
+
+            if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
+            {
+                return new UnicodeEncoding(false, false, true).GetString(bytes, 2, bytes.Length - 2);
+            }
+
+            if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
+            {
+                return new UnicodeEncoding(true, false, true).GetString(bytes, 2, bytes.Length - 2);
+            }
+
+            try
+            {
+                return new UTF8Encoding(false, true).GetString(bytes);
+            }
+            catch (DecoderFallbackException)
+            {
+                return Encoding.GetEncoding(936, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback)
+                    .GetString(bytes);
+            }
+        }
+        catch (DecoderFallbackException ex)
+        {
+            throw new InvalidDataException("无法识别文件编码。请将文件保存为 UTF-8、UTF-16 或 GBK 后重试。", ex);
+        }
+    }
+
+    private static List<string> SplitTextIntoChunks(string text)
+    {
+        const int chunkSize = 1800;
+        var chunks = new List<string>();
+        var chunkStart = 0;
+        var position = 0;
+
+        while (position < text.Length)
+        {
+            var lineEnd = position;
+            while (lineEnd < text.Length && text[lineEnd] != '\r' && text[lineEnd] != '\n')
+            {
+                lineEnd++;
+            }
+
+            var nextLineStart = lineEnd;
+            if (nextLineStart < text.Length && text[nextLineStart] == '\r')
+            {
+                nextLineStart++;
+            }
+
+            if (nextLineStart < text.Length && text[nextLineStart] == '\n')
+            {
+                nextLineStart++;
+            }
+
+            if (lineEnd - chunkStart >= chunkSize && position > chunkStart)
+            {
+                chunks.Add(text[chunkStart..position]);
+                chunkStart = position;
+            }
+
+            position = nextLineStart;
+        }
+
+        if (chunkStart < text.Length)
+        {
+            chunks.Add(text[chunkStart..]);
+        }
+
+        return chunks;
+    }
+
+    private static string FormatFileSize(ulong bytes) => bytes < 1024
+        ? $"{bytes} B"
+        : $"{bytes / 1024d:F1} KB";
+
+    private static string RestoreOriginalLineEndings(string translatedText, string sourceText)
+    {
+        var sourceEndings = GetLineEndings(sourceText);
+        var translatedLines = translatedText.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        if (sourceEndings.Count == 0)
+        {
+            return translatedText;
+        }
+
+        var expectedLineCount = sourceEndings.Count + 1;
+        if (translatedLines.Length != expectedLineCount)
+        {
+            var adjustedLines = new string[expectedLineCount];
+            if (translatedLines.Length < expectedLineCount)
+            {
+                adjustedLines[0] = translatedText.Replace("\r\n", " ").Replace('\r', ' ').Replace('\n', ' ');
+                for (var index = 1; index < adjustedLines.Length; index++)
+                {
+                    adjustedLines[index] = string.Empty;
+                }
+            }
+            else
+            {
+                Array.Copy(translatedLines, adjustedLines, expectedLineCount - 1);
+                adjustedLines[^1] = string.Concat(translatedLines.Skip(expectedLineCount - 1));
+            }
+
+            translatedLines = adjustedLines;
+        }
+
+        var builder = new StringBuilder(translatedText.Length + sourceEndings.Count);
+        for (var index = 0; index < sourceEndings.Count; index++)
+        {
+            builder.Append(translatedLines[index]);
+            builder.Append(sourceEndings[index]);
+        }
+
+        builder.Append(translatedLines[^1]);
+        return builder.ToString();
+    }
+
+    private static List<string> GetLineEndings(string text)
+    {
+        var endings = new List<string>();
+        for (var index = 0; index < text.Length; index++)
+        {
+            if (text[index] == '\r')
+            {
+                endings.Add(index + 1 < text.Length && text[index + 1] == '\n' ? "\r\n" : "\r");
+                if (index + 1 < text.Length && text[index + 1] == '\n')
+                {
+                    index++;
+                }
+            }
+            else if (text[index] == '\n')
+            {
+                endings.Add("\n");
+            }
+        }
+
+        return endings;
+    }
+
     private async void TranslateButton_Click(object sender, RoutedEventArgs e)
     {
         if (_isTranslating)
@@ -1962,19 +2455,12 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            var result = useLocalModel
-                ? await _bergamotTranslationService.TranslateAsync(
-                    _selectedOfflineModelPath,
-                    sourceText,
-                    _cts.Token)
-                : await _translationService.TranslateAsync(
-                    new TranslationRequest(
-                        endpoint,
-                        apiKey,
-                        model,
-                        systemPrompt,
-                        sourceText),
-                    _cts.Token);
+            var result = await TranslateTextAsync(
+                sourceText,
+                ModeComboBox.SelectedIndex,
+                sourceLanguage,
+                targetLanguage,
+                _cts.Token);
             OutputTextBox.Text = result;
             UpdateCounts();
             AddTranslationHistory(sourceText);
@@ -2023,14 +2509,6 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var request = new MachineTranslationRequest(
-            AliyunServiceUrl,
-            _aliyunAccessKeyId,
-            _aliyunAccessKeySecret,
-            sourceLanguage.ApiCode,
-            targetLanguage.ApiCode,
-            sourceText);
-
         _cts = new CancellationTokenSource();
         _isTranslating = true;
         TranslateButtonText.Text = "取消";
@@ -2040,7 +2518,12 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            var result = await _machineTranslationService.TranslateAsync(request, _cts.Token);
+            var result = await TranslateTextAsync(
+                sourceText,
+                0,
+                sourceLanguage,
+                targetLanguage,
+                _cts.Token);
             OutputTextBox.Text = result;
             UpdateCounts();
             AddTranslationHistory(sourceText);
@@ -2110,6 +2593,153 @@ public sealed partial class MainWindow : Window
             _isStartingSpeechInput = false;
             UpdateUiState();
         }
+    }
+
+    private async Task<string> TranslateTextAsync(
+        string text,
+        int mode,
+        LanguageOption sourceLanguage,
+        LanguageOption targetLanguage,
+        CancellationToken cancellationToken)
+    {
+        if (mode == 0)
+        {
+            if (string.IsNullOrWhiteSpace(_aliyunAccessKeyId) || string.IsNullOrWhiteSpace(_aliyunAccessKeySecret))
+            {
+                throw new InvalidOperationException("请填写阿里云机器翻译 AccessKey ID 和 AccessKey Secret。");
+            }
+
+            return await _machineTranslationService.TranslateAsync(
+                new MachineTranslationRequest(
+                    AliyunServiceUrl,
+                    _aliyunAccessKeyId,
+                    _aliyunAccessKeySecret,
+                    sourceLanguage.ApiCode,
+                    targetLanguage.ApiCode,
+                    text),
+                cancellationToken);
+        }
+
+        var useLocalModel = mode == 2 && LocalTranslationSourceComboBox.SelectedIndex == 1;
+        if (useLocalModel)
+        {
+            if (!IsBergamotRuntimeAvailable())
+            {
+                throw new InvalidOperationException("当前发布包未包含 Mozilla Translations 本地翻译引擎。");
+            }
+
+            if (string.IsNullOrWhiteSpace(_selectedOfflineModelPath))
+            {
+                throw new InvalidOperationException("请先在设置中下载并选择离线语言模型。");
+            }
+
+            return await _bergamotTranslationService.TranslateAsync(
+                _selectedOfflineModelPath,
+                text,
+                cancellationToken);
+        }
+
+        var endpoint = mode == 2 ? LocalEndpointTextBox.Text.Trim() : AiEndpointTextBox.Text.Trim();
+        var model = mode == 2 ? LocalModelTextBox.Text.Trim() : GetSelectedAiModel();
+        var apiKey = mode == 2 ? null : GetApiKeyForModel(_currentProvider, model);
+        if (string.IsNullOrWhiteSpace(endpoint))
+        {
+            throw new InvalidOperationException("请填写接口地址。");
+        }
+
+        if (string.IsNullOrWhiteSpace(model))
+        {
+            throw new InvalidOperationException("请填写模型名称。");
+        }
+
+        if (mode != 2 && string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new InvalidOperationException("请在设置中为当前模型填写 API Key。");
+        }
+
+        var systemPrompt = BuildDefaultPrompt(
+            sourceLanguage,
+            targetLanguage,
+            AiPromptStyleComboBox.SelectedIndex,
+            AiIncludeLanguageDetailsCheckBox.IsChecked == true);
+        if (mode != 0 && !string.IsNullOrWhiteSpace(CustomPromptTextBox.Text))
+        {
+            systemPrompt += "\n\n补充要求：" + CustomPromptTextBox.Text.Trim();
+        }
+
+        return await _translationService.TranslateAsync(
+            new TranslationRequest(endpoint, apiKey, model, systemPrompt, text),
+            cancellationToken);
+    }
+
+    private string? GetTranslationConfigurationError(int mode)
+    {
+        if (mode == 0)
+        {
+            return string.IsNullOrWhiteSpace(_aliyunAccessKeyId) || string.IsNullOrWhiteSpace(_aliyunAccessKeySecret)
+                ? "API 翻译未配置阿里云 AccessKey。"
+                : null;
+        }
+
+        if (mode == 2 && LocalTranslationSourceComboBox.SelectedIndex == 1)
+        {
+            return string.IsNullOrWhiteSpace(_selectedOfflineModelPath)
+                ? "本地翻译未选择 Mozilla Translations 模型。"
+                : !IsBergamotRuntimeAvailable()
+                    ? "当前发布包未包含 Mozilla Translations 本地翻译引擎。"
+                    : null;
+        }
+
+        var endpoint = mode == 2 ? LocalEndpointTextBox.Text : AiEndpointTextBox.Text;
+        var model = mode == 2 ? LocalModelTextBox.Text : GetSelectedAiModel();
+        if (string.IsNullOrWhiteSpace(endpoint))
+        {
+            return mode == 2 ? "本地翻译未配置接口地址。" : "AI 翻译未配置接口地址。";
+        }
+
+        if (string.IsNullOrWhiteSpace(model))
+        {
+            return mode == 2 ? "本地翻译未配置模型名称。" : "AI 翻译未配置模型名称。";
+        }
+
+        return mode == 2 || !string.IsNullOrWhiteSpace(GetApiKeyForModel(_currentProvider, model))
+            ? null
+            : "AI 翻译未配置当前模型的 API Key。";
+    }
+
+    private void UpdateFileModeAvailability()
+    {
+        if (FileModeComboBox is null)
+        {
+            return;
+        }
+
+        var selectedIndex = Math.Clamp(FileModeComboBox.SelectedIndex, 0, 2);
+        var items = FileModeComboBox.Items.OfType<ComboBoxItem>().ToList();
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        for (var index = 0; index < items.Count; index++)
+        {
+            items[index].IsEnabled = GetTranslationConfigurationError(index) is null;
+        }
+
+        if (selectedIndex < items.Count && !items[selectedIndex].IsEnabled)
+        {
+            FileModeHintText.Text = GetTranslationConfigurationError(selectedIndex) ?? "当前模式未配置。";
+        }
+        else
+        {
+            FileModeHintText.Text = string.Empty;
+        }
+
+        TranslateFileButton.IsEnabled = !_isFileTranslating && _selectedTextFile is not null
+            && selectedIndex < items.Count && items[selectedIndex].IsEnabled;
+        ClearTextFileButton.IsEnabled = !_isFileTranslating && _selectedTextFile is not null;
+        CopyFileOutputButton.IsEnabled = !_isFileTranslating && !string.IsNullOrEmpty(FileOutputTextBox.Text);
+        ExportFileOutputButton.IsEnabled = !_isFileTranslating && !string.IsNullOrEmpty(FileOutputTextBox.Text);
     }
 
     private void HandleSpeechRecognitionCompleted(string? error)
@@ -2359,7 +2989,9 @@ public sealed partial class MainWindow : Window
         SpeakButton.IsEnabled = _speechOutput.IsSpeaking || OutputTextBox.Text.Trim().Length > 0;
         PickImageButton.IsEnabled = !_isImageTranslating;
         TranslateImageButton.IsEnabled = !_isImageTranslating && _selectedImageFiles.Count > 0;
+        ClearImageSelectionButton.IsEnabled = !_isImageTranslating && _selectedImageFiles.Count > 0;
         CopyImageOutputButton.IsEnabled = ImageOutputTextBox.Text.Trim().Length > 0;
+        UpdateFileModeAvailability();
     }
 
     private void SaveSettings()
@@ -2496,7 +3128,7 @@ public sealed partial class MainWindow : Window
         "DeepSeek" => new ProviderProfile(
             "DeepSeek",
             "https://api.deepseek.com",
-            new[] { "deepseek-v4-flash", "deepseek-v4-pro" },
+            new[] { "deepseek-flash", "deepseek-v4-pro" },
             true),
         "千问" => new ProviderProfile(
             "千问",
@@ -2520,14 +3152,28 @@ public sealed partial class MainWindow : Window
             false),
     };
 
-    private static string NormalizeProviderModelName(string provider, string model) => provider == "DeepSeek"
-        ? model switch
+    private static string NormalizeProviderModelName(string provider, string? model)
+    {
+        var normalizedModel = model?.Trim() ?? string.Empty;
+        return provider == "DeepSeek"
+            ? normalizedModel.ToLowerInvariant() switch
+            {
+                "v4flash" or "deepseek-v4-flash" or "deepseek-v4-flash-vision-exp" => "deepseek-flash",
+                "v4pro" => "deepseek-v4-pro",
+                _ => normalizedModel,
+            }
+            : normalizedModel;
+    }
+
+    private static IEnumerable<string> GetLegacyDeepSeekModelNames(string provider, string model)
+    {
+        if (provider == "DeepSeek" && model.Equals("deepseek-flash", StringComparison.OrdinalIgnoreCase))
         {
-            "v4flash" => "deepseek-v4-flash",
-            "v4pro" => "deepseek-v4-pro",
-            _ => model,
+            yield return "deepseek-v4-flash";
+            yield return "deepseek-v4-flash-vision-exp";
+            yield return "v4flash";
         }
-        : model;
+    }
 
     private string GetSelectedAiModelForProvider(string provider)
     {
@@ -2542,7 +3188,7 @@ public sealed partial class MainWindow : Window
 
     private static string GetDefaultImageModel(string provider) => provider switch
     {
-        "DeepSeek" => "deepseek-v4-flash-vision-exp",
+        "DeepSeek" => "deepseek-flash",
         "Kimi" => "kimi-k2.6",
         "智谱" => "glm-5.3-flash",
         _ => "qwen3.5-ocr",

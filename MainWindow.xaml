@@ -37,6 +37,7 @@
             <NavigationView.MenuItems>
                 <NavigationViewItem x:Name="HomeNavigationItem" Icon="Home" Content="主页" Tag="Home" />
                 <NavigationViewItem x:Name="ImageNavigationItem" Icon="Pictures" Content="图片翻译" Tag="Image" />
+                <NavigationViewItem x:Name="FileNavigationItem" Icon="Document" Content="文件翻译" Tag="File" />
                 <NavigationViewItem x:Name="SettingsNavigationItem" Icon="Setting" Content="设置" Tag="Settings" />
             </NavigationView.MenuItems>
             <NavigationView.FooterMenuItems>
@@ -814,7 +815,12 @@
                     BorderBrush="{ThemeResource WindCardStrokeBrush}"
                     BorderThickness="1"
                     CornerRadius="8">
-                    <StackPanel Spacing="16">
+                    <Grid RowSpacing="16">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Spacing="16">
                         <ComboBox
                             x:Name="ImageModelComboBox"
                             Header="模型"
@@ -823,7 +829,6 @@
                         <Button
                             x:Name="PickImageButton"
                             HorizontalAlignment="Left"
-                            Padding="12,8"
                             Click="PickImageButton_Click">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <SymbolIcon Symbol="Add" />
@@ -893,13 +898,38 @@
                                 SelectionChanged="ImageTargetLanguageComboBox_SelectionChanged" />
                         </Grid>
 
-                        <Button
-                            x:Name="TranslateImageButton"
-                            Content="翻译所选图片"
-                            Style="{StaticResource AccentButtonStyle}"
-                            IsEnabled="False"
-                            Click="TranslateImageButton_Click" />
-                    </StackPanel>
+                        </StackPanel>
+
+                        <Grid Grid.Row="1" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Button
+                                x:Name="ClearImageSelectionButton"
+                                Grid.Column="1"
+                                IsEnabled="False"
+                                Click="ClearImageSelectionButton_Click">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <SymbolIcon Symbol="Delete" />
+                                    <TextBlock Text="清除" />
+                                </StackPanel>
+                            </Button>
+                            <Button
+                                x:Name="TranslateImageButton"
+                                Grid.Column="2"
+                                HorizontalAlignment="Right"
+                                Style="{StaticResource AccentButtonStyle}"
+                                IsEnabled="False"
+                                Click="TranslateImageButton_Click">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <SymbolIcon Symbol="Forward" />
+                                    <TextBlock Text="开始翻译" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </Grid>
                 </Border>
 
                 <Border
@@ -946,8 +976,165 @@
                         <Button
                             x:Name="CopyImageOutputButton"
                             Grid.Row="2"
+                            HorizontalAlignment="Right"
                             Content="复制图片译文"
                             Click="CopyImageOutputButton_Click" />
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Grid
+                x:Name="FilePageGrid"
+                Grid.Row="2"
+                Margin="16,8,16,16"
+                ColumnSpacing="16"
+                Visibility="Collapsed">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border
+                    Grid.Column="0"
+                    Padding="16"
+                    Background="{ThemeResource WindCardBackgroundBrush}"
+                    BorderBrush="{ThemeResource WindCardStrokeBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <Grid RowSpacing="16">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Spacing="14">
+                        <Button
+                            x:Name="PickTextFileButton"
+                            HorizontalAlignment="Left"
+                            Click="PickTextFileButton_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <SymbolIcon Symbol="OpenFile" />
+                                <TextBlock Text="选择 .txt 文件" />
+                            </StackPanel>
+                        </Button>
+                        <TextBlock
+                            x:Name="SelectedTextFilePathText"
+                            Text="尚未选择文件"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            TextWrapping="Wrap" />
+                        <TextBlock
+                            x:Name="SelectedTextFileSizeText"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox
+                                x:Name="FileSourceLanguageComboBox"
+                                Header="源语言"
+                                DisplayMemberPath="Display"
+                                SelectionChanged="FileSourceLanguageComboBox_SelectionChanged" />
+                            <ComboBox
+                                x:Name="FileTargetLanguageComboBox"
+                                Grid.Column="1"
+                                Header="目标语言"
+                                DisplayMemberPath="Display"
+                                SelectionChanged="FileTargetLanguageComboBox_SelectionChanged" />
+                        </Grid>
+
+                        <ComboBox
+                            x:Name="FileModeComboBox"
+                            Header="翻译模式"
+                            SelectionChanged="FileModeComboBox_SelectionChanged" />
+                        <TextBlock
+                            x:Name="FileModeHintText"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            TextWrapping="Wrap" />
+
+                        </StackPanel>
+
+                        <Grid Grid.Row="1" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <ProgressRing
+                                    x:Name="FileProgressRing"
+                                    Width="22"
+                                    Height="22"
+                                    IsActive="False" />
+                                <TextBlock
+                                    x:Name="FileProgressText"
+                                    VerticalAlignment="Center"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                            <Button
+                                x:Name="ClearTextFileButton"
+                                Grid.Column="1"
+                                IsEnabled="False"
+                                Click="ClearTextFileButton_Click">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <SymbolIcon Symbol="Delete" />
+                                    <TextBlock Text="清除" />
+                                </StackPanel>
+                            </Button>
+                            <Button
+                                x:Name="TranslateFileButton"
+                                Grid.Column="2"
+                                HorizontalAlignment="Right"
+                                Style="{StaticResource AccentButtonStyle}"
+                                Click="TranslateFileButton_Click">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <SymbolIcon Symbol="Forward" />
+                                    <TextBlock x:Name="TranslateFileButtonText" Text="开始翻译" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <Border
+                    Grid.Column="1"
+                    Padding="16"
+                    Background="{ThemeResource WindCardBackgroundBrush}"
+                    BorderBrush="{ThemeResource WindCardStrokeBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="译文" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBox
+                            x:Name="FileOutputTextBox"
+                            Grid.Row="1"
+                            Margin="0,8,0,8"
+                            MinHeight="340"
+                            AcceptsReturn="True"
+                            FontFamily="Segoe UI"
+                            FontSize="16"
+                            IsReadOnly="True"
+                            PlaceholderText="翻译结果会显示在这里"
+                            TextWrapping="Wrap"
+                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                            ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                            <Button
+                                x:Name="CopyFileOutputButton"
+                                Content="复制"
+                                IsEnabled="False"
+                                Click="CopyFileOutputButton_Click" />
+                            <Button
+                                x:Name="ExportFileOutputButton"
+                                Content="导出"
+                                IsEnabled="False"
+                                Click="ExportFileOutputButton_Click" />
+                        </StackPanel>
                     </Grid>
                 </Border>
             </Grid>
@@ -993,38 +1180,92 @@
                             Text="简洁、快速的桌面翻译工具。"
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             TextWrapping="Wrap" />
-
-                        <Rectangle
-                            Height="1"
-                            Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="开发者" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <HyperlinkButton
-                                Padding="0"
-                                HorizontalAlignment="Left"
-                                NavigateUri="https://github.com/seaslan">
-                                Seaslan
-                            </HyperlinkButton>
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="相关链接" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <HyperlinkButton
-                                Padding="0"
-                                HorizontalAlignment="Left"
-                                NavigateUri="https://github.com/Seaslan/Windtranslator">
-                                项目主页
-                            </HyperlinkButton>
-                            <HyperlinkButton
-                                Padding="0"
-                                HorizontalAlignment="Left"
-                                NavigateUri="https://seaslan.github.io/Windtranslator/privacy">
-                                隐私政策
-                            </HyperlinkButton>
-                        </StackPanel>
                     </StackPanel>
                 </Border>
+
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border
+                        Padding="16"
+                        VerticalAlignment="Top"
+                        Background="{ThemeResource WindCardBackgroundBrush}"
+                        BorderBrush="{ThemeResource WindCardStrokeBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <StackPanel Spacing="12">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="开发者" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                <HyperlinkButton
+                                    Padding="0"
+                                    HorizontalAlignment="Left"
+                                    NavigateUri="https://github.com/seaslan">
+                                    Seaslan
+                                </HyperlinkButton>
+                            </StackPanel>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="相关链接" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                <HyperlinkButton
+                                    Padding="0"
+                                    HorizontalAlignment="Left"
+                                    NavigateUri="https://github.com/Seaslan/Windtranslator">
+                                    项目主页
+                                </HyperlinkButton>
+                                <HyperlinkButton
+                                    Padding="0"
+                                    HorizontalAlignment="Left"
+                                    NavigateUri="https://seaslan.github.io/Windtranslator/privacy">
+                                    隐私政策
+                                </HyperlinkButton>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border
+                        Grid.Column="1"
+                        VerticalAlignment="Top"
+                        Background="{ThemeResource WindCardBackgroundBrush}"
+                        BorderBrush="{ThemeResource WindCardStrokeBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <Expander
+                            Header="使用的开源软件"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            IsExpanded="False">
+                            <StackPanel Padding="12,0,12,12" Spacing="4">
+                                <HyperlinkButton
+                                    Padding="0"
+                                    HorizontalAlignment="Left"
+                                    FontSize="12"
+                                    NavigateUri="https://aka.ms/net">.NET 8</HyperlinkButton>
+                                <HyperlinkButton
+                                    Padding="0"
+                                    HorizontalAlignment="Left"
+                                    FontSize="12"
+                                    NavigateUri="https://aka.ms/windowsappsdk">Windows App SDK</HyperlinkButton>
+                                <HyperlinkButton
+                                    Padding="0"
+                                    HorizontalAlignment="Left"
+                                    FontSize="12"
+                                    NavigateUri="https://aka.ms/winui3">WinUI 3</HyperlinkButton>
+                                <HyperlinkButton
+                                    Padding="0"
+                                    HorizontalAlignment="Left"
+                                    FontSize="12"
+                                    NavigateUri="https://github.com/mozilla/translations">Mozilla Translations</HyperlinkButton>
+                                <HyperlinkButton
+                                    Padding="0"
+                                    HorizontalAlignment="Left"
+                                    FontSize="12"
+                                    NavigateUri="https://github.com/browsermt/bergamot-translator">Bergamot Translator</HyperlinkButton>
+                            </StackPanel>
+                        </Expander>
+                    </Border>
+                </Grid>
 
                 <TextBlock
                     FontSize="12"
