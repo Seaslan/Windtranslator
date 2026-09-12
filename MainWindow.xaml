@@ -142,6 +142,9 @@
                     Margin="8,0,0,0"
                     VerticalAlignment="Center"
                     IsActive="False" />
+                <Button x:Name="MiniModeButton" Grid.Column="5" Height="34" Padding="10,0" Click="MiniModeButton_Click" ToolTipService.ToolTip="迷你窗口">
+                    <SymbolIcon Symbol="BackToWindow" />
+                </Button>
             </Grid>
 
             <Grid
@@ -204,7 +207,7 @@
                                 Padding="8,6"
                                 Click="MicButton_Click"
                                 ToolTipService.ToolTip="语音输入">
-                                <SymbolIcon x:Name="MicIcon" Symbol="Microphone" />
+                                <SymbolIcon Symbol="Microphone" />
                             </Button>
                         </Grid>
 
@@ -491,6 +494,13 @@
                             x:Name="AiEndpointTextBox"
                             PlaceholderText="https://api.deepseek.com"
                             TextChanged="AiEndpointTextBox_TextChanged" />
+                        <TextBlock
+                            x:Name="CustomProviderHintText"
+                            Text="自定义接口必须兼容 OpenAI Chat Completions API。"
+                            FontSize="12"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            TextWrapping="Wrap"
+                            Visibility="Collapsed" />
 
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
@@ -559,6 +569,26 @@
                             Content="记住 API Key"
                             Checked="AiRememberKeyCheckBox_Changed"
                             Unchecked="AiRememberKeyCheckBox_Changed" />
+
+                        <TextBlock Text="提示词设置" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="提示词风格" />
+                        <ComboBox
+                            x:Name="AiPromptStyleComboBox"
+                            MinWidth="180"
+                            SelectionChanged="AiPromptStyleComboBox_SelectionChanged" />
+                        <CheckBox
+                            x:Name="AiIncludeLanguageDetailsCheckBox"
+                            Content="提供解释、读音和词性"
+                            Checked="AiIncludeLanguageDetailsCheckBox_Changed"
+                            Unchecked="AiIncludeLanguageDetailsCheckBox_Changed" />
+                        <TextBlock Text="补充提示词" />
+                        <TextBox
+                            x:Name="CustomPromptTextBox"
+                            MinHeight="96"
+                            AcceptsReturn="True"
+                            PlaceholderText="例如：保持术语一致，正式语气，不要加注释"
+                            TextChanged="CustomPromptTextBox_TextChanged"
+                            TextWrapping="Wrap" />
                             </StackPanel>
                         </Expander>
                     </Border>
@@ -770,30 +800,6 @@
                         </Expander>
                     </Border>
 
-                    <Border Style="{StaticResource SettingsCardStyle}">
-                        <Expander Header="AI 提示词" Style="{StaticResource SettingsExpanderStyle}">
-                            <StackPanel Padding="16,0,16,16" Spacing="8">
-                        <TextBlock Text="提示词风格" />
-                        <ComboBox
-                            x:Name="AiPromptStyleComboBox"
-                            MinWidth="180"
-                            SelectionChanged="AiPromptStyleComboBox_SelectionChanged" />
-                        <CheckBox
-                            x:Name="AiIncludeLanguageDetailsCheckBox"
-                            Content="提供解释、读音和词性"
-                            Checked="AiIncludeLanguageDetailsCheckBox_Changed"
-                            Unchecked="AiIncludeLanguageDetailsCheckBox_Changed" />
-                        <TextBlock Text="补充提示词" />
-                        <TextBox
-                            x:Name="CustomPromptTextBox"
-                            MinHeight="96"
-                            AcceptsReturn="True"
-                            PlaceholderText="例如：保持术语一致，正式语气，不要加注释"
-                            TextChanged="CustomPromptTextBox_TextChanged"
-                            TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Expander>
-                    </Border>
                 </StackPanel>
             </ScrollViewer>
 
@@ -981,6 +987,37 @@
                             Click="CopyImageOutputButton_Click" />
                     </Grid>
                 </Border>
+            </Grid>
+
+            <Grid x:Name="MiniPageGrid" Grid.Row="1" Grid.RowSpan="3" Canvas.ZIndex="100" Padding="12" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}" IsHitTestVisible="True" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="MiniExitButton" Width="36" Height="34" Padding="0" Click="MiniModeButton_Click" ToolTipService.ToolTip="恢复完整窗口">
+                        <SymbolIcon Symbol="FullScreen" />
+                    </Button>
+                    <TextBlock Grid.Column="1" Text="译为" VerticalAlignment="Center" />
+                    <ComboBox x:Name="MiniTargetLanguageComboBox" Grid.Column="2" DisplayMemberPath="Display" HorizontalAlignment="Stretch" />
+                </Grid>
+                <TextBox x:Name="MiniSourceTextBox" Grid.Row="1" Margin="0,8" AcceptsReturn="True" TextWrapping="Wrap" PlaceholderText="输入文本后按回车翻译" KeyDown="MiniSourceTextBox_KeyDown" ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                <Grid Grid.Row="2" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="MiniClearButton" Width="36" Height="34" Padding="0" Click="MiniClearButton_Click" ToolTipService.ToolTip="清除文本"><SymbolIcon Symbol="Clear" /></Button>
+                    <ProgressRing x:Name="MiniProgressRing" Grid.Column="1" Width="22" Height="22" HorizontalAlignment="Right" VerticalAlignment="Center" IsActive="False" />
+                    <Button x:Name="MiniTranslateButton" Grid.Column="2" MinWidth="96" Height="34" Style="{StaticResource AccentButtonStyle}" Click="MiniTranslateButton_Click"><StackPanel Orientation="Horizontal" Spacing="6"><SymbolIcon Symbol="Forward" /><TextBlock Text="翻译" /></StackPanel></Button>
+                </Grid>
             </Grid>
 
             <Grid
@@ -1217,7 +1254,7 @@
                                 <HyperlinkButton
                                     Padding="0"
                                     HorizontalAlignment="Left"
-                                    NavigateUri="https://seaslan.github.io/Windtranslator/privacy">
+                                    NavigateUri="https://seaslan.github.io/Windtranslator/">
                                     隐私政策
                                 </HyperlinkButton>
                             </StackPanel>

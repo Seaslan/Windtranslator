@@ -35,6 +35,7 @@ public sealed partial class MainWindow : Window
     private const string AliyunServiceUrl = "http://mt.cn-hangzhou.aliyuncs.com/api/translate/web/ecommerce";
     private const string AliyunAccessKeyIdResource = "阿里云机器翻译:AccessKeyId";
     private const string AliyunAccessKeySecretResource = "阿里云机器翻译:AccessKeySecret";
+    private const string CustomAiProviderName = "自定义模型";
     private const int MinWindowWidth = 960;
     private const int MinWindowHeight = 660;
     private const double SettingsPanelMaxWidth = 760d;
@@ -42,11 +43,15 @@ public sealed partial class MainWindow : Window
     private const uint WmXButtonUp = 0x020C;
     private const uint WmSysKeyDown = 0x0104;
     private const int VkLeft = 0x25;
+    private const byte VkLeftWindows = 0x5B;
+    private const byte VkH = 0x48;
+    private const uint KeyEventKeyUp = 0x0002;
     private const int XButton1 = 1;
     private const int GwlWndProc = -4;
     private static readonly int[] TranslationHistoryLimits = { 0, 5, 20, -1 };
 
     private static readonly List<string> CloudProviders = new() { "DeepSeek", "千问", "Kimi", "智谱" };
+    private static readonly List<string> AiProviders = new(CloudProviders) { CustomAiProviderName };
 
     private static readonly List<LanguageOption> Languages = new()
     {
@@ -73,7 +78,6 @@ public sealed partial class MainWindow : Window
     private readonly BergamotTranslationService _bergamotTranslationService = new();
     private readonly OfflineModelService _offlineModelService;
     private readonly AliyunMachineTranslationService _machineTranslationService;
-    private readonly SpeechInputService _speechInput = new();
     private readonly SpeechOutputService _speechOutput = new();
     private readonly Dictionary<string, string> _apiKeys = new(StringComparer.OrdinalIgnoreCase);
     private readonly AppSettings _settings;
@@ -84,7 +88,7 @@ public sealed partial class MainWindow : Window
     private string _selectedOfflineModelPath = string.Empty;
     private bool _isTranslating;
     private bool _isImageTranslating;
-    private bool _isStartingSpeechInput;
+    private bool _isOpeningSystemDictation;
     private bool _suppressEvents;
     private bool _suppressSidebarSync;
     private bool _isLoadingOfflineModels;
@@ -100,6 +104,7 @@ public sealed partial class MainWindow : Window
     private StorageFile? _selectedTextFile;
     private CancellationTokenSource? _fileTranslationCts;
     private bool _isFileTranslating;
+    private bool _isMiniMode;
     private readonly WindowProcedure _windowProcedure;
     private nint _windowHandle;
     private nint _previousWindowProcedure;
@@ -126,7 +131,6 @@ public sealed partial class MainWindow : Window
         Closed += (_, _) =>
         {
             NetworkInformation.NetworkStatusChanged -= NetworkInformation_NetworkStatusChanged;
-            _ = _speechInput.StopAsync();
             _speechOutput.Stop();
             RestoreWindowProcedure();
         };
@@ -201,10 +205,6 @@ public sealed partial class MainWindow : Window
 
         _suppressEvents = false;
 
-        var aiPromptSettingsEnabled = ModeComboBox.SelectedIndex != 0;
-        CustomPromptTextBox.IsEnabled = aiPromptSettingsEnabled;
-        AiPromptStyleComboBox.IsEnabled = aiPromptSettingsEnabled;
-        AiIncludeLanguageDetailsCheckBox.IsEnabled = aiPromptSettingsEnabled;
         ApplyTheme();
         ApplyMicaBackdrop();
         AboutVersionTextBlock.Text = "版本 " + GetApplicationVersion();
@@ -228,10 +228,6 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var isApi = ModeComboBox.SelectedIndex == 0;
-        CustomPromptTextBox.IsEnabled = !isApi;
-        AiPromptStyleComboBox.IsEnabled = !isApi;
-        AiIncludeLanguageDetailsCheckBox.IsEnabled = !isApi;
         SaveSettings();
     }
 
@@ -283,8 +279,8 @@ public sealed partial class MainWindow : Window
     {
         _suppressEvents = true;
 
-        AiProviderComboBox.ItemsSource = CloudProviders;
-        _currentProvider = CloudProviders.Contains(_settings.ProviderName)
+        AiProviderComboBox.ItemsSource = AiProviders;
+        _currentProvider = AiProviders.Contains(_settings.ProviderName)
             ? _settings.ProviderName
             : "DeepSeek";
         AiProviderComboBox.SelectedItem = _currentProvider;
@@ -293,11 +289,14 @@ public sealed partial class MainWindow : Window
         AiEndpointTextBox.Text = _settings.Endpoints.TryGetValue(_currentProvider, out var endpoint)
             && !string.IsNullOrWhiteSpace(endpoint)
                 ? endpoint
-                : profile.DefaultEndpoint;
-        AiEndpointTextBox.PlaceholderText = profile.DefaultEndpoint;
+                : _currentProvider == CustomAiProviderName ? string.Empty : profile.DefaultEndpoint;
+        AiEndpointTextBox.PlaceholderText = _currentProvider == CustomAiProviderName
+            ? "https://example.com/v1"
+            : profile.DefaultEndpoint;
+        UpdateCustomProviderHint();
 
         var savedModel = _settings.Models.TryGetValue(_currentProvider, out var model)
-            ? NormalizeProviderModelName(_currentProvider, model)
+            ? model.Trim()
             : null;
         RefreshAiModelOptions(profile, savedModel);
 
@@ -356,11 +355,14 @@ public sealed partial class MainWindow : Window
         AiEndpointTextBox.Text = _settings.Endpoints.TryGetValue(provider, out var endpoint)
             && !string.IsNullOrWhiteSpace(endpoint)
                 ? endpoint
-                : profile.DefaultEndpoint;
-        AiEndpointTextBox.PlaceholderText = profile.DefaultEndpoint;
+                : provider == CustomAiProviderName ? string.Empty : profile.DefaultEndpoint;
+        AiEndpointTextBox.PlaceholderText = provider == CustomAiProviderName
+            ? "https://example.com/v1"
+            : profile.DefaultEndpoint;
+        UpdateCustomProviderHint();
 
         var savedModel = _settings.Models.TryGetValue(provider, out var model)
-            ? NormalizeProviderModelName(provider, model)
+            ? model.Trim()
             : null;
         RefreshAiModelOptions(profile, savedModel);
 
@@ -419,16 +421,6 @@ public sealed partial class MainWindow : Window
             _settings.AvailableModels[profile.Name] = models;
         }
 
-        if (profile.Name == "DeepSeek")
-        {
-            models = models
-                .Select(model => NormalizeProviderModelName(profile.Name, model))
-                .Where(model => !string.IsNullOrWhiteSpace(model))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            _settings.AvailableModels[profile.Name] = models;
-        }
-
         return models;
     }
 
@@ -452,7 +444,7 @@ public sealed partial class MainWindow : Window
         var modelTextBox = new TextBox
         {
             Header = "模型名称",
-            PlaceholderText = "输入模型名称",
+            PlaceholderText = "输入自定义模型名称",
         };
         var apiKeyPasswordBox = new PasswordBox
         {
@@ -465,7 +457,7 @@ public sealed partial class MainWindow : Window
         var dialog = new ContentDialog
         {
             XamlRoot = WindowRoot.XamlRoot,
-            Title = "添加 AI 模型",
+            Title = "添加自定义模型",
             Content = content,
             PrimaryButtonText = "添加",
             CloseButtonText = "取消",
@@ -477,7 +469,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var model = NormalizeProviderModelName(_currentProvider, modelTextBox.Text);
+        var model = modelTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(model))
         {
             ShowInfo("请输入要添加的模型名称。", InfoBarSeverity.Warning);
@@ -506,6 +498,13 @@ public sealed partial class MainWindow : Window
         }
 
         SaveSettings();
+    }
+
+    private void UpdateCustomProviderHint()
+    {
+        CustomProviderHintText.Visibility = _currentProvider == CustomAiProviderName
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     private void DeleteAiModelButton_Click(object sender, RoutedEventArgs e)
@@ -588,24 +587,6 @@ public sealed partial class MainWindow : Window
             if (!string.IsNullOrWhiteSpace(apiKey))
             {
                 _apiKeys[credentialKey] = apiKey;
-                return apiKey;
-            }
-        }
-
-        foreach (var legacyModel in GetLegacyDeepSeekModelNames(provider, model))
-        {
-            var legacyCredentialKey = GetModelCredentialKey(provider, legacyModel);
-            apiKey = _apiKeys.GetValueOrDefault(legacyCredentialKey)
-                ?? (_settings.RememberKeys ? LoadKeyFromVault(legacyCredentialKey) : null)
-                ?? string.Empty;
-            if (!string.IsNullOrWhiteSpace(apiKey))
-            {
-                _apiKeys[credentialKey] = apiKey;
-                if (_settings.RememberKeys)
-                {
-                    SaveKeyToVault(credentialKey, apiKey);
-                }
-
                 return apiKey;
             }
         }
@@ -749,24 +730,6 @@ public sealed partial class MainWindow : Window
             if (!string.IsNullOrWhiteSpace(apiKey))
             {
                 _apiKeys[credentialKey] = apiKey;
-            }
-        }
-
-        foreach (var legacyModel in GetLegacyDeepSeekModelNames(provider, model))
-        {
-            var legacyCredentialKey = GetImageModelCredentialKey(provider, legacyModel);
-            apiKey = _apiKeys.GetValueOrDefault(legacyCredentialKey)
-                ?? (_settings.RememberImageKeys ? LoadKeyFromVault(legacyCredentialKey) : null)
-                ?? string.Empty;
-            if (!string.IsNullOrWhiteSpace(apiKey))
-            {
-                _apiKeys[credentialKey] = apiKey;
-                if (_settings.RememberImageKeys)
-                {
-                    SaveKeyToVault(credentialKey, apiKey);
-                }
-
-                return apiKey;
             }
         }
 
@@ -1312,12 +1275,6 @@ public sealed partial class MainWindow : Window
     {
         _settings.ImageModels ??= new List<string>();
         _settings.ImageEndpoints ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        _settings.ImageModel = NormalizeProviderModelName("DeepSeek", _settings.ImageModel);
-        _settings.ImageModels = _settings.ImageModels
-            .Select(model => NormalizeProviderModelName("DeepSeek", model))
-            .Where(model => !string.IsNullOrWhiteSpace(model))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
         var provider = CloudProviders.Contains(_settings.ImageProviderName)
             ? _settings.ImageProviderName
             : "DeepSeek";
@@ -1401,7 +1358,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var model = NormalizeProviderModelName(GetImageProvider(), modelTextBox.Text);
+        var model = modelTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(model))
         {
             ShowInfo("请输入要添加的图片模型名称。", InfoBarSeverity.Warning);
@@ -1722,8 +1679,8 @@ public sealed partial class MainWindow : Window
             var minMaxInfo = Marshal.PtrToStructure<MinMaxInfo>(lParam);
             var dpi = GetDpiForWindow(windowHandle);
             var scale = dpi == 0 ? 1d : dpi / 96d;
-            minMaxInfo.MinimumTrackSize.X = (int)Math.Ceiling(MinWindowWidth * scale);
-            minMaxInfo.MinimumTrackSize.Y = (int)Math.Ceiling(MinWindowHeight * scale);
+            minMaxInfo.MinimumTrackSize.X = (int)Math.Ceiling((_isMiniMode ? 420 : MinWindowWidth) * scale);
+            minMaxInfo.MinimumTrackSize.Y = (int)Math.Ceiling((_isMiniMode ? 320 : MinWindowHeight) * scale);
             Marshal.StructureToPtr(minMaxInfo, lParam, false);
         }
 
@@ -1775,6 +1732,9 @@ public sealed partial class MainWindow : Window
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(nint windowHandle);
 
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte virtualKey, byte scanCode, uint flags, nuint extraInfo);
+
     private async void PickImageButton_Click(object sender, RoutedEventArgs e)
     {
         var picker = new FileOpenPicker
@@ -1815,6 +1775,89 @@ public sealed partial class MainWindow : Window
         ImagePreview.Visibility = Visibility.Visible;
         ImagePreviewPlaceholderText.Visibility = Visibility.Collapsed;
         UpdateUiState();
+    }
+
+    private void MiniModeButton_Click(object sender, RoutedEventArgs e)
+    {
+        var mini = MiniPageGrid.Visibility != Visibility.Visible;
+        _isMiniMode = mini;
+        MiniPageGrid.Visibility = mini ? Visibility.Visible : Visibility.Collapsed;
+        SidebarNavigationView.Visibility = Visibility.Visible;
+        SidebarNavigationView.IsPaneOpen = false;
+        SidebarNavigationView.IsPaneToggleButtonVisible = !mini;
+        SidebarNavigationView.CompactPaneLength = mini ? 0 : 64;
+        SidebarNavigationView.PaneDisplayMode = mini
+            ? NavigationViewPaneDisplayMode.LeftMinimal
+            : NavigationViewPaneDisplayMode.Left;
+        TranslationToolbar.Visibility = mini ? Visibility.Collapsed : (_currentPageTag == "Home" ? Visibility.Visible : Visibility.Collapsed);
+        HomePageGrid.Visibility = mini ? Visibility.Collapsed : (_currentPageTag == "Home" ? Visibility.Visible : Visibility.Collapsed);
+        PageTitleTextBlock.Text = mini ? "迷你翻译" : (_currentPageTag == "Home" ? "Windtranslator" : PageTitleTextBlock.Text);
+        AppWindow.Resize(new SizeInt32(mini ? 520 : MinWindowWidth, mini ? 420 : MinWindowHeight));
+        if (mini)
+        {
+            MiniTargetLanguageComboBox.ItemsSource = Languages.Skip(1).ToList();
+            MiniTargetLanguageComboBox.SelectedIndex = Math.Clamp(
+                _settings.TargetLanguageIndex - 1,
+                0,
+                Languages.Count - 2);
+            if (!MiniSourceTextBox.IsReadOnly)
+            {
+                MiniSourceTextBox.Focus(FocusState.Programmatic);
+            }
+        }
+    }
+
+    private void MiniClearButton_Click(object sender, RoutedEventArgs e)
+    {
+        MiniSourceTextBox.IsReadOnly = false;
+        MiniSourceTextBox.Text = string.Empty;
+        MiniTranslateButton.IsEnabled = true;
+        MiniSourceTextBox.Focus(FocusState.Programmatic);
+    }
+
+    private void MiniSourceTextBox_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        if (e.Key == Windows.System.VirtualKey.Enter && !MiniSourceTextBox.IsReadOnly)
+        {
+            e.Handled = true;
+            _ = MiniTranslateButton_ClickAsync();
+        }
+    }
+
+    private void MiniTranslateButton_Click(object sender, RoutedEventArgs e) => _ = MiniTranslateButton_ClickAsync();
+
+    private async Task MiniTranslateButton_ClickAsync()
+    {
+        var text = MiniSourceTextBox.Text.Trim();
+        if (text.Length == 0 || MiniTargetLanguageComboBox.SelectedItem is not LanguageOption targetLanguage)
+        {
+            return;
+        }
+
+        try
+        {
+            MiniTranslateButton.IsEnabled = false;
+            MiniClearButton.IsEnabled = false;
+            MiniSourceTextBox.IsReadOnly = true;
+            MiniProgressRing.IsActive = true;
+            MiniSourceTextBox.Text = await TranslateTextAsync(
+                text,
+                Math.Clamp(ModeComboBox.SelectedIndex, 0, 2),
+                Languages[0],
+                targetLanguage,
+                CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            MiniSourceTextBox.IsReadOnly = false;
+            ShowInfo("翻译失败：" + ex.Message, InfoBarSeverity.Error);
+        }
+        finally
+        {
+            MiniProgressRing.IsActive = false;
+            MiniClearButton.IsEnabled = true;
+            MiniTranslateButton.IsEnabled = !MiniSourceTextBox.IsReadOnly;
+        }
     }
 
     private async void ClearImageSelectionButton_Click(object sender, RoutedEventArgs e)
@@ -2550,47 +2593,29 @@ public sealed partial class MainWindow : Window
 
     private async void MicButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_isStartingSpeechInput)
+        if (_isOpeningSystemDictation)
         {
-            return;
-        }
-
-        if (_speechInput.IsListening)
-        {
-            await _speechInput.StopAsync();
-            SetMicListeningState(false);
-            ShowInfo("已停止语音输入。", InfoBarSeverity.Informational);
             return;
         }
 
         try
         {
-            _isStartingSpeechInput = true;
+            _isOpeningSystemDictation = true;
             UpdateUiState();
-            var languageTag = (SourceLanguageComboBox.SelectedItem as LanguageOption)?.SpeechTag;
-            await _speechInput.StartAsync(
-                languageTag,
-                text => DispatcherQueue.TryEnqueue(() => AppendSpeechResult(text)),
-                text => DispatcherQueue.TryEnqueue(() => ShowInfo(text, InfoBarSeverity.Informational)),
-                error => DispatcherQueue.TryEnqueue(() => HandleSpeechRecognitionCompleted(error)));
-            SetMicListeningState(true);
-            ShowInfo("正在聆听，请开始说话。", InfoBarSeverity.Informational);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            SetMicListeningState(false);
-            ShowInfo(
-                "无法使用麦克风，请在 Windows 隐私设置中允许 Windtranslator 和桌面应用访问麦克风。",
-                InfoBarSeverity.Error);
-        }
-        catch (Exception ex)
-        {
-            SetMicListeningState(false);
-            ShowInfo("无法启动语音识别：" + ex.Message, InfoBarSeverity.Error);
+            SourceTextBox.Focus(FocusState.Programmatic);
+            SourceTextBox.SelectionStart = SourceTextBox.Text.Length;
+            SourceTextBox.SelectionLength = 0;
+            await Task.Delay(100);
+
+            keybd_event(VkLeftWindows, 0, 0, 0);
+            keybd_event(VkH, 0, 0, 0);
+            keybd_event(VkH, 0, KeyEventKeyUp, 0);
+            keybd_event(VkLeftWindows, 0, KeyEventKeyUp, 0);
+            ShowInfo("已打开 Windows 语音输入。", InfoBarSeverity.Informational);
         }
         finally
         {
-            _isStartingSpeechInput = false;
+            _isOpeningSystemDictation = false;
             UpdateUiState();
         }
     }
@@ -2740,36 +2765,6 @@ public sealed partial class MainWindow : Window
         ClearTextFileButton.IsEnabled = !_isFileTranslating && _selectedTextFile is not null;
         CopyFileOutputButton.IsEnabled = !_isFileTranslating && !string.IsNullOrEmpty(FileOutputTextBox.Text);
         ExportFileOutputButton.IsEnabled = !_isFileTranslating && !string.IsNullOrEmpty(FileOutputTextBox.Text);
-    }
-
-    private void HandleSpeechRecognitionCompleted(string? error)
-    {
-        SetMicListeningState(false);
-        ShowInfo(
-            error ?? "语音识别已结束。",
-            error is null ? InfoBarSeverity.Informational : InfoBarSeverity.Error);
-    }
-
-    private void AppendSpeechResult(string text)
-    {
-        if (string.IsNullOrEmpty(SourceTextBox.Text))
-        {
-            SourceTextBox.Text = text;
-        }
-        else
-        {
-            var separator = SourceTextBox.Text.EndsWith(' ') || SourceTextBox.Text.EndsWith('\n')
-                ? string.Empty
-                : " ";
-            SourceTextBox.Text += separator + text;
-        }
-    }
-
-    private void SetMicListeningState(bool listening)
-    {
-        MicIcon.Symbol = listening ? Symbol.Stop : Symbol.Microphone;
-        MicButton.Tag = listening;
-        UpdateUiState();
     }
 
     private async void SpeakButton_Click(object sender, RoutedEventArgs e)
@@ -2985,7 +2980,7 @@ public sealed partial class MainWindow : Window
     private void UpdateUiState()
     {
         TranslateButton.IsEnabled = !_isTranslating && SourceTextBox.Text.Trim().Length > 0;
-        MicButton.IsEnabled = !_isTranslating && !_isStartingSpeechInput;
+        MicButton.IsEnabled = !_isTranslating && !_isOpeningSystemDictation;
         SpeakButton.IsEnabled = _speechOutput.IsSpeaking || OutputTextBox.Text.Trim().Length > 0;
         PickImageButton.IsEnabled = !_isImageTranslating;
         TranslateImageButton.IsEnabled = !_isImageTranslating && _selectedImageFiles.Count > 0;
@@ -3145,35 +3140,17 @@ public sealed partial class MainWindow : Window
             "https://open.bigmodel.cn/api/paas/v4",
             new[] { "glm-5.3-flash" },
             true),
+        CustomAiProviderName => new ProviderProfile(
+            CustomAiProviderName,
+            string.Empty,
+            Array.Empty<string>(),
+            true),
         _ => new ProviderProfile(
             "本地 AI",
             "http://localhost:11434/v1",
             Array.Empty<string>(),
             false),
     };
-
-    private static string NormalizeProviderModelName(string provider, string? model)
-    {
-        var normalizedModel = model?.Trim() ?? string.Empty;
-        return provider == "DeepSeek"
-            ? normalizedModel.ToLowerInvariant() switch
-            {
-                "v4flash" or "deepseek-v4-flash" or "deepseek-v4-flash-vision-exp" => "deepseek-flash",
-                "v4pro" => "deepseek-v4-pro",
-                _ => normalizedModel,
-            }
-            : normalizedModel;
-    }
-
-    private static IEnumerable<string> GetLegacyDeepSeekModelNames(string provider, string model)
-    {
-        if (provider == "DeepSeek" && model.Equals("deepseek-flash", StringComparison.OrdinalIgnoreCase))
-        {
-            yield return "deepseek-v4-flash";
-            yield return "deepseek-v4-flash-vision-exp";
-            yield return "v4flash";
-        }
-    }
 
     private string GetSelectedAiModelForProvider(string provider)
     {
