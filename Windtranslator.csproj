@@ -36,6 +36,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="AppPackages\Windtranslator_0.5.1.0_x64_Test\**" />
+    <EmbeddedResource Remove="AppPackages\Windtranslator_0.5.1.0_x64_Test\**" />
+    <None Remove="AppPackages\Windtranslator_0.5.1.0_x64_Test\**" />
+    <Page Remove="AppPackages\Windtranslator_0.5.1.0_x64_Test\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
 
@@ -76,7 +83,7 @@
          Microsoft during ingestion. Do not sign them with the local CN=nonem test cert. -->
     <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
-    <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
+    <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>False</GenerateTestArtifacts>
     <AppxBundle>Never</AppxBundle>
     <AppInstallerUri>https://github.com/Seaslan/Windtranslator/releases/</AppInstallerUri>
@@ -86,4 +93,7 @@
     <AppxBundlePlatforms>x64|arm64</AppxBundlePlatforms>
     <PackageCertificateThumbprint>078FC7E14BB94CA9F17803094A46394969733126</PackageCertificateThumbprint>
   </PropertyGroup>
+  <ItemGroup>
+    <PRIResource Remove="AppPackages\Windtranslator_0.5.1.0_x64_Test\**" />
+  </ItemGroup>
 </Project>

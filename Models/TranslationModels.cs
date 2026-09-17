@@ -72,6 +72,10 @@ public sealed class AppSettings
 {
     public int ModeIndex { get; set; } = 0;
 
+    public bool ApiTranslationEnabled { get; set; } = true;
+
+    public bool AiTranslationEnabled { get; set; } = true;
+
     public string ProviderName { get; set; } = "DeepSeek";
 
     public int SourceLanguageIndex { get; set; } = 1;

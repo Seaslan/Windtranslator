@@ -105,6 +105,8 @@ public sealed partial class MainWindow : Window
     private CancellationTokenSource? _fileTranslationCts;
     private bool _isFileTranslating;
     private bool _isMiniMode;
+    private string? _pendingClipboardText;
+    private uint _lastHandledClipboardSequenceNumber;
     private readonly WindowProcedure _windowProcedure;
     private nint _windowHandle;
     private nint _previousWindowProcedure;
@@ -131,6 +133,7 @@ public sealed partial class MainWindow : Window
         Closed += (_, _) =>
         {
             NetworkInformation.NetworkStatusChanged -= NetworkInformation_NetworkStatusChanged;
+            Clipboard.ContentChanged -= Clipboard_ContentChanged;
             _speechOutput.Stop();
             RestoreWindowProcedure();
         };
@@ -143,14 +146,19 @@ public sealed partial class MainWindow : Window
         };
 
         InitializeUi();
+        _lastHandledClipboardSequenceNumber = GetClipboardSequenceNumber();
+        Clipboard.ContentChanged += Clipboard_ContentChanged;
     }
 
     private void InitializeUi()
     {
         _suppressEvents = true;
 
-        ModeComboBox.ItemsSource = new[] { "API 翻译", "AI 翻译", "本地翻译" };
-        ModeComboBox.SelectedIndex = Math.Clamp(_settings.ModeIndex, 0, 2);
+        ApiTranslationToggleSwitch.IsOn = _settings.ApiTranslationEnabled;
+        AiTranslationToggleSwitch.IsOn = _settings.AiTranslationEnabled;
+        UpdateTranslationToggleStateText();
+        var initialModeIndex = Math.Clamp(_settings.ModeIndex, 0, 2);
+        ModeComboBox.SelectedIndex = IsTranslationModeEnabled(initialModeIndex) ? initialModeIndex : 2;
         LocalTranslationSourceComboBox.ItemsSource = new[] { "本地接口", "Mozilla Translations 模型" };
         LocalTranslationSourceComboBox.SelectedIndex = Math.Clamp(_settings.LocalTranslationSourceIndex, 0, 1);
 
@@ -211,11 +219,8 @@ public sealed partial class MainWindow : Window
         SidebarNavigationView.SelectedItem = HomeNavigationItem;
         NavigateTo("Home", addBackEntry: false);
         InitializeProviderSettings();
-        FileModeComboBox.Items.Clear();
-        FileModeComboBox.Items.Add(new ComboBoxItem { Content = "API 翻译" });
-        FileModeComboBox.Items.Add(new ComboBoxItem { Content = "AI 翻译" });
-        FileModeComboBox.Items.Add(new ComboBoxItem { Content = "本地翻译" });
-        FileModeComboBox.SelectedIndex = Math.Clamp(_settings.ModeIndex, 0, 2);
+        FileModeComboBox.SelectedIndex = ModeComboBox.SelectedIndex;
+        UpdateTranslationModeVisibility();
         UpdateFileModeAvailability();
         UpdateCounts();
         UpdateUiState();
@@ -498,6 +503,91 @@ public sealed partial class MainWindow : Window
         }
 
         SaveSettings();
+    }
+
+    private void ApiTranslationToggleSwitch_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_suppressEvents)
+        {
+            return;
+        }
+
+        SetTranslationModeEnabled(0, ApiTranslationToggleSwitch.IsOn);
+    }
+
+    private void AiTranslationToggleSwitch_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_suppressEvents)
+        {
+            return;
+        }
+
+        SetTranslationModeEnabled(1, AiTranslationToggleSwitch.IsOn);
+    }
+
+    private void SetTranslationModeEnabled(int modeIndex, bool isEnabled)
+    {
+        UpdateTranslationToggleStateText();
+
+        if (!isEnabled)
+        {
+            var isHomeModeSelected = ModeComboBox.SelectedIndex == modeIndex;
+            var isFileModeSelected = FileModeComboBox.SelectedIndex == modeIndex;
+
+            if (isHomeModeSelected && _isTranslating)
+            {
+                _cts?.Cancel();
+            }
+
+            if (isFileModeSelected && _isFileTranslating)
+            {
+                _fileTranslationCts?.Cancel();
+            }
+
+            if (isHomeModeSelected)
+            {
+                ModeComboBox.SelectedIndex = 2;
+            }
+
+            if (isFileModeSelected)
+            {
+                FileModeComboBox.SelectedIndex = 2;
+            }
+        }
+
+        UpdateTranslationModeVisibility();
+        UpdateFileModeAvailability();
+        SaveSettings();
+    }
+
+    private void UpdateTranslationToggleStateText()
+    {
+        ApiTranslationStateText.Text = ApiTranslationToggleSwitch.IsOn ? "开" : "关";
+        AiTranslationStateText.Text = AiTranslationToggleSwitch.IsOn ? "开" : "关";
+    }
+
+    private bool IsTranslationModeEnabled(int modeIndex) => modeIndex switch
+    {
+        0 => ApiTranslationToggleSwitch.IsOn,
+        1 => AiTranslationToggleSwitch.IsOn,
+        _ => true,
+    };
+
+    private void UpdateTranslationModeVisibility()
+    {
+        UpdateModeItems(ModeComboBox);
+        UpdateModeItems(FileModeComboBox);
+
+        void UpdateModeItems(ComboBox comboBox)
+        {
+            var items = comboBox.Items.OfType<ComboBoxItem>().ToList();
+            for (var index = 0; index < items.Count; index++)
+            {
+                var isEnabled = IsTranslationModeEnabled(index);
+                items[index].Visibility = isEnabled ? Visibility.Visible : Visibility.Collapsed;
+                items[index].IsEnabled = isEnabled;
+            }
+        }
     }
 
     private void UpdateCustomProviderHint()
@@ -1502,10 +1592,123 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        SetClipboardText(text);
+        ShowInfo("译文已复制到剪贴板。", InfoBarSeverity.Success);
+    }
+
+    private void Clipboard_ContentChanged(object? sender, object e)
+    {
+        var sequenceNumber = GetClipboardSequenceNumber();
+        if (sequenceNumber == _lastHandledClipboardSequenceNumber)
+        {
+            return;
+        }
+
+        DispatcherQueue.TryEnqueue(() => _ = HandleClipboardContentChangedAsync(sequenceNumber));
+    }
+
+    private async Task HandleClipboardContentChangedAsync(uint sequenceNumber)
+    {
+        if (sequenceNumber == _lastHandledClipboardSequenceNumber
+            || sequenceNumber != GetClipboardSequenceNumber())
+        {
+            return;
+        }
+
+        try
+        {
+            var content = Clipboard.GetContent();
+            if (!content.Contains(StandardDataFormats.Text))
+            {
+                _lastHandledClipboardSequenceNumber = sequenceNumber;
+                return;
+            }
+
+            var text = await content.GetTextAsync();
+            if (sequenceNumber != GetClipboardSequenceNumber())
+            {
+                return;
+            }
+
+            _lastHandledClipboardSequenceNumber = sequenceNumber;
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
+
+            _pendingClipboardText = text;
+            if (_isMiniMode)
+            {
+                ClipboardPasteTeachingTip.Target = MiniSourceTextBox;
+                ClipboardPasteTeachingTip.PreferredPlacement = TeachingTipPlacementMode.Bottom;
+            }
+            else if (_currentPageTag == "Home")
+            {
+                ClipboardPasteTeachingTip.Target = TranslationHistoryButton;
+                ClipboardPasteTeachingTip.PreferredPlacement = TeachingTipPlacementMode.Bottom;
+            }
+            else
+            {
+                ClipboardPasteTeachingTip.Target = PageTitleTextBlock;
+                ClipboardPasteTeachingTip.PreferredPlacement = TeachingTipPlacementMode.Bottom;
+            }
+
+            ClipboardPasteTeachingTip.Subtitle = BuildClipboardPreview(text);
+            ClipboardPasteTeachingTip.IsOpen = true;
+        }
+        catch (Exception)
+        {
+            // The clipboard can be temporarily locked by the application writing to it.
+        }
+    }
+
+    private void ClipboardPasteTeachingTip_ActionButtonClick(TeachingTip sender, object args)
+    {
+        var text = _pendingClipboardText;
+        _pendingClipboardText = null;
+        sender.IsOpen = false;
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        if (_isMiniMode)
+        {
+            MiniSourceTextBox.IsReadOnly = false;
+            MiniSourceTextBox.Text = text;
+            MiniTranslateButton.IsEnabled = true;
+            MiniSourceTextBox.Focus(FocusState.Programmatic);
+            MiniSourceTextBox.SelectionStart = MiniSourceTextBox.Text.Length;
+            return;
+        }
+
+        NavigateTo("Home");
+        SourceTextBox.Text = text;
+        SourceTextBox.Focus(FocusState.Programmatic);
+        SourceTextBox.SelectionStart = SourceTextBox.Text.Length;
+    }
+
+    private void ClipboardPasteTeachingTip_CloseButtonClick(TeachingTip sender, object args)
+    {
+        _pendingClipboardText = null;
+        sender.IsOpen = false;
+    }
+
+    private static string BuildClipboardPreview(string text)
+    {
+        const int previewLength = 120;
+        var preview = text.Replace("\r", " ").Replace("\n", " ").Trim();
+        return preview.Length <= previewLength
+            ? preview
+            : preview[..previewLength] + "...";
+    }
+
+    private void SetClipboardText(string text)
+    {
         var dataPackage = new DataPackage();
         dataPackage.SetText(text);
         Clipboard.SetContent(dataPackage);
-        ShowInfo("译文已复制到剪贴板。", InfoBarSeverity.Success);
+        _lastHandledClipboardSequenceNumber = GetClipboardSequenceNumber();
     }
 
     private void SidebarNavigationView_SelectionChanged(
@@ -1537,37 +1740,6 @@ public sealed partial class MainWindow : Window
 
     private void SidebarNavigationView_BackRequested(NavigationView sender, NavigationViewBackRequestedEventArgs args) =>
         GoBack();
-
-    private void SidebarNavigationView_Loaded(object sender, RoutedEventArgs e)
-    {
-        var backButton = FindVisualChild<Button>(SidebarNavigationView, "NavigationViewBackButton");
-        if (backButton is not null)
-        {
-            backButton.Width = TitleBarDragRegion.ActualHeight;
-            ToolTipService.SetToolTip(backButton, null);
-        }
-    }
-
-    private static T? FindVisualChild<T>(DependencyObject root, string name)
-        where T : FrameworkElement
-    {
-        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
-        {
-            var child = VisualTreeHelper.GetChild(root, index);
-            if (child is T element && element.Name == name)
-            {
-                return element;
-            }
-
-            var result = FindVisualChild<T>(child, name);
-            if (result is not null)
-            {
-                return result;
-            }
-        }
-
-        return null;
-    }
 
     private void WindowRoot_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
@@ -1601,6 +1773,11 @@ public sealed partial class MainWindow : Window
 
     private void GoBack()
     {
+        if (_isMiniMode)
+        {
+            return;
+        }
+
         if (_backStack.Count > 0)
         {
             ShowPage(_backStack.Pop());
@@ -1733,6 +1910,9 @@ public sealed partial class MainWindow : Window
     private static extern uint GetDpiForWindow(nint windowHandle);
 
     [DllImport("user32.dll")]
+    private static extern uint GetClipboardSequenceNumber();
+
+    [DllImport("user32.dll")]
     private static extern void keybd_event(byte virtualKey, byte scanCode, uint flags, nuint extraInfo);
 
     private async void PickImageButton_Click(object sender, RoutedEventArgs e)
@@ -1781,17 +1961,43 @@ public sealed partial class MainWindow : Window
     {
         var mini = MiniPageGrid.Visibility != Visibility.Visible;
         _isMiniMode = mini;
+        if (mini)
+        {
+            _backStack.Clear();
+        }
+
+        SidebarNavigationView.IsBackEnabled = !mini && _backStack.Count > 0;
         MiniPageGrid.Visibility = mini ? Visibility.Visible : Visibility.Collapsed;
         SidebarNavigationView.Visibility = Visibility.Visible;
-        SidebarNavigationView.IsPaneOpen = false;
-        SidebarNavigationView.IsPaneToggleButtonVisible = !mini;
-        SidebarNavigationView.CompactPaneLength = mini ? 0 : 64;
-        SidebarNavigationView.PaneDisplayMode = mini
-            ? NavigationViewPaneDisplayMode.LeftMinimal
-            : NavigationViewPaneDisplayMode.Left;
+        if (mini)
+        {
+            // Collapse every navigation surface before showing the mini overlay.
+            SidebarNavigationView.IsPaneOpen = false;
+            SidebarNavigationView.IsPaneToggleButtonVisible = false;
+            SidebarNavigationView.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftMinimal;
+            SidebarNavigationView.CompactPaneLength = 0;
+            SidebarNavigationView.IsPaneVisible = false;
+        }
+        else
+        {
+            SidebarNavigationView.IsPaneVisible = true;
+            SidebarNavigationView.PaneDisplayMode = NavigationViewPaneDisplayMode.Left;
+            SidebarNavigationView.CompactPaneLength = 48;
+            SidebarNavigationView.IsPaneToggleButtonVisible = true;
+            SidebarNavigationView.IsPaneOpen = true;
+        }
         TranslationToolbar.Visibility = mini ? Visibility.Collapsed : (_currentPageTag == "Home" ? Visibility.Visible : Visibility.Collapsed);
         HomePageGrid.Visibility = mini ? Visibility.Collapsed : (_currentPageTag == "Home" ? Visibility.Visible : Visibility.Collapsed);
-        PageTitleTextBlock.Text = mini ? "迷你翻译" : (_currentPageTag == "Home" ? "Windtranslator" : PageTitleTextBlock.Text);
+        if (mini)
+        {
+            PageTitleTextBlock.Text = "Windtranslator";
+            Title = "Windtranslator";
+        }
+        else if (_currentPageTag == "Home")
+        {
+            PageTitleTextBlock.Text = "Windtranslator";
+            Title = "Windtranslator";
+        }
         AppWindow.Resize(new SizeInt32(mini ? 520 : MinWindowWidth, mini ? 420 : MinWindowHeight));
         if (mini)
         {
@@ -1840,12 +2046,14 @@ public sealed partial class MainWindow : Window
             MiniClearButton.IsEnabled = false;
             MiniSourceTextBox.IsReadOnly = true;
             MiniProgressRing.IsActive = true;
-            MiniSourceTextBox.Text = await TranslateTextAsync(
+            var result = await TranslateTextAsync(
                 text,
                 Math.Clamp(ModeComboBox.SelectedIndex, 0, 2),
                 Languages[0],
                 targetLanguage,
                 CancellationToken.None);
+            MiniSourceTextBox.Text = result;
+            AddTranslationHistory(text);
         }
         catch (Exception ex)
         {
@@ -2017,9 +2225,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var dataPackage = new DataPackage();
-        dataPackage.SetText(text);
-        Clipboard.SetContent(dataPackage);
+        SetClipboardText(text);
         ShowInfo("图片译文已复制到剪贴板。", InfoBarSeverity.Success);
     }
 
@@ -2189,9 +2395,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var dataPackage = new DataPackage();
-        dataPackage.SetText(FileOutputTextBox.Text);
-        Clipboard.SetContent(dataPackage);
+        SetClipboardText(FileOutputTextBox.Text);
         ShowInfo("文件译文已复制到剪贴板。", InfoBarSeverity.Success);
     }
 
@@ -2699,6 +2903,11 @@ public sealed partial class MainWindow : Window
 
     private string? GetTranslationConfigurationError(int mode)
     {
+        if (!IsTranslationModeEnabled(mode))
+        {
+            return mode == 0 ? "API 翻译已在设置中关闭。" : "AI 翻译已在设置中关闭。";
+        }
+
         if (mode == 0)
         {
             return string.IsNullOrWhiteSpace(_aliyunAccessKeyId) || string.IsNullOrWhiteSpace(_aliyunAccessKeySecret)
@@ -2748,7 +2957,9 @@ public sealed partial class MainWindow : Window
 
         for (var index = 0; index < items.Count; index++)
         {
-            items[index].IsEnabled = GetTranslationConfigurationError(index) is null;
+            var isModeEnabled = IsTranslationModeEnabled(index);
+            items[index].Visibility = isModeEnabled ? Visibility.Visible : Visibility.Collapsed;
+            items[index].IsEnabled = isModeEnabled && GetTranslationConfigurationError(index) is null;
         }
 
         if (selectedIndex < items.Count && !items[selectedIndex].IsEnabled)
@@ -2992,6 +3203,8 @@ public sealed partial class MainWindow : Window
     private void SaveSettings()
     {
         _settings.ModeIndex = Math.Max(0, ModeComboBox.SelectedIndex);
+        _settings.ApiTranslationEnabled = ApiTranslationToggleSwitch.IsOn;
+        _settings.AiTranslationEnabled = AiTranslationToggleSwitch.IsOn;
         _settings.ProviderName = _currentProvider;
         _settings.ThemeIndex = Math.Max(0, ThemeComboBox.SelectedIndex);
         _settings.MicaBackdropEnabled = MicaBackdropCheckBox.IsChecked == true;
