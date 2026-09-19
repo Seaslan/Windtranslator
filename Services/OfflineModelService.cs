@@ -39,7 +39,7 @@ public sealed class OfflineModelService
 
         var root = document.RootElement;
         var baseUrl = root.GetProperty("baseUrl").GetString()
-            ?? throw new InvalidOperationException("Mozilla 模型注册表缺少下载地址。");
+            ?? throw new InvalidOperationException(Localization.Text("Mozilla 模型注册表缺少下载地址。"));
         var models = root.GetProperty("models");
         var installed = GetInstalledModels()
             .ToDictionary(model => model.Id, StringComparer.OrdinalIgnoreCase);
@@ -149,7 +149,7 @@ public sealed class OfflineModelService
 
         if (!IsSafeModelId(model.Id))
         {
-            throw new InvalidOperationException("模型标识无效，无法创建下载目录。");
+            throw new InvalidOperationException(Localization.Text("模型标识无效，无法创建下载目录。"));
         }
 
         Directory.CreateDirectory(ModelRootDirectory);
@@ -225,7 +225,7 @@ public sealed class OfflineModelService
         var expectedDirectory = GetModelDirectory(model.Id);
         if (!PathsEqual(expectedDirectory, model.LocalDirectory))
         {
-            throw new InvalidOperationException("只能删除由应用下载的离线模型。");
+            throw new InvalidOperationException(Localization.Text("只能删除由应用下载的离线模型。"));
         }
 
         DeleteDirectoryIfExists(expectedDirectory);
@@ -293,7 +293,7 @@ public sealed class OfflineModelService
         if (!metadata.RootElement.TryGetProperty("modelConfig", out var modelConfig)
             || modelConfig.ValueKind != JsonValueKind.Object)
         {
-            throw new InvalidOperationException("离线模型元数据缺少 Bergamot 配置。");
+            throw new InvalidOperationException(Localization.Text("离线模型元数据缺少 Bergamot 配置。"));
         }
 
         var lines = new List<string>();
@@ -364,7 +364,7 @@ public sealed class OfflineModelService
         var fullPath = Path.GetFullPath(path);
         if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("离线模型目录无效。");
+            throw new InvalidOperationException(Localization.Text("离线模型目录无效。"));
         }
     }
 

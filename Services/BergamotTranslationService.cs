@@ -37,7 +37,7 @@ public sealed class BergamotTranslationService
         startInfo.ArgumentList.Add(Math.Max(1, Environment.ProcessorCount - 1).ToString());
 
         using var process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException("无法启动 Mozilla Translations 本地翻译引擎。");
+            ?? throw new InvalidOperationException(Localization.Text("无法启动 Mozilla Translations 本地翻译引擎。"));
         using var cancellationRegistration = cancellationToken.Register(() => TryStop(process));
 
         var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
@@ -54,17 +54,17 @@ public sealed class BergamotTranslationService
         {
             throw new InvalidOperationException(
                 string.IsNullOrWhiteSpace(error)
-                    ? $"Mozilla Translations 翻译引擎异常退出，退出代码 {process.ExitCode}。"
-                    : "Mozilla Translations 翻译失败：" + error);
+                    ? Localization.Text("Mozilla Translations 翻译引擎异常退出，退出代码 {0}。", process.ExitCode)
+                    : Localization.Text("Mozilla Translations 翻译失败：") + error);
         }
 
         if (string.IsNullOrWhiteSpace(output))
         {
             var diagnostic = string.IsNullOrWhiteSpace(error)
-                ? "请确认已重新下载模型，且设备 CPU 支持当前发布版本。"
+                ? Localization.Text("请确认已重新下载模型，且设备 CPU 支持当前发布版本。")
                 : error;
             throw new InvalidOperationException(
-                "Mozilla Translations 模型没有生成可用的译文。" + diagnostic);
+                Localization.Text("Mozilla Translations 模型没有生成可用的译文。") + diagnostic);
         }
 
         return output;
@@ -76,7 +76,7 @@ public sealed class BergamotTranslationService
         {
             Architecture.X64 => "x64",
             Architecture.Arm64 => "arm64",
-            _ => throw new InvalidOperationException("Mozilla Translations 本地翻译仅支持 x64 或 ARM64 发布版本。"),
+            _ => throw new InvalidOperationException(Localization.Text("Mozilla Translations 本地翻译仅支持 x64 或 ARM64 发布版本。")),
         };
         var executablePath = Path.Combine(
             AppContext.BaseDirectory,
@@ -87,7 +87,7 @@ public sealed class BergamotTranslationService
         if (!File.Exists(executablePath))
         {
             throw new InvalidOperationException(
-                $"未找到 Mozilla Translations {architecture} 运行库。请使用 tools\\Build-BergamotRuntime.ps1 构建后重新发布应用。");
+                Localization.Text("未找到 Mozilla Translations {0} 运行库。请使用 tools\\Build-BergamotRuntime.ps1 构建后重新发布应用。", architecture));
         }
 
         return executablePath;
@@ -97,7 +97,7 @@ public sealed class BergamotTranslationService
     {
         if (string.IsNullOrWhiteSpace(modelDirectory) || !Directory.Exists(modelDirectory))
         {
-            throw new InvalidOperationException("Mozilla Translations 模型文件夹不存在。");
+            throw new InvalidOperationException(Localization.Text("Mozilla Translations 模型文件夹不存在。"));
         }
 
         var configurations = Directory
@@ -107,9 +107,9 @@ public sealed class BergamotTranslationService
         {
             1 => configurations[0],
             0 => throw new InvalidOperationException(
-                "所选文件夹不是 Mozilla Translations 模型，缺少 .bergamot.yml 配置文件。"),
+                Localization.Text("所选文件夹不是 Mozilla Translations 模型，缺少 .bergamot.yml 配置文件。")),
             _ => throw new InvalidOperationException(
-                "所选模型文件夹包含多个 .bergamot.yml 配置文件，请为每个翻译方向选择单独的模型文件夹。"),
+                Localization.Text("所选模型文件夹包含多个 .bergamot.yml 配置文件，请为每个翻译方向选择单独的模型文件夹。")),
         };
     }
 

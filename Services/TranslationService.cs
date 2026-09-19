@@ -51,7 +51,7 @@ public sealed class TranslationService
         if (!response.IsSuccessStatusCode)
         {
             var errorMessage = ExtractErrorMessage(responseBody) ?? $"HTTP {(int)response.StatusCode}";
-            throw new InvalidOperationException($"翻译请求失败：{errorMessage}");
+            throw new InvalidOperationException(Localization.Text("翻译请求失败：{0}", errorMessage));
         }
 
         try
@@ -75,10 +75,10 @@ public sealed class TranslationService
         }
         catch (JsonException)
         {
-            throw new InvalidOperationException("翻译服务返回了无法解析的响应。");
+            throw new InvalidOperationException(Localization.Text("翻译服务返回了无法解析的响应。"));
         }
 
-        throw new InvalidOperationException("翻译服务没有返回可用的译文。");
+        throw new InvalidOperationException(Localization.Text("翻译服务没有返回可用的译文。"));
     }
 
     public async Task<string> TranslateImageAsync(
@@ -127,7 +127,7 @@ public sealed class TranslationService
         if (!response.IsSuccessStatusCode)
         {
             var errorMessage = ExtractErrorMessage(responseBody) ?? $"HTTP {(int)response.StatusCode}";
-            throw new InvalidOperationException($"图片翻译请求失败：{errorMessage}");
+            throw new InvalidOperationException(Localization.Text("图片翻译请求失败：{0}", errorMessage));
         }
 
         try
@@ -151,10 +151,10 @@ public sealed class TranslationService
         }
         catch (JsonException)
         {
-            throw new InvalidOperationException("图片翻译服务返回了无法解析的响应。");
+            throw new InvalidOperationException(Localization.Text("图片翻译服务返回了无法解析的响应。"));
         }
 
-        throw new InvalidOperationException("图片翻译服务没有返回可用的译文。");
+        throw new InvalidOperationException(Localization.Text("图片翻译服务没有返回可用的译文。"));
     }
 
     public async Task<IReadOnlyList<string>> GetModelsAsync(
@@ -175,7 +175,7 @@ public sealed class TranslationService
         if (!response.IsSuccessStatusCode)
         {
             var errorMessage = ExtractErrorMessage(responseBody) ?? $"HTTP {(int)response.StatusCode}";
-            throw new InvalidOperationException($"获取模型列表失败：{errorMessage}");
+            throw new InvalidOperationException(Localization.Text("获取模型列表失败：{0}", errorMessage));
         }
 
         try
@@ -204,7 +204,7 @@ public sealed class TranslationService
         }
         catch (JsonException)
         {
-            throw new InvalidOperationException("本地服务返回了无法解析的模型列表。");
+            throw new InvalidOperationException(Localization.Text("本地服务返回了无法解析的模型列表。"));
         }
     }
 

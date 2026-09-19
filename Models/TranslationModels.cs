@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Windtranslator.Services;
 
 namespace Windtranslator.Models;
 
@@ -7,13 +8,15 @@ public sealed class LanguageOption
 {
     public LanguageOption(string display, string promptName, string? speechTag, string apiCode)
     {
-        Display = display;
+        _display = display;
         PromptName = promptName;
         SpeechTag = speechTag;
         ApiCode = apiCode;
     }
 
-    public string Display { get; }
+    private readonly string _display;
+
+    public string Display => Localization.Text(_display);
 
     public string PromptName { get; }
 
@@ -70,6 +73,8 @@ public sealed record MachineTranslationRequest(
 
 public sealed class AppSettings
 {
+    public string UiLanguage { get; set; } = "system";
+
     public int ModeIndex { get; set; } = 0;
 
     public bool ApiTranslationEnabled { get; set; } = true;
@@ -107,6 +112,8 @@ public sealed class AppSettings
     public int ThemeIndex { get; set; }
 
     public bool MicaBackdropEnabled { get; set; } = true;
+
+    public bool EnterToTranslate { get; set; }
 
     public int LocalTranslationSourceIndex { get; set; }
 
@@ -160,7 +167,7 @@ public sealed class OfflineTranslationModel
 
     public string Details { get; set; } = string.Empty;
 
-    public string PrimaryActionText => IsInstalled ? "使用" : "下载";
+    public string PrimaryActionText => IsInstalled ? Localization.Text("使用") : Localization.Text("下载");
 
     public bool CanDownload { get; set; }
 }

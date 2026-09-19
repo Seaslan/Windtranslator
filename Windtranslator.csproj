@@ -88,7 +88,7 @@
     <AppxBundle>Never</AppxBundle>
     <AppInstallerUri>https://github.com/Seaslan/Windtranslator/releases/</AppInstallerUri>
     <HoursBetweenUpdateChecks>336</HoursBetweenUpdateChecks>
-    <DefaultLanguage>zh-CN</DefaultLanguage>
+    <DefaultLanguage>en-US</DefaultLanguage>
     <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
     <AppxBundlePlatforms>x64|arm64</AppxBundlePlatforms>
     <PackageCertificateThumbprint>B54FD08C59E42BDCDDC479B037FD4DDFBB7FC181</PackageCertificateThumbprint>

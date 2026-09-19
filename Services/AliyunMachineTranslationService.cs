@@ -52,7 +52,7 @@ public sealed class AliyunMachineTranslationService
         if (!response.IsSuccessStatusCode)
         {
             var errorMessage = ExtractErrorMessage(responseBody) ?? $"HTTP {(int)response.StatusCode}";
-            throw new InvalidOperationException($"机器翻译请求失败：{errorMessage}");
+            throw new InvalidOperationException(Localization.Text("机器翻译请求失败：{0}", errorMessage));
         }
 
         try
@@ -67,8 +67,8 @@ public sealed class AliyunMachineTranslationService
                 var message = root.TryGetProperty("Message", out var errorMessageElement)
                     && errorMessageElement.ValueKind == JsonValueKind.String
                         ? errorMessageElement.GetString()
-                        : "未知错误";
-                throw new InvalidOperationException($"机器翻译请求失败：{message}");
+                        : Localization.Text("未知错误");
+                throw new InvalidOperationException(Localization.Text("机器翻译请求失败：{0}", message));
             }
 
             if (root.TryGetProperty("Data", out var data)
@@ -84,10 +84,10 @@ public sealed class AliyunMachineTranslationService
         }
         catch (JsonException)
         {
-            throw new InvalidOperationException("机器翻译服务返回了无法解析的响应。");
+            throw new InvalidOperationException(Localization.Text("机器翻译服务返回了无法解析的响应。"));
         }
 
-        throw new InvalidOperationException("机器翻译服务没有返回可用的译文。");
+        throw new InvalidOperationException(Localization.Text("机器翻译服务没有返回可用的译文。"));
     }
 
     private static string BuildSignedUrl(

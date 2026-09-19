@@ -22,6 +22,7 @@ namespace Windtranslator
         /// </summary>
         public App()
         {
+            Services.Localization.Initialize(Services.AppSettingsStore.Load().UiLanguage);
             InitializeComponent();
         }
 

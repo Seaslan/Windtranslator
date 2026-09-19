@@ -1,0 +1,1083 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="Sd608ccd939a78fb2" xml:space="preserve">
+    <value>Windtanslator</value>
+    <comment>风译</comment>
+  </data>
+  <data name="S3e0d676d2d85073d" xml:space="preserve">
+    <value>Home</value>
+    <comment>主页</comment>
+  </data>
+  <data name="See2638183d3ea860" xml:space="preserve">
+    <value>Keyboard shortcuts</value>
+    <comment>快捷键</comment>
+  </data>
+  <data name="Sde8c617ef05a23d7" xml:space="preserve">
+    <value>Translate with Enter</value>
+    <comment>回车键翻译</comment>
+  </data>
+  <data name="Sd4e668a7ddc5f4aa" xml:space="preserve">
+    <value>Enter now translates. Press Shift+Enter to insert a line break.</value>
+    <comment>已开启回车键翻译，按 Shift+Enter 换行。</comment>
+  </data>
+  <data name="S2c944b654a3b3b8c" xml:space="preserve">
+    <value>Translate text</value>
+    <comment>翻译文本</comment>
+  </data>
+  <data name="S656f978003f64dfe" xml:space="preserve">
+    <value>Insert line break</value>
+    <comment>插入换行</comment>
+  </data>
+  <data name="S0c84c73f4b24b3b8" xml:space="preserve">
+    <value>Image translation</value>
+    <comment>图片翻译</comment>
+  </data>
+  <data name="S822ba2796e8de87e" xml:space="preserve">
+    <value>File translation</value>
+    <comment>文件翻译</comment>
+  </data>
+  <data name="Sdf3d58c7d84b85f2" xml:space="preserve">
+    <value>Settings</value>
+    <comment>设置</comment>
+  </data>
+  <data name="S52d25a9e30ba94f1" xml:space="preserve">
+    <value>About</value>
+    <comment>关于</comment>
+  </data>
+  <data name="Sb1862e99d55f529f" xml:space="preserve">
+    <value>API translation</value>
+    <comment>API 翻译</comment>
+  </data>
+  <data name="S5239fbb2909810d6" xml:space="preserve">
+    <value>AI translation</value>
+    <comment>AI 翻译</comment>
+  </data>
+  <data name="S8f4e49aeafbade43" xml:space="preserve">
+    <value>Local translation</value>
+    <comment>本地翻译</comment>
+  </data>
+  <data name="S72046b05a1d96e97" xml:space="preserve">
+    <value>Swap languages</value>
+    <comment>交换语言</comment>
+  </data>
+  <data name="Sa52a08335185f048" xml:space="preserve">
+    <value>Translate</value>
+    <comment>翻译</comment>
+  </data>
+  <data name="Sd99a4b7799b40e4b" xml:space="preserve">
+    <value>Mini window</value>
+    <comment>迷你窗口</comment>
+  </data>
+  <data name="Se8502c968c8ab89d" xml:space="preserve">
+    <value>Source text</value>
+    <comment>源文本</comment>
+  </data>
+  <data name="Sb9cbf7938c22fa83" xml:space="preserve">
+    <value>0 characters</value>
+    <comment>0 字</comment>
+  </data>
+  <data name="S1ef3de06b32e521b" xml:space="preserve">
+    <value>Clear</value>
+    <comment>清空</comment>
+  </data>
+  <data name="S2fdc91e671fde5aa" xml:space="preserve">
+    <value>Voice input</value>
+    <comment>语音输入</comment>
+  </data>
+  <data name="Sd7c905a34a658bb7" xml:space="preserve">
+    <value>Type or paste text to translate, or use voice input</value>
+    <comment>输入或粘贴需要翻译的内容，也可以使用语音输入</comment>
+  </data>
+  <data name="S25a4303fc7712d0a" xml:space="preserve">
+    <value>Translation history</value>
+    <comment>翻译历史</comment>
+  </data>
+  <data name="S80461c2decc549dc" xml:space="preserve">
+    <value>Translation</value>
+    <comment>译文</comment>
+  </data>
+  <data name="S032eb48c7a431ec0" xml:space="preserve">
+    <value>Copy translation</value>
+    <comment>复制译文</comment>
+  </data>
+  <data name="S6d5747e03cc75137" xml:space="preserve">
+    <value>Read translation aloud</value>
+    <comment>朗读译文</comment>
+  </data>
+  <data name="Sd83fdf18df41c98d" xml:space="preserve">
+    <value>Your translation will appear here</value>
+    <comment>翻译结果会显示在这里</comment>
+  </data>
+  <data name="Sae8dec30ceb9d800" xml:space="preserve">
+    <value>Clear history</value>
+    <comment>清除翻译历史</comment>
+  </data>
+  <data name="S6ea15464fb844e0c" xml:space="preserve">
+    <value>No translation history</value>
+    <comment>暂无翻译历史</comment>
+  </data>
+  <data name="Sfc13d6134b676aa0" xml:space="preserve">
+    <value>Configure Alibaba Cloud translation and access keys</value>
+    <comment>配置阿里云机器翻译接口和访问密钥</comment>
+  </data>
+  <data name="S39eae64cfc41ef37" xml:space="preserve">
+    <value>On</value>
+    <comment>开</comment>
+  </data>
+  <data name="S5d0ae622f61f8ebf" xml:space="preserve">
+    <value>Off</value>
+    <comment>关</comment>
+  </data>
+  <data name="Saddb4567a33a4bc9" xml:space="preserve">
+    <value>Enter AccessKey ID</value>
+    <comment>手动输入 AccessKey ID</comment>
+  </data>
+  <data name="S289fe8982ee998ef" xml:space="preserve">
+    <value>Enter AccessKey Secret</value>
+    <comment>手动输入 AccessKey Secret</comment>
+  </data>
+  <data name="Sb955203e9090eef9" xml:space="preserve">
+    <value>Remember access keys</value>
+    <comment>记住 AccessKey</comment>
+  </data>
+  <data name="Sfaf50a886d51369b" xml:space="preserve">
+    <value>Manage AI models, endpoints, and translation prompts</value>
+    <comment>管理云端大模型、接口和翻译提示词</comment>
+  </data>
+  <data name="S03b11112dc970014" xml:space="preserve">
+    <value>Endpoint</value>
+    <comment>接口地址</comment>
+  </data>
+  <data name="Sd2ddc5721495c249" xml:space="preserve">
+    <value>Custom endpoints must support the OpenAI Chat Completions API.</value>
+    <comment>自定义接口必须兼容 OpenAI Chat Completions API。</comment>
+  </data>
+  <data name="Sc98e118e0a43f078" xml:space="preserve">
+    <value>Model</value>
+    <comment>模型</comment>
+  </data>
+  <data name="S168e845a86bc3703" xml:space="preserve">
+    <value>Add model</value>
+    <comment>添加模型</comment>
+  </data>
+  <data name="S9123e7e8c5ce6d34" xml:space="preserve">
+    <value>Edit API key</value>
+    <comment>修改 API Key</comment>
+  </data>
+  <data name="S1b5932b8946d2d68" xml:space="preserve">
+    <value>Remove model</value>
+    <comment>删除模型</comment>
+  </data>
+  <data name="S6bf572941e265a92" xml:space="preserve">
+    <value>Remember API keys</value>
+    <comment>记住 API Key</comment>
+  </data>
+  <data name="S874a8e31c7002510" xml:space="preserve">
+    <value>Prompt style</value>
+    <comment>提示词风格</comment>
+  </data>
+  <data name="S635407edd2f3b389" xml:space="preserve">
+    <value>Include explanations, pronunciation, and parts of speech</value>
+    <comment>提供解释、读音和词性</comment>
+  </data>
+  <data name="Sfcc26843914a0a07" xml:space="preserve">
+    <value>Additional instructions</value>
+    <comment>补充提示词</comment>
+  </data>
+  <data name="Sa9ad44de015edc6f" xml:space="preserve">
+    <value>For example: Use consistent terminology and a formal tone; omit notes</value>
+    <comment>例如：保持术语一致，正式语气，不要加注释</comment>
+  </data>
+  <data name="Sc06143ca3b9faf0a" xml:space="preserve">
+    <value>Configure vision models, providers, and access keys</value>
+    <comment>配置图片识别模型、服务商和访问密钥</comment>
+  </data>
+  <data name="Sa573affa93895101" xml:space="preserve">
+    <value>Provider</value>
+    <comment>服务商</comment>
+  </data>
+  <data name="Scfc31a7dcfbc9fa8" xml:space="preserve">
+    <value>Add vision model</value>
+    <comment>添加图片模型</comment>
+  </data>
+  <data name="Sd4efa17cb054a4c9" xml:space="preserve">
+    <value>Remove vision model</value>
+    <comment>删除图片模型</comment>
+  </data>
+  <data name="S7244c05cb62fc39c" xml:space="preserve">
+    <value>Connect to a local endpoint or use the offline translation engine</value>
+    <comment>连接本地兼容接口或使用离线翻译引擎</comment>
+  </data>
+  <data name="S177c17dc8aa34a2b" xml:space="preserve">
+    <value>For example: qwen2.5:7b</value>
+    <comment>例如 qwen2.5:7b</comment>
+  </data>
+  <data name="S10bf64e5aab41b1b" xml:space="preserve">
+    <value>Refresh local models</value>
+    <comment>刷新本地模型</comment>
+  </data>
+  <data name="Sb385619812be9a22" xml:space="preserve">
+    <value>Offline language models (0 downloaded)</value>
+    <comment>离线语言模型（已下载 0 个）</comment>
+  </data>
+  <data name="Sce3334d85570c680" xml:space="preserve">
+    <value>Download and manage models for offline use</value>
+    <comment>下载并管理无需联网使用的语言模型</comment>
+  </data>
+  <data name="S6338f8924dee7084" xml:space="preserve">
+    <value>Find available models</value>
+    <comment>获取可下载模型</comment>
+  </data>
+  <data name="S2f9daa828907b93f" xml:space="preserve">
+    <value>Delete</value>
+    <comment>删除</comment>
+  </data>
+  <data name="S86a63f23a076b11e" xml:space="preserve">
+    <value>Appearance</value>
+    <comment>外观</comment>
+  </data>
+  <data name="Sf57e6726727fd3b5" xml:space="preserve">
+    <value>Choose the app theme and window background</value>
+    <comment>选择应用主题和窗口背景材质</comment>
+  </data>
+  <data name="Sa750b72486c0d855" xml:space="preserve">
+    <value>Enable Mica / Acrylic background</value>
+    <comment>启用 Mica / Acrylic 材质</comment>
+  </data>
+  <data name="Sfd3e65ef362dee63" xml:space="preserve">
+    <value>Choose how many translations to keep</value>
+    <comment>设置翻译记录的保留数量</comment>
+  </data>
+  <data name="S4968bbcf1aff9e7a" xml:space="preserve">
+    <value>Source language</value>
+    <comment>源语言</comment>
+  </data>
+  <data name="S966a23e84aedeea5" xml:space="preserve">
+    <value>Target language</value>
+    <comment>目标语言</comment>
+  </data>
+  <data name="S2b9075cc8b636dae" xml:space="preserve">
+    <value>No image selected</value>
+    <comment>尚未选择图片</comment>
+  </data>
+  <data name="S5cc85c2fce504428" xml:space="preserve">
+    <value>No images selected</value>
+    <comment>未选择图片</comment>
+  </data>
+  <data name="S9f0d4e4656ee5dbc" xml:space="preserve">
+    <value>Add images</value>
+    <comment>添加图片</comment>
+  </data>
+  <data name="Sbce2377283c2455a" xml:space="preserve">
+    <value>Clear</value>
+    <comment>清除</comment>
+  </data>
+  <data name="Sb7986efeed2532ee" xml:space="preserve">
+    <value>Translate</value>
+    <comment>开始翻译</comment>
+  </data>
+  <data name="S3c354cc046473458" xml:space="preserve">
+    <value>Translations will appear here in image filename order</value>
+    <comment>翻译结果会按排序后的图片顺序显示在这里</comment>
+  </data>
+  <data name="Sdc4a4263a5fbd289" xml:space="preserve">
+    <value>Copy image translation</value>
+    <comment>复制图片译文</comment>
+  </data>
+  <data name="S9ad30df5111b0ead" xml:space="preserve">
+    <value>Restore full window</value>
+    <comment>恢复完整窗口</comment>
+  </data>
+  <data name="S34f52662eeb52c89" xml:space="preserve">
+    <value>Translate to</value>
+    <comment>译为</comment>
+  </data>
+  <data name="S99a6de45d0cd7780" xml:space="preserve">
+    <value>Enter text and press Enter to translate</value>
+    <comment>输入文本后按回车翻译</comment>
+  </data>
+  <data name="S8adc7488d992ff3b" xml:space="preserve">
+    <value>Clear text</value>
+    <comment>清除文本</comment>
+  </data>
+  <data name="S98b3c10d1fa31ee7" xml:space="preserve">
+    <value>Choose a .txt file</value>
+    <comment>选择 .txt 文件</comment>
+  </data>
+  <data name="Sa96f374e86bc73e4" xml:space="preserve">
+    <value>No file selected</value>
+    <comment>尚未选择文件</comment>
+  </data>
+  <data name="Sd37804040d141ab0" xml:space="preserve">
+    <value>Translation mode</value>
+    <comment>翻译模式</comment>
+  </data>
+  <data name="S63d90d977348ab1f" xml:space="preserve">
+    <value>Copy</value>
+    <comment>复制</comment>
+  </data>
+  <data name="S76420433f22d1c80" xml:space="preserve">
+    <value>Export</value>
+    <comment>导出</comment>
+  </data>
+  <data name="Sa8e304702ed3a0bd" xml:space="preserve">
+    <value>A simple, fast desktop translation tool.</value>
+    <comment>简洁、快速的桌面翻译工具。</comment>
+  </data>
+  <data name="S38084d301e3f1a31" xml:space="preserve">
+    <value>Developer</value>
+    <comment>开发者</comment>
+  </data>
+  <data name="S11bd1ff53ceab6fc" xml:space="preserve">
+    <value>Links</value>
+    <comment>相关链接</comment>
+  </data>
+  <data name="S0cadb49096a382e0" xml:space="preserve">
+    <value>Project homepage</value>
+    <comment>项目主页</comment>
+  </data>
+  <data name="Se464b41fd5c45ba5" xml:space="preserve">
+    <value>Privacy policy</value>
+    <comment>隐私政策</comment>
+  </data>
+  <data name="S2c04cdb9edaabc83" xml:space="preserve">
+    <value>Open-source software</value>
+    <comment>使用的开源软件</comment>
+  </data>
+  <data name="S3b2edcaffaaf8c03" xml:space="preserve">
+    <value>This application was created with assistance from AI.</value>
+    <comment>本软件的生成借助了 AI。</comment>
+  </data>
+  <data name="S897b4ae359a2e50b" xml:space="preserve">
+    <value>New clipboard text detected</value>
+    <comment>检测到新的剪贴板文本</comment>
+  </data>
+  <data name="S2b0572ab4a258608" xml:space="preserve">
+    <value>Paste it into the translation input?</value>
+    <comment>是否粘贴到翻译输入框？</comment>
+  </data>
+  <data name="S33517926747180e6" xml:space="preserve">
+    <value>Paste</value>
+    <comment>粘贴</comment>
+  </data>
+  <data name="S6e90ac940752ebf1" xml:space="preserve">
+    <value>Dismiss</value>
+    <comment>忽略</comment>
+  </data>
+  <data name="S3b89fd6b0cedd01e" xml:space="preserve">
+    <value>Detect language</value>
+    <comment>自动检测</comment>
+  </data>
+  <data name="S9937e365aaf3a085" xml:space="preserve">
+    <value>Simplified Chinese</value>
+    <comment>简体中文</comment>
+  </data>
+  <data name="S7bf7a60617de1a5d" xml:space="preserve">
+    <value>Traditional Chinese</value>
+    <comment>繁体中文</comment>
+  </data>
+  <data name="Sd1648bacbc1630a6" xml:space="preserve">
+    <value>English</value>
+    <comment>英语</comment>
+  </data>
+  <data name="S3a944ddb3868f4b2" xml:space="preserve">
+    <value>Japanese</value>
+    <comment>日语</comment>
+  </data>
+  <data name="S259cdcf751996c6c" xml:space="preserve">
+    <value>Korean</value>
+    <comment>韩语</comment>
+  </data>
+  <data name="S99cdf164a8140865" xml:space="preserve">
+    <value>French</value>
+    <comment>法语</comment>
+  </data>
+  <data name="S7566092dce7261d0" xml:space="preserve">
+    <value>German</value>
+    <comment>德语</comment>
+  </data>
+  <data name="S6c872d27f8359dc7" xml:space="preserve">
+    <value>Spanish</value>
+    <comment>西班牙语</comment>
+  </data>
+  <data name="Sbdb6608a4dc8d212" xml:space="preserve">
+    <value>Russian</value>
+    <comment>俄语</comment>
+  </data>
+  <data name="S6ce072a79389aa68" xml:space="preserve">
+    <value>Portuguese</value>
+    <comment>葡萄牙语</comment>
+  </data>
+  <data name="S5bdde8257c53cfbc" xml:space="preserve">
+    <value>Italian</value>
+    <comment>意大利语</comment>
+  </data>
+  <data name="Sfc9a0bdeb77f9539" xml:space="preserve">
+    <value>Arabic</value>
+    <comment>阿拉伯语</comment>
+  </data>
+  <data name="Sa15fb0d0595f0bf8" xml:space="preserve">
+    <value>Thai</value>
+    <comment>泰语</comment>
+  </data>
+  <data name="S8648ba069ee0169a" xml:space="preserve">
+    <value>Vietnamese</value>
+    <comment>越南语</comment>
+  </data>
+  <data name="S1f3ef878b068ed89" xml:space="preserve">
+    <value>Indonesian</value>
+    <comment>印尼语</comment>
+  </data>
+  <data name="Sdb2d53fb1c9cf5fb" xml:space="preserve">
+    <value>Qwen</value>
+    <comment>千问</comment>
+  </data>
+  <data name="S8bcef51236d613cd" xml:space="preserve">
+    <value>Zhipu</value>
+    <comment>智谱</comment>
+  </data>
+  <data name="Sff8b0d734b03b1a4" xml:space="preserve">
+    <value>Custom models</value>
+    <comment>自定义模型</comment>
+  </data>
+  <data name="S6a41e64905418184" xml:space="preserve">
+    <value>Alibaba Cloud machine translation</value>
+    <comment>阿里云机器翻译</comment>
+  </data>
+  <data name="Sad6f5827ffd49a3d" xml:space="preserve">
+    <value>Local AI</value>
+    <comment>本地 AI</comment>
+  </data>
+  <data name="Sefe5b49831005b3b" xml:space="preserve">
+    <value>Local endpoint</value>
+    <comment>本地接口</comment>
+  </data>
+  <data name="S721a8819eff04218" xml:space="preserve">
+    <value>Mozilla Translations model</value>
+    <comment>Mozilla Translations 模型</comment>
+  </data>
+  <data name="S6bea77acefb364ac" xml:space="preserve">
+    <value>Standard</value>
+    <comment>标准</comment>
+  </data>
+  <data name="Sf4df56debb121a52" xml:space="preserve">
+    <value>Formal</value>
+    <comment>正式</comment>
+  </data>
+  <data name="S4f12408398369b19" xml:space="preserve">
+    <value>Natural</value>
+    <comment>自然</comment>
+  </data>
+  <data name="Saa55960e4b02e668" xml:space="preserve">
+    <value>Concise</value>
+    <comment>简洁</comment>
+  </data>
+  <data name="S217cfe7db1e3d10a" xml:space="preserve">
+    <value>System default</value>
+    <comment>跟随系统</comment>
+  </data>
+  <data name="Saa0819dfc4d8d782" xml:space="preserve">
+    <value>Light</value>
+    <comment>浅色</comment>
+  </data>
+  <data name="Sa6b75d0680322a61" xml:space="preserve">
+    <value>Dark</value>
+    <comment>深色</comment>
+  </data>
+  <data name="S6497c9d8bbf3e2bd" xml:space="preserve">
+    <value>Do not save history</value>
+    <comment>不保存翻译历史</comment>
+  </data>
+  <data name="S2ce52ff2dd5d0cd6" xml:space="preserve">
+    <value>5 entries</value>
+    <comment>5 条</comment>
+  </data>
+  <data name="Sa288d84117e7b4dc" xml:space="preserve">
+    <value>20 entries</value>
+    <comment>20 条</comment>
+  </data>
+  <data name="Sa74df9d076ad2976" xml:space="preserve">
+    <value>Unlimited</value>
+    <comment>无上限</comment>
+  </data>
+  <data name="Sb29f3c6e5316260b" xml:space="preserve">
+    <value>Version </value>
+    <comment>版本 </comment>
+  </data>
+  <data name="Scb2f1709f983d2f4" xml:space="preserve">
+    <value>Model name</value>
+    <comment>模型名称</comment>
+  </data>
+  <data name="S5437b144dcff5cdb" xml:space="preserve">
+    <value>Enter a custom model name</value>
+    <comment>输入自定义模型名称</comment>
+  </data>
+  <data name="S4833a296ce7de0e1" xml:space="preserve">
+    <value>You can change this later using the button beside the model</value>
+    <comment>可稍后通过列表右侧按钮修改</comment>
+  </data>
+  <data name="S97f48676e143269c" xml:space="preserve">
+    <value>Add custom model</value>
+    <comment>添加自定义模型</comment>
+  </data>
+  <data name="S7a8a11ead50742a2" xml:space="preserve">
+    <value>Add</value>
+    <comment>添加</comment>
+  </data>
+  <data name="S2cd0f3be8738a86c" xml:space="preserve">
+    <value>Cancel</value>
+    <comment>取消</comment>
+  </data>
+  <data name="Scbb3c1c5e547839a" xml:space="preserve">
+    <value>Enter the model name to add.</value>
+    <comment>请输入要添加的模型名称。</comment>
+  </data>
+  <data name="S3ae43e1f1a6b132d" xml:space="preserve">
+    <value>Keep at least one AI translation model.</value>
+    <comment>至少需要保留一个 AI 翻译模型。</comment>
+  </data>
+  <data name="Sca478c91d3839a44" xml:space="preserve">
+    <value>Enter API key</value>
+    <comment>输入 API Key</comment>
+  </data>
+  <data name="S5031dfca5e1a36cf" xml:space="preserve">
+    <value>Edit API key for {0}</value>
+    <comment>修改 {0} 的 API Key</comment>
+  </data>
+  <data name="Sa3030bf8f16dc63c" xml:space="preserve">
+    <value>Save</value>
+    <comment>保存</comment>
+  </data>
+  <data name="S20dbfc4158fc4e1e" xml:space="preserve">
+    <value>API key updated.</value>
+    <comment>API Key 已更新。</comment>
+  </data>
+  <data name="S9f51e8223f49ef74" xml:space="preserve">
+    <value>No internet connection. Cannot retrieve offline language models.</value>
+    <comment>网络不可用，无法获取离线语言模型。</comment>
+  </data>
+  <data name="S60fc6a721a529617" xml:space="preserve">
+    <value>Found {0} models available for download</value>
+    <comment>已获取 {0} 个可下载模型</comment>
+  </data>
+  <data name="Sc10d6d22d506e2ea" xml:space="preserve">
+    <value>Could not retrieve available models</value>
+    <comment>无法获取可下载模型</comment>
+  </data>
+  <data name="Se8d207b9264ee8e2" xml:space="preserve">
+    <value>Failed to retrieve offline models: </value>
+    <comment>获取离线模型失败：</comment>
+  </data>
+  <data name="Sb5a92edd8f3dd072" xml:space="preserve">
+    <value>No internet connection. Cannot download offline language models.</value>
+    <comment>网络不可用，无法下载离线语言模型。</comment>
+  </data>
+  <data name="S9e9b889c1d47ea49" xml:space="preserve">
+    <value>Offline language model downloaded.</value>
+    <comment>离线语言模型下载完成。</comment>
+  </data>
+  <data name="Sfba1a9763bb4a591" xml:space="preserve">
+    <value>Failed to download offline language model: </value>
+    <comment>下载离线语言模型失败：</comment>
+  </data>
+  <data name="S5a0dffec7fdb9cf2" xml:space="preserve">
+    <value>This model is translating. Wait for it to finish before deleting it.</value>
+    <comment>当前离线模型正在翻译，完成后再删除。</comment>
+  </data>
+  <data name="S6fb93c4e8c3e3848" xml:space="preserve">
+    <value>Offline language model deleted.</value>
+    <comment>已删除离线语言模型。</comment>
+  </data>
+  <data name="S730e165b44f4043f" xml:space="preserve">
+    <value>Failed to delete offline language model: </value>
+    <comment>删除离线语言模型失败：</comment>
+  </data>
+  <data name="S62654c12bb804288" xml:space="preserve">
+    <value>Selected offline model: {0}.</value>
+    <comment>已选择 {0} 离线模型。</comment>
+  </data>
+  <data name="S2f4bf4aa206134f7" xml:space="preserve">
+    <value>Offline language models ({0} downloaded)</value>
+    <comment>离线语言模型（已下载 {0} 个）</comment>
+  </data>
+  <data name="Sb1eb0911b0362cdc" xml:space="preserve">
+    <value>Downloading </value>
+    <comment>正在下载 </comment>
+  </data>
+  <data name="Se2f12da7faa68217" xml:space="preserve">
+    <value>Downloaded</value>
+    <comment>已下载</comment>
+  </data>
+  <data name="S3bcfea6c1b9cef53" xml:space="preserve">
+    <value>Available</value>
+    <comment>可下载</comment>
+  </data>
+  <data name="Sbbaf71a6b15ca96d" xml:space="preserve">
+    <value>Offline. Your {0} downloaded models are still available</value>
+    <comment>网络不可用，已下载 {0} 个模型仍可使用</comment>
+  </data>
+  <data name="Se684c084bd3e0499" xml:space="preserve">
+    <value>Retrieving available models...</value>
+    <comment>正在获取可下载模型...</comment>
+  </data>
+  <data name="Sa1588043d95fe22f" xml:space="preserve">
+    <value>Models are available; this app build does not include the local translation engine</value>
+    <comment>已可下载模型；本地翻译引擎尚未随当前应用发布</comment>
+  </data>
+  <data name="Sf8f5f153c20d00b9" xml:space="preserve">
+    <value>Unknown size</value>
+    <comment>大小未知</comment>
+  </data>
+  <data name="S59197c2c8a348adf" xml:space="preserve">
+    <value>Enter a vision model name</value>
+    <comment>输入支持图片的模型名称</comment>
+  </data>
+  <data name="Sef524643804819e4" xml:space="preserve">
+    <value>Add image translation model</value>
+    <comment>添加图片翻译模型</comment>
+  </data>
+  <data name="S92834acb60a05f9a" xml:space="preserve">
+    <value>Enter the vision model name to add.</value>
+    <comment>请输入要添加的图片模型名称。</comment>
+  </data>
+  <data name="Sb1a7b7513c97cffc" xml:space="preserve">
+    <value>Keep at least one image translation model.</value>
+    <comment>至少需要保留一个图片翻译模型。</comment>
+  </data>
+  <data name="S2d76a1ab8940b92c" xml:space="preserve">
+    <value>Translation history cleared.</value>
+    <comment>已清除翻译历史。</comment>
+  </data>
+  <data name="S19d8a805a5b8102f" xml:space="preserve">
+    <value>Translation copied to the clipboard.</value>
+    <comment>译文已复制到剪贴板。</comment>
+  </data>
+  <data name="Sc40fcc8c515648c9" xml:space="preserve">
+    <value>1 image selected</value>
+    <comment>已选择 1 张图片</comment>
+  </data>
+  <data name="S8f600fd27c0940d9" xml:space="preserve">
+    <value>{0} images selected (sorted by filename)</value>
+    <comment>已选择 {0} 张图片（将按文件名排序）</comment>
+  </data>
+  <data name="S8b8a18300fdc06cb" xml:space="preserve">
+    <value>Translation failed: </value>
+    <comment>翻译失败：</comment>
+  </data>
+  <data name="S26d60e10059d6bb4" xml:space="preserve">
+    <value>Clear selected images</value>
+    <comment>清除已选图片</comment>
+  </data>
+  <data name="Sa765a397222e4cfb" xml:space="preserve">
+    <value>This will clear the selected images, previews, and current translation.</value>
+    <comment>将清除已选图片、预览和当前译文。</comment>
+  </data>
+  <data name="Sf14ea2115213250d" xml:space="preserve">
+    <value>Selected images cleared.</value>
+    <comment>已清除选择的图片。</comment>
+  </data>
+  <data name="S7ec905f70d8bcd58" xml:space="preserve">
+    <value>Enter the image translation endpoint.</value>
+    <comment>请填写图片翻译接口地址。</comment>
+  </data>
+  <data name="S43bf8e6d5c87d53f" xml:space="preserve">
+    <value>Enter a vision model name.</value>
+    <comment>请填写支持图片的模型名称。</comment>
+  </data>
+  <data name="Sd545c316aa70f548" xml:space="preserve">
+    <value>Image translation uses the {0} API. Enter an API key for this model in Settings.</value>
+    <comment>图片翻译使用{0} API，请先在设置中为对应模型填写 API Key。</comment>
+  </data>
+  <data name="S056c2183074fc47e" xml:space="preserve">
+    <value>Translating {0} images...</value>
+    <comment>正在翻译 {0} 张图片...</comment>
+  </data>
+  <data name="Sd28e60f155a1b977" xml:space="preserve">
+    <value>Translation failed: {0}</value>
+    <comment>翻译失败：{0}</comment>
+  </data>
+  <data name="S2b0d9faeeae7fbc9" xml:space="preserve">
+    <value>Completed {0} images</value>
+    <comment>已完成 {0} 张</comment>
+  </data>
+  <data name="Sae0701595821c50f" xml:space="preserve">
+    <value>Image translation complete.</value>
+    <comment>图片翻译完成。</comment>
+  </data>
+  <data name="S22e03ca25b35ea66" xml:space="preserve">
+    <value>Image translation copied to the clipboard.</value>
+    <comment>图片译文已复制到剪贴板。</comment>
+  </data>
+  <data name="S409ea723dd503454" xml:space="preserve">
+    <value>The file exceeds the 5 MB translation limit.</value>
+    <comment>文件超过 5 MB 上限，无法进行文件翻译。</comment>
+  </data>
+  <data name="Sc56a97ef2a19b9a1" xml:space="preserve">
+    <value>The selected text file is empty.</value>
+    <comment>所选文本文件为空。</comment>
+  </data>
+  <data name="S7a6782019011b09e" xml:space="preserve">
+    <value>Chunk 0/{0}</value>
+    <comment>第 0/{0} 块</comment>
+  </data>
+  <data name="S82e253f9fe9e89b8" xml:space="preserve">
+    <value>Translating file...</value>
+    <comment>正在翻译文件...</comment>
+  </data>
+  <data name="S5cb7535ebe73bd4d" xml:space="preserve">
+    <value>Translation failed for chunk {0}/{1}: {2}</value>
+    <comment>第 {0}/{1} 块翻译失败：{2}</comment>
+  </data>
+  <data name="Sf096c9c450f27383" xml:space="preserve">
+    <value>Chunk {0}/{1}</value>
+    <comment>第 {0}/{1} 块</comment>
+  </data>
+  <data name="S2c3baed64a4a05ba" xml:space="preserve">
+    <value>File translation complete.</value>
+    <comment>文件翻译完成。</comment>
+  </data>
+  <data name="Sa88e5a4567395f1d" xml:space="preserve">
+    <value>File translation canceled. No files were created.</value>
+    <comment>已取消文件翻译，未生成任何文件。</comment>
+  </data>
+  <data name="S5d1159e8ddb8a803" xml:space="preserve">
+    <value>Failed to read or translate file: </value>
+    <comment>读取或翻译文件失败：</comment>
+  </data>
+  <data name="Sc032501b64d130a4" xml:space="preserve">
+    <value>Clear selected file</value>
+    <comment>清除已选文件</comment>
+  </data>
+  <data name="S9eba2ce67d307838" xml:space="preserve">
+    <value>This will clear the selected file and current translation.</value>
+    <comment>将清除已选文件和当前译文。</comment>
+  </data>
+  <data name="S195c770293426caf" xml:space="preserve">
+    <value>Selected file cleared.</value>
+    <comment>已清除选择的文件。</comment>
+  </data>
+  <data name="S59f0375b613bae29" xml:space="preserve">
+    <value>File translation copied to the clipboard.</value>
+    <comment>文件译文已复制到剪贴板。</comment>
+  </data>
+  <data name="S395547f47be93f0c" xml:space="preserve">
+    <value>_translation</value>
+    <comment>_译文</comment>
+  </data>
+  <data name="Sde76493b9bc6bf31" xml:space="preserve">
+    <value>Text files</value>
+    <comment>文本文件</comment>
+  </data>
+  <data name="S24b91ff2e5dffd68" xml:space="preserve">
+    <value>Translation exported to: </value>
+    <comment>译文已导出到：</comment>
+  </data>
+  <data name="Sc55e9d64e5b59245" xml:space="preserve">
+    <value>Export failed: </value>
+    <comment>导出失败：</comment>
+  </data>
+  <data name="S1572a6e3b550c2e4" xml:space="preserve">
+    <value>Unknown file encoding. Save the file as UTF-8, UTF-16, or GBK and try again.</value>
+    <comment>无法识别文件编码。请将文件保存为 UTF-8、UTF-16 或 GBK 后重试。</comment>
+  </data>
+  <data name="S1d8d933b9abfb924" xml:space="preserve">
+    <value>Enter text to translate.</value>
+    <comment>请输入需要翻译的内容。</comment>
+  </data>
+  <data name="S430a114f5f11b4f5" xml:space="preserve">
+    <value>Enter an endpoint.</value>
+    <comment>请填写接口地址。</comment>
+  </data>
+  <data name="Scd51931f73c65170" xml:space="preserve">
+    <value>Enter a model name.</value>
+    <comment>请填写模型名称。</comment>
+  </data>
+  <data name="S9b642ad3c49f3589" xml:space="preserve">
+    <value>This build does not include the Mozilla Translations engine. Build and republish the Runtime\Bergamot runtime.</value>
+    <comment>当前发布包未包含 Mozilla Translations 本地翻译引擎。请构建并重新发布 Runtime\Bergamot 运行库。</comment>
+  </data>
+  <data name="S0238616d2af60327" xml:space="preserve">
+    <value>Download and select an offline language model in Settings first.</value>
+    <comment>请先在设置中下载并选择离线语言模型。</comment>
+  </data>
+  <data name="S57a3f2b55d0466f3" xml:space="preserve">
+    <value>Enter an API key for the current model in Settings.</value>
+    <comment>请在设置中为当前模型填写 API Key。</comment>
+  </data>
+  <data name="S7770d4d73746e1f0" xml:space="preserve">
+    <value>Translating with the local model...</value>
+    <comment>正在使用本地模型翻译...</comment>
+  </data>
+  <data name="S836f8866c686f1bb" xml:space="preserve">
+    <value>Translating...</value>
+    <comment>正在翻译...</comment>
+  </data>
+  <data name="S86035c7b8abaacb1" xml:space="preserve">
+    <value>Translation complete.</value>
+    <comment>翻译完成。</comment>
+  </data>
+  <data name="S678b4d019d577f48" xml:space="preserve">
+    <value>Translation canceled.</value>
+    <comment>已取消翻译。</comment>
+  </data>
+  <data name="S2e1088310064158e" xml:space="preserve">
+    <value>Select valid source and target languages.</value>
+    <comment>请选择有效的源语言和目标语言。</comment>
+  </data>
+  <data name="S942415652d69ea51" xml:space="preserve">
+    <value>Enter your Alibaba Cloud translation AccessKey ID.</value>
+    <comment>请填写阿里云机器翻译 AccessKey ID。</comment>
+  </data>
+  <data name="S438b7b7764df6a47" xml:space="preserve">
+    <value>Enter your Alibaba Cloud translation AccessKey Secret.</value>
+    <comment>请填写阿里云机器翻译 AccessKey Secret。</comment>
+  </data>
+  <data name="S13169ef21bc826b8" xml:space="preserve">
+    <value>Requesting machine translation...</value>
+    <comment>正在调用机器翻译...</comment>
+  </data>
+  <data name="Se9edf286fd75b5bf" xml:space="preserve">
+    <value>Windows voice typing opened.</value>
+    <comment>已打开 Windows 语音输入。</comment>
+  </data>
+  <data name="S67ffcbe30a136a05" xml:space="preserve">
+    <value>Enter your Alibaba Cloud translation AccessKey ID and AccessKey Secret.</value>
+    <comment>请填写阿里云机器翻译 AccessKey ID 和 AccessKey Secret。</comment>
+  </data>
+  <data name="S0c8b2ded3322c9eb" xml:space="preserve">
+    <value>This build does not include the Mozilla Translations engine.</value>
+    <comment>当前发布包未包含 Mozilla Translations 本地翻译引擎。</comment>
+  </data>
+  <data name="S32562e7e1bcd32e1" xml:space="preserve">
+    <value>API translation is disabled in Settings.</value>
+    <comment>API 翻译已在设置中关闭。</comment>
+  </data>
+  <data name="Se72003eeb62eec8a" xml:space="preserve">
+    <value>AI translation is disabled in Settings.</value>
+    <comment>AI 翻译已在设置中关闭。</comment>
+  </data>
+  <data name="S2e374d58b9d4fa39" xml:space="preserve">
+    <value>Set up Alibaba Cloud access keys for API translation.</value>
+    <comment>API 翻译未配置阿里云 AccessKey。</comment>
+  </data>
+  <data name="Sbffa248ae1371157" xml:space="preserve">
+    <value>Select a Mozilla Translations model for local translation.</value>
+    <comment>本地翻译未选择 Mozilla Translations 模型。</comment>
+  </data>
+  <data name="Sb727139817d710c7" xml:space="preserve">
+    <value>Set up an endpoint for local translation.</value>
+    <comment>本地翻译未配置接口地址。</comment>
+  </data>
+  <data name="S58b3609bb498190c" xml:space="preserve">
+    <value>Set up an endpoint for AI translation.</value>
+    <comment>AI 翻译未配置接口地址。</comment>
+  </data>
+  <data name="S46f17df6af64f8dd" xml:space="preserve">
+    <value>Set up a model for local translation.</value>
+    <comment>本地翻译未配置模型名称。</comment>
+  </data>
+  <data name="S1724e4f64ea5f379" xml:space="preserve">
+    <value>Set up a model for AI translation.</value>
+    <comment>AI 翻译未配置模型名称。</comment>
+  </data>
+  <data name="S74b9efbcc4a7bea0" xml:space="preserve">
+    <value>Set up an API key for the current AI translation model.</value>
+    <comment>AI 翻译未配置当前模型的 API Key。</comment>
+  </data>
+  <data name="S4c1ad61fe081e43b" xml:space="preserve">
+    <value>The current mode is not configured.</value>
+    <comment>当前模式未配置。</comment>
+  </data>
+  <data name="S6a7c1a94d4b82021" xml:space="preserve">
+    <value>Playback stopped.</value>
+    <comment>已停止朗读。</comment>
+  </data>
+  <data name="S1defae199d726993" xml:space="preserve">
+    <value>Generating speech...</value>
+    <comment>正在合成语音...</comment>
+  </data>
+  <data name="S08ba23ff956cc3cc" xml:space="preserve">
+    <value>Reading the translation aloud.</value>
+    <comment>正在朗读译文。</comment>
+  </data>
+  <data name="S00d317b7fc1d7cd2" xml:space="preserve">
+    <value>Cannot play speech: </value>
+    <comment>无法播放语音：</comment>
+  </data>
+  <data name="S5f2ee7fd3f1be159" xml:space="preserve">
+    <value>Enter the local endpoint first.</value>
+    <comment>请先填写本地接口地址。</comment>
+  </data>
+  <data name="Seca4767938f03344" xml:space="preserve">
+    <value>The local service returned no models.</value>
+    <comment>本地服务没有返回模型列表。</comment>
+  </data>
+  <data name="S75f940922b1d95c7" xml:space="preserve">
+    <value>Found {0} local models.</value>
+    <comment>找到 {0} 个本地模型。</comment>
+  </data>
+  <data name="S7cb47bebdeb02a62" xml:space="preserve">
+    <value>Failed to refresh models: </value>
+    <comment>刷新模型失败：</comment>
+  </data>
+  <data name="S22644e8e74fb716c" xml:space="preserve">
+    <value>{0} characters</value>
+    <comment>{0} 字</comment>
+  </data>
+  <data name="S4d8c1c5b42830791" xml:space="preserve">
+    <value>Unknown</value>
+    <comment>未知</comment>
+  </data>
+  <data name="Scdfd0b34e4918648" xml:space="preserve">
+    <value>Use</value>
+    <comment>使用</comment>
+  </data>
+  <data name="S4673a23061656125" xml:space="preserve">
+    <value>Download</value>
+    <comment>下载</comment>
+  </data>
+  <data name="S2d309d2b619d2ed7" xml:space="preserve">
+    <value>Cannot start the Mozilla Translations engine.</value>
+    <comment>无法启动 Mozilla Translations 本地翻译引擎。</comment>
+  </data>
+  <data name="S9fb7539cb1f1cb80" xml:space="preserve">
+    <value>Mozilla Translations exited unexpectedly with code {0}.</value>
+    <comment>Mozilla Translations 翻译引擎异常退出，退出代码 {0}。</comment>
+  </data>
+  <data name="S421e3f647c3991ba" xml:space="preserve">
+    <value>Mozilla Translations failed: </value>
+    <comment>Mozilla Translations 翻译失败：</comment>
+  </data>
+  <data name="S76df6c4b185333dd" xml:space="preserve">
+    <value>Download the model again and check that your CPU supports this build.</value>
+    <comment>请确认已重新下载模型，且设备 CPU 支持当前发布版本。</comment>
+  </data>
+  <data name="Sd6b238541841a577" xml:space="preserve">
+    <value>The Mozilla Translations model produced no usable translation.</value>
+    <comment>Mozilla Translations 模型没有生成可用的译文。</comment>
+  </data>
+  <data name="S3b31ba408d5d3706" xml:space="preserve">
+    <value>Mozilla Translations supports only x64 and ARM64 builds.</value>
+    <comment>Mozilla Translations 本地翻译仅支持 x64 或 ARM64 发布版本。</comment>
+  </data>
+  <data name="Scfa05d89e50d6ae0" xml:space="preserve">
+    <value>Mozilla Translations {0} runtime not found. Build it using tools\Build-BergamotRuntime.ps1 and republish the app.</value>
+    <comment>未找到 Mozilla Translations {0} 运行库。请使用 tools\Build-BergamotRuntime.ps1 构建后重新发布应用。</comment>
+  </data>
+  <data name="S7438175c149a5084" xml:space="preserve">
+    <value>The Mozilla Translations model folder does not exist.</value>
+    <comment>Mozilla Translations 模型文件夹不存在。</comment>
+  </data>
+  <data name="S107d5a8beeec5621" xml:space="preserve">
+    <value>The selected folder is missing a .bergamot.yml configuration file.</value>
+    <comment>所选文件夹不是 Mozilla Translations 模型，缺少 .bergamot.yml 配置文件。</comment>
+  </data>
+  <data name="S3976aa048414e8e3" xml:space="preserve">
+    <value>The folder contains multiple .bergamot.yml files. Select a separate model folder for each translation direction.</value>
+    <comment>所选模型文件夹包含多个 .bergamot.yml 配置文件，请为每个翻译方向选择单独的模型文件夹。</comment>
+  </data>
+  <data name="Sf7ceb564d182a480" xml:space="preserve">
+    <value>The Mozilla model registry is missing a download URL.</value>
+    <comment>Mozilla 模型注册表缺少下载地址。</comment>
+  </data>
+  <data name="S8f9f8e11bfc97e7d" xml:space="preserve">
+    <value>Invalid model identifier. Cannot create the download folder.</value>
+    <comment>模型标识无效，无法创建下载目录。</comment>
+  </data>
+  <data name="S854a28b0ebfdbb99" xml:space="preserve">
+    <value>Only offline models downloaded by this app can be deleted.</value>
+    <comment>只能删除由应用下载的离线模型。</comment>
+  </data>
+  <data name="Sdd07df9fe4189eff" xml:space="preserve">
+    <value>Offline model metadata is missing the Bergamot configuration.</value>
+    <comment>离线模型元数据缺少 Bergamot 配置。</comment>
+  </data>
+  <data name="Sebb63fc3fc6ab9d5" xml:space="preserve">
+    <value>Invalid offline model folder.</value>
+    <comment>离线模型目录无效。</comment>
+  </data>
+  <data name="S5c5c0bfa79d37a29" xml:space="preserve">
+    <value>Machine translation request failed: {0}</value>
+    <comment>机器翻译请求失败：{0}</comment>
+  </data>
+  <data name="S13a46616e16fe5e6" xml:space="preserve">
+    <value>Unknown error</value>
+    <comment>未知错误</comment>
+  </data>
+  <data name="Sdbfebf2b461bb279" xml:space="preserve">
+    <value>The machine translation service returned an unreadable response.</value>
+    <comment>机器翻译服务返回了无法解析的响应。</comment>
+  </data>
+  <data name="S0724377fa76dd8b2" xml:space="preserve">
+    <value>The machine translation service returned no usable translation.</value>
+    <comment>机器翻译服务没有返回可用的译文。</comment>
+  </data>
+  <data name="Sabf6fdd8a512ddb7" xml:space="preserve">
+    <value>Translation request failed: {0}</value>
+    <comment>翻译请求失败：{0}</comment>
+  </data>
+  <data name="S34c31ee34f669723" xml:space="preserve">
+    <value>The translation service returned an unreadable response.</value>
+    <comment>翻译服务返回了无法解析的响应。</comment>
+  </data>
+  <data name="Sa5a710ecc4f450fc" xml:space="preserve">
+    <value>The translation service returned no usable translation.</value>
+    <comment>翻译服务没有返回可用的译文。</comment>
+  </data>
+  <data name="Sdcdf9ea4d4e60970" xml:space="preserve">
+    <value>Image translation request failed: {0}</value>
+    <comment>图片翻译请求失败：{0}</comment>
+  </data>
+  <data name="S3fffbe16e5c4b1be" xml:space="preserve">
+    <value>The image translation service returned an unreadable response.</value>
+    <comment>图片翻译服务返回了无法解析的响应。</comment>
+  </data>
+  <data name="S3569c0acc11d269c" xml:space="preserve">
+    <value>The image translation service returned no usable translation.</value>
+    <comment>图片翻译服务没有返回可用的译文。</comment>
+  </data>
+  <data name="S5f2e2920f29800bb" xml:space="preserve">
+    <value>Failed to retrieve model list: {0}</value>
+    <comment>获取模型列表失败：{0}</comment>
+  </data>
+  <data name="Sc39af817c2b4471d" xml:space="preserve">
+    <value>The local service returned an unreadable model list.</value>
+    <comment>本地服务返回了无法解析的模型列表。</comment>
+  </data>
+  <data name="S3d13868593ae4eeb" xml:space="preserve">
+    <value>App language</value>
+    <comment>界面语言</comment>
+  </data>
+  <data name="S0e61f173997cf413" xml:space="preserve">
+    <value>App theme</value>
+    <comment>应用主题</comment>
+  </data>
+  <data name="S68ab31f0f5faf650" xml:space="preserve">
+    <value>Changes take effect after restarting the app. System default uses Chinese for Chinese systems and English otherwise.</value>
+    <comment>重启应用后生效。跟随系统时，中文系统显示中文，其他语言显示英文。</comment>
+  </data>
+  <data name="S997244faaf143e17" xml:space="preserve">
+    <value>Language preference saved. Restart the app to apply it.</value>
+    <comment>语言设置已保存，请重新启动应用以应用更改。</comment>
+  </data>
+  <data name="Sb55d73902020d21c" xml:space="preserve">
+    <value>Enable API translation</value>
+    <comment>启用 API 翻译</comment>
+  </data>
+  <data name="S8d5dd50781ddc74b" xml:space="preserve">
+    <value>Enable AI translation</value>
+    <comment>启用 AI 翻译</comment>
+  </data>
+</root>

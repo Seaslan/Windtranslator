@@ -4,7 +4,7 @@
 
 ## 中文
 
-Windtranslator 是一款基于 WinUI 3 的 Windows 桌面翻译工具，支持云端 API、AI 和本地翻译。应用界面默认使用简体中文。
+风译（英文名 Windtanslator）是一款基于 WinUI 3 的 Windows 桌面翻译工具，支持云端 API、AI 和本地翻译。界面支持简体中文和英文，首次启动跟随 Windows 系统语言（中文系统使用中文，其他语言使用英文）。可在“设置 > 外观 > 界面语言”选择跟随系统、简体中文或 English，重启应用后生效。窗口及关于页面使用对应语言的名称；Windows 开始菜单中的名称跟随系统显示语言。
 
 ### 功能
 
@@ -89,7 +89,7 @@ vcpkg install openblas:arm64-windows-static
 
 ## English
 
-Windtranslator is a WinUI 3 desktop translation tool for Windows. It supports cloud APIs, AI-assisted translation, and local translation. The application UI currently defaults to Simplified Chinese.
+Windtanslator (风译 in Chinese) is a WinUI 3 desktop translation tool for Windows. It supports cloud APIs, AI-assisted translation, and local translation. The UI supports Simplified Chinese and English, following the Windows language on first launch (Chinese for Chinese systems, English otherwise). Select System default, 简体中文, or English under Settings > Appearance > App language, then restart the app. Window titles and About use the selected language's app name; the Windows Start menu name follows the system display language.
 
 ### Features
 

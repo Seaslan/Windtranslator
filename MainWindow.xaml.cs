@@ -153,13 +153,15 @@ public sealed partial class MainWindow : Window
     private void InitializeUi()
     {
         _suppressEvents = true;
+        UiLanguageComboBox.ItemsSource = new[] { Localization.Text("跟随系统"), "简体中文", "English" };
+        UiLanguageComboBox.SelectedIndex = _settings.UiLanguage switch { "zh-CN" => 1, "en-US" => 2, _ => 0 };
 
         ApiTranslationToggleSwitch.IsOn = _settings.ApiTranslationEnabled;
         AiTranslationToggleSwitch.IsOn = _settings.AiTranslationEnabled;
         UpdateTranslationToggleStateText();
         var initialModeIndex = Math.Clamp(_settings.ModeIndex, 0, 2);
         ModeComboBox.SelectedIndex = IsTranslationModeEnabled(initialModeIndex) ? initialModeIndex : 2;
-        LocalTranslationSourceComboBox.ItemsSource = new[] { "本地接口", "Mozilla Translations 模型" };
+        LocalTranslationSourceComboBox.ItemsSource = new[] { Localization.Text("本地接口"), Localization.Text("Mozilla Translations 模型") };
         LocalTranslationSourceComboBox.SelectedIndex = Math.Clamp(_settings.LocalTranslationSourceIndex, 0, 1);
 
         SourceLanguageComboBox.ItemsSource = Languages;
@@ -192,16 +194,18 @@ public sealed partial class MainWindow : Window
             Languages[targetIndex]);
 
         CustomPromptTextBox.Text = _settings.CustomPrompt;
-        AiPromptStyleComboBox.ItemsSource = new[] { "标准", "正式", "自然", "简洁" };
+        AiPromptStyleComboBox.ItemsSource = new[] { Localization.Text("标准"), Localization.Text("正式"), Localization.Text("自然"), Localization.Text("简洁") };
         AiPromptStyleComboBox.SelectedIndex = Math.Clamp(_settings.AiPromptStyleIndex, 0, 3);
         AiIncludeLanguageDetailsCheckBox.IsChecked = _settings.AiIncludeLanguageDetails;
         AiRememberKeyCheckBox.IsChecked = _settings.RememberKeys;
         ImageRememberKeyCheckBox.IsChecked = _settings.RememberImageKeys;
         AliyunRememberKeyCheckBox.IsChecked = _settings.RememberAliyunKeys;
-        ThemeComboBox.ItemsSource = new[] { "跟随系统", "浅色", "深色" };
+        ThemeComboBox.ItemsSource = new[] { Localization.Text("跟随系统"), Localization.Text("浅色"), Localization.Text("深色") };
         ThemeComboBox.SelectedIndex = Math.Clamp(_settings.ThemeIndex, 0, 2);
         MicaBackdropCheckBox.IsChecked = _settings.MicaBackdropEnabled;
-        TranslationHistoryLimitComboBox.ItemsSource = new[] { "不保存翻译历史", "5 条", "20 条", "无上限" };
+        EnterToTranslateToggleSwitch.IsOn = _settings.EnterToTranslate;
+        UpdateEnterShortcutLabels();
+        TranslationHistoryLimitComboBox.ItemsSource = new[] { Localization.Text("不保存翻译历史"), Localization.Text("5 条"), Localization.Text("20 条"), Localization.Text("无上限") };
         _settings.TranslationHistoryLimit = NormalizeTranslationHistoryLimit(_settings.TranslationHistoryLimit);
         TranslationHistoryLimitComboBox.SelectedIndex = Array.IndexOf(
             TranslationHistoryLimits,
@@ -215,7 +219,7 @@ public sealed partial class MainWindow : Window
 
         ApplyTheme();
         ApplyMicaBackdrop();
-        AboutVersionTextBlock.Text = "版本 " + GetApplicationVersion();
+        AboutVersionTextBlock.Text = Localization.Text("版本 ") + GetApplicationVersion();
         SidebarNavigationView.SelectedItem = HomeNavigationItem;
         NavigateTo("Home", addBackEntry: false);
         InitializeProviderSettings();
@@ -234,6 +238,14 @@ public sealed partial class MainWindow : Window
         }
 
         SaveSettings();
+    }
+
+    private void UiLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressEvents) return;
+        _settings.UiLanguage = UiLanguageComboBox.SelectedIndex switch { 1 => "zh-CN", 2 => "en-US", _ => "system" };
+        SaveSettings();
+        ShowInfo(Localization.Text("语言设置已保存，请重新启动应用以应用更改。"), InfoBarSeverity.Informational);
     }
 
     private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -258,6 +270,31 @@ public sealed partial class MainWindow : Window
         _settings.MicaBackdropEnabled = MicaBackdropCheckBox.IsChecked == true;
         ApplyMicaBackdrop();
         SaveSettings();
+    }
+
+    private void EnterToTranslateToggleSwitch_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_suppressEvents)
+        {
+            return;
+        }
+
+        _settings.EnterToTranslate = EnterToTranslateToggleSwitch.IsOn;
+        UpdateEnterShortcutLabels();
+        SaveSettings();
+        if (_settings.EnterToTranslate)
+        {
+            ShowInfo(Localization.Text("已开启回车键翻译，按 Shift+Enter 换行。"), InfoBarSeverity.Informational);
+        }
+    }
+
+    private void UpdateEnterShortcutLabels()
+    {
+        EnterShortcutActionText.Text = Localization.Text(
+            EnterToTranslateToggleSwitch.IsOn ? "翻译文本" : "插入换行");
+        ShiftEnterShortcutRow.Visibility = EnterToTranslateToggleSwitch.IsOn
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     private void TranslationHistoryLimitComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -448,13 +485,13 @@ public sealed partial class MainWindow : Window
     {
         var modelTextBox = new TextBox
         {
-            Header = "模型名称",
-            PlaceholderText = "输入自定义模型名称",
+            Header = Localization.Text("模型名称"),
+            PlaceholderText = Localization.Text("输入自定义模型名称"),
         };
         var apiKeyPasswordBox = new PasswordBox
         {
             Header = "API Key",
-            PlaceholderText = "可稍后通过列表右侧按钮修改",
+            PlaceholderText = Localization.Text("可稍后通过列表右侧按钮修改"),
         };
         var content = new StackPanel { Spacing = 12 };
         content.Children.Add(modelTextBox);
@@ -462,10 +499,10 @@ public sealed partial class MainWindow : Window
         var dialog = new ContentDialog
         {
             XamlRoot = WindowRoot.XamlRoot,
-            Title = "添加自定义模型",
+            Title = Localization.Text("添加自定义模型"),
             Content = content,
-            PrimaryButtonText = "添加",
-            CloseButtonText = "取消",
+            PrimaryButtonText = Localization.Text("添加"),
+            CloseButtonText = Localization.Text("取消"),
             DefaultButton = ContentDialogButton.Primary,
         };
 
@@ -477,7 +514,7 @@ public sealed partial class MainWindow : Window
         var model = modelTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(model))
         {
-            ShowInfo("请输入要添加的模型名称。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("请输入要添加的模型名称。"), InfoBarSeverity.Warning);
             return;
         }
 
@@ -562,8 +599,8 @@ public sealed partial class MainWindow : Window
 
     private void UpdateTranslationToggleStateText()
     {
-        ApiTranslationStateText.Text = ApiTranslationToggleSwitch.IsOn ? "开" : "关";
-        AiTranslationStateText.Text = AiTranslationToggleSwitch.IsOn ? "开" : "关";
+        ApiTranslationStateText.Text = ApiTranslationToggleSwitch.IsOn ? Localization.Text("开") : Localization.Text("关");
+        AiTranslationStateText.Text = AiTranslationToggleSwitch.IsOn ? Localization.Text("开") : Localization.Text("关");
     }
 
     private bool IsTranslationModeEnabled(int modeIndex) => modeIndex switch
@@ -608,7 +645,7 @@ public sealed partial class MainWindow : Window
         var models = GetAvailableAiModels(profile);
         if (models.Count <= 1)
         {
-            ShowInfo("至少需要保留一个 AI 翻译模型。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("至少需要保留一个 AI 翻译模型。"), InfoBarSeverity.Warning);
             return;
         }
 
@@ -638,22 +675,22 @@ public sealed partial class MainWindow : Window
         {
             Header = "API Key",
             Password = GetApiKeyForModel(_currentProvider, model),
-            PlaceholderText = "输入 API Key",
+            PlaceholderText = Localization.Text("输入 API Key"),
         };
         var dialog = new ContentDialog
         {
             XamlRoot = WindowRoot.XamlRoot,
-            Title = $"修改 {model} 的 API Key",
+            Title = Localization.Text("修改 {0} 的 API Key", model),
             Content = passwordBox,
-            PrimaryButtonText = "保存",
-            CloseButtonText = "取消",
+            PrimaryButtonText = Localization.Text("保存"),
+            CloseButtonText = Localization.Text("取消"),
             DefaultButton = ContentDialogButton.Primary,
         };
 
         if (await dialog.ShowAsync() == ContentDialogResult.Primary)
         {
             SetApiKeyForModel(_currentProvider, model, passwordBox.Password.Trim());
-            ShowInfo("API Key 已更新。", InfoBarSeverity.Success);
+            ShowInfo(Localization.Text("API Key 已更新。"), InfoBarSeverity.Success);
         }
     }
 
@@ -904,7 +941,7 @@ public sealed partial class MainWindow : Window
             UpdateOfflineModelDownloadAvailability();
             if (showError)
             {
-                ShowInfo("网络不可用，无法获取离线语言模型。", InfoBarSeverity.Warning);
+                ShowInfo(Localization.Text("网络不可用，无法获取离线语言模型。"), InfoBarSeverity.Warning);
             }
 
             return;
@@ -915,15 +952,15 @@ public sealed partial class MainWindow : Window
         try
         {
             _onlineOfflineModels = (await _offlineModelService.GetAvailableModelsAsync(CancellationToken.None)).ToList();
-            OfflineModelsStatusTextBlock.Text = $"已获取 {_onlineOfflineModels.Count} 个可下载模型";
+            OfflineModelsStatusTextBlock.Text = Localization.Text("已获取 {0} 个可下载模型", _onlineOfflineModels.Count);
             RefreshOfflineModelList();
         }
         catch (Exception ex)
         {
-            OfflineModelsStatusTextBlock.Text = "无法获取可下载模型";
+            OfflineModelsStatusTextBlock.Text = Localization.Text("无法获取可下载模型");
             if (showError)
             {
-                ShowInfo("获取离线模型失败：" + ex.Message, InfoBarSeverity.Error);
+                ShowInfo(Localization.Text("获取离线模型失败：") + ex.Message, InfoBarSeverity.Error);
             }
         }
         finally
@@ -948,7 +985,7 @@ public sealed partial class MainWindow : Window
 
         if (!HasInternetAccess())
         {
-            ShowInfo("网络不可用，无法下载离线语言模型。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("网络不可用，无法下载离线语言模型。"), InfoBarSeverity.Warning);
             return;
         }
 
@@ -980,11 +1017,11 @@ public sealed partial class MainWindow : Window
                 UseOfflineModel(installed);
             }
 
-            ShowInfo("离线语言模型下载完成。", InfoBarSeverity.Success);
+            ShowInfo(Localization.Text("离线语言模型下载完成。"), InfoBarSeverity.Success);
         }
         catch (Exception ex)
         {
-            ShowInfo("下载离线语言模型失败：" + ex.Message, InfoBarSeverity.Error);
+            ShowInfo(Localization.Text("下载离线语言模型失败：") + ex.Message, InfoBarSeverity.Error);
         }
         finally
         {
@@ -1004,7 +1041,7 @@ public sealed partial class MainWindow : Window
 
         if (_isTranslating && PathsEqual(_selectedOfflineModelPath, model.LocalDirectory))
         {
-            ShowInfo("当前离线模型正在翻译，完成后再删除。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("当前离线模型正在翻译，完成后再删除。"), InfoBarSeverity.Warning);
             return;
         }
 
@@ -1017,11 +1054,11 @@ public sealed partial class MainWindow : Window
             }
 
             RefreshOfflineModelList();
-            ShowInfo("已删除离线语言模型。", InfoBarSeverity.Success);
+            ShowInfo(Localization.Text("已删除离线语言模型。"), InfoBarSeverity.Success);
         }
         catch (Exception ex)
         {
-            ShowInfo("删除离线语言模型失败：" + ex.Message, InfoBarSeverity.Error);
+            ShowInfo(Localization.Text("删除离线语言模型失败：") + ex.Message, InfoBarSeverity.Error);
         }
     }
 
@@ -1040,7 +1077,7 @@ public sealed partial class MainWindow : Window
         _suppressEvents = false;
         UpdateLocalTranslationSourceUi();
         SaveSettings();
-        ShowInfo($"已选择 {model.Title} 离线模型。", InfoBarSeverity.Informational);
+        ShowInfo(Localization.Text("已选择 {0} 离线模型。", model.Title), InfoBarSeverity.Informational);
         NavigateTo("Home");
     }
 
@@ -1080,7 +1117,7 @@ public sealed partial class MainWindow : Window
         models.AddRange(installed.Values
             .Where(model => _onlineOfflineModels.All(online => !online.Id.Equals(model.Id, StringComparison.OrdinalIgnoreCase)))
             .Select(CreateOfflineModelListItem));
-        OfflineModelsHeaderTextBlock.Text = $"离线语言模型（已下载 {installed.Count} 个）";
+        OfflineModelsHeaderTextBlock.Text = Localization.Text("离线语言模型（已下载 {0} 个）", installed.Count);
         OfflineModelsListView.ItemsSource = models
             .OrderByDescending(model => model.IsInstalled)
             .ThenBy(model => model.Title, StringComparer.CurrentCulture)
@@ -1093,11 +1130,11 @@ public sealed partial class MainWindow : Window
         var size = FormatModelSize(model.SizeBytes);
         if (_isDownloadingOfflineModel && model.Id.Equals(_downloadingOfflineModelId, StringComparison.OrdinalIgnoreCase))
         {
-            model.Details = "正在下载 " + (int)(_offlineModelDownloadProgress * 100) + "% · " + size;
+            model.Details = Localization.Text("正在下载 ") + (int)(_offlineModelDownloadProgress * 100) + "% · " + size;
         }
         else
         {
-            model.Details = (model.IsInstalled ? "已下载" : "可下载") + " · " + size;
+            model.Details = (model.IsInstalled ? Localization.Text("已下载") : Localization.Text("可下载")) + " · " + size;
         }
 
         model.CanDownload = model.IsInstalled || (HasInternetAccess() && !_isLoadingOfflineModels && !_isDownloadingOfflineModel);
@@ -1110,15 +1147,15 @@ public sealed partial class MainWindow : Window
         RefreshOfflineModelsButton.IsEnabled = online && !_isLoadingOfflineModels && !_isDownloadingOfflineModel;
         if (!online)
         {
-            OfflineModelsStatusTextBlock.Text = $"网络不可用，已下载 {_offlineModelService.GetInstalledModels().Count} 个模型仍可使用";
+            OfflineModelsStatusTextBlock.Text = Localization.Text("网络不可用，已下载 {0} 个模型仍可使用", _offlineModelService.GetInstalledModels().Count);
         }
         else if (_isLoadingOfflineModels)
         {
-            OfflineModelsStatusTextBlock.Text = "正在获取可下载模型...";
+            OfflineModelsStatusTextBlock.Text = Localization.Text("正在获取可下载模型...");
         }
         else if (!IsBergamotRuntimeAvailable())
         {
-            OfflineModelsStatusTextBlock.Text = "已可下载模型；本地翻译引擎尚未随当前应用发布";
+            OfflineModelsStatusTextBlock.Text = Localization.Text("已可下载模型；本地翻译引擎尚未随当前应用发布");
         }
 
         RefreshOfflineModelList();
@@ -1151,27 +1188,27 @@ public sealed partial class MainWindow : Window
 
     private static string GetLanguageDisplayName(string code) => ToApplicationLanguageCode(code) switch
     {
-        "zh" => "简体中文",
-        "zh-tw" => "繁体中文",
-        "en" => "英语",
-        "ja" => "日语",
-        "ko" => "韩语",
-        "fr" => "法语",
-        "de" => "德语",
-        "es" => "西班牙语",
-        "ru" => "俄语",
-        "pt" => "葡萄牙语",
-        "it" => "意大利语",
-        "ar" => "阿拉伯语",
-        "th" => "泰语",
-        "vi" => "越南语",
-        "id" => "印尼语",
+        "zh" => Localization.Text("简体中文"),
+        "zh-tw" => Localization.Text("繁体中文"),
+        "en" => Localization.Text("英语"),
+        "ja" => Localization.Text("日语"),
+        "ko" => Localization.Text("韩语"),
+        "fr" => Localization.Text("法语"),
+        "de" => Localization.Text("德语"),
+        "es" => Localization.Text("西班牙语"),
+        "ru" => Localization.Text("俄语"),
+        "pt" => Localization.Text("葡萄牙语"),
+        "it" => Localization.Text("意大利语"),
+        "ar" => Localization.Text("阿拉伯语"),
+        "th" => Localization.Text("泰语"),
+        "vi" => Localization.Text("越南语"),
+        "id" => Localization.Text("印尼语"),
         _ => code,
     };
 
     private static string FormatModelSize(long bytes) => bytes switch
     {
-        <= 0 => "大小未知",
+        <= 0 => Localization.Text("大小未知"),
         < 1024 * 1024 => (bytes / 1024d).ToString("0.0") + " KB",
         _ => (bytes / (1024d * 1024d)).ToString("0.0") + " MB",
     };
@@ -1430,16 +1467,16 @@ public sealed partial class MainWindow : Window
     {
         var modelTextBox = new TextBox
         {
-            Header = "模型名称",
-            PlaceholderText = "输入支持图片的模型名称",
+            Header = Localization.Text("模型名称"),
+            PlaceholderText = Localization.Text("输入支持图片的模型名称"),
         };
         var dialog = new ContentDialog
         {
             XamlRoot = WindowRoot.XamlRoot,
-            Title = "添加图片翻译模型",
+            Title = Localization.Text("添加图片翻译模型"),
             Content = modelTextBox,
-            PrimaryButtonText = "添加",
-            CloseButtonText = "取消",
+            PrimaryButtonText = Localization.Text("添加"),
+            CloseButtonText = Localization.Text("取消"),
             DefaultButton = ContentDialogButton.Primary,
         };
 
@@ -1451,7 +1488,7 @@ public sealed partial class MainWindow : Window
         var model = modelTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(model))
         {
-            ShowInfo("请输入要添加的图片模型名称。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("请输入要添加的图片模型名称。"), InfoBarSeverity.Warning);
             return;
         }
 
@@ -1479,7 +1516,7 @@ public sealed partial class MainWindow : Window
 
         if (_settings.ImageModels.Count <= 1)
         {
-            ShowInfo("至少需要保留一个图片翻译模型。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("至少需要保留一个图片翻译模型。"), InfoBarSeverity.Warning);
             return;
         }
 
@@ -1510,22 +1547,22 @@ public sealed partial class MainWindow : Window
         {
             Header = "API Key",
             Password = GetApiKeyForImageModel(provider, model),
-            PlaceholderText = "输入 API Key",
+            PlaceholderText = Localization.Text("输入 API Key"),
         };
         var dialog = new ContentDialog
         {
             XamlRoot = WindowRoot.XamlRoot,
-            Title = $"修改 {model} 的 API Key",
+            Title = Localization.Text("修改 {0} 的 API Key", model),
             Content = passwordBox,
-            PrimaryButtonText = "保存",
-            CloseButtonText = "取消",
+            PrimaryButtonText = Localization.Text("保存"),
+            CloseButtonText = Localization.Text("取消"),
             DefaultButton = ContentDialogButton.Primary,
         };
 
         if (await dialog.ShowAsync() == ContentDialogResult.Primary)
         {
             SetApiKeyForImageModel(provider, model, passwordBox.Password.Trim());
-            ShowInfo("API Key 已更新。", InfoBarSeverity.Success);
+            ShowInfo(Localization.Text("API Key 已更新。"), InfoBarSeverity.Success);
         }
     }
 
@@ -1568,7 +1605,7 @@ public sealed partial class MainWindow : Window
         _settings.TranslationHistory.Clear();
         RefreshTranslationHistory();
         SaveSettings();
-        ShowInfo("已清除翻译历史。", InfoBarSeverity.Success);
+        ShowInfo(Localization.Text("已清除翻译历史。"), InfoBarSeverity.Success);
     }
 
     private void TranslationHistoryListView_ItemClick(object sender, ItemClickEventArgs e)
@@ -1593,7 +1630,7 @@ public sealed partial class MainWindow : Window
         }
 
         SetClipboardText(text);
-        ShowInfo("译文已复制到剪贴板。", InfoBarSeverity.Success);
+        ShowInfo(Localization.Text("译文已复制到剪贴板。"), InfoBarSeverity.Success);
     }
 
     private void Clipboard_ContentChanged(object? sender, object e)
@@ -1615,6 +1652,12 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        if (!_isMiniMode && _currentPageTag != "Home")
+        {
+            _lastHandledClipboardSequenceNumber = sequenceNumber;
+            return;
+        }
+
         try
         {
             var content = Clipboard.GetContent();
@@ -1631,28 +1674,13 @@ public sealed partial class MainWindow : Window
             }
 
             _lastHandledClipboardSequenceNumber = sequenceNumber;
-            if (string.IsNullOrWhiteSpace(text))
+            if (string.IsNullOrWhiteSpace(text) || (!_isMiniMode && _currentPageTag != "Home"))
             {
                 return;
             }
 
             _pendingClipboardText = text;
-            if (_isMiniMode)
-            {
-                ClipboardPasteTeachingTip.Target = MiniSourceTextBox;
-                ClipboardPasteTeachingTip.PreferredPlacement = TeachingTipPlacementMode.Bottom;
-            }
-            else if (_currentPageTag == "Home")
-            {
-                ClipboardPasteTeachingTip.Target = TranslationHistoryButton;
-                ClipboardPasteTeachingTip.PreferredPlacement = TeachingTipPlacementMode.Bottom;
-            }
-            else
-            {
-                ClipboardPasteTeachingTip.Target = PageTitleTextBlock;
-                ClipboardPasteTeachingTip.PreferredPlacement = TeachingTipPlacementMode.Bottom;
-            }
-
+            ClipboardPasteTeachingTip.Target = _isMiniMode ? MiniSourceTextBox : TranslationHistoryButton;
             ClipboardPasteTeachingTip.Subtitle = BuildClipboardPreview(text);
             ClipboardPasteTeachingTip.IsOpen = true;
         }
@@ -1667,7 +1695,7 @@ public sealed partial class MainWindow : Window
         var text = _pendingClipboardText;
         _pendingClipboardText = null;
         sender.IsOpen = false;
-        if (string.IsNullOrEmpty(text))
+        if (string.IsNullOrEmpty(text) || (!_isMiniMode && _currentPageTag != "Home"))
         {
             return;
         }
@@ -1678,11 +1706,10 @@ public sealed partial class MainWindow : Window
             MiniSourceTextBox.Text = text;
             MiniTranslateButton.IsEnabled = true;
             MiniSourceTextBox.Focus(FocusState.Programmatic);
-            MiniSourceTextBox.SelectionStart = MiniSourceTextBox.Text.Length;
+            MiniSourceTextBox.SelectionStart = text.Length;
             return;
         }
 
-        NavigateTo("Home");
         SourceTextBox.Text = text;
         SourceTextBox.Focus(FocusState.Programmatic);
         SourceTextBox.SelectionStart = SourceTextBox.Text.Length;
@@ -1788,18 +1815,24 @@ public sealed partial class MainWindow : Window
     {
         tag ??= "Home";
         _currentPageTag = tag;
+        if (tag != "Home" && !_isMiniMode)
+        {
+            _pendingClipboardText = null;
+            ClipboardPasteTeachingTip.IsOpen = false;
+        }
+
         var pageTitle = tag switch
         {
-            "Home" => "Windtranslator",
-            "Image" => "图片翻译",
-            "File" => "文件翻译",
-            "History" => "翻译历史",
-            "Settings" => "设置",
-            "About" => "关于",
-            _ => "Windtranslator",
+            "Home" => Localization.AppName,
+            "Image" => Localization.Text("图片翻译"),
+            "File" => Localization.Text("文件翻译"),
+            "History" => Localization.Text("翻译历史"),
+            "Settings" => Localization.Text("设置"),
+            "About" => Localization.Text("关于"),
+            _ => Localization.AppName,
         };
         PageTitleTextBlock.Text = pageTitle;
-        Title = pageTitle;
+        Title = tag == "Home" ? Localization.AppName : $"{pageTitle} — {Localization.AppName}";
 
         TranslationToolbar.Visibility = tag == "Home" ? Visibility.Visible : Visibility.Collapsed;
         HomePageGrid.Visibility = tag == "Home" ? Visibility.Visible : Visibility.Collapsed;
@@ -1913,6 +1946,9 @@ public sealed partial class MainWindow : Window
     private static extern uint GetClipboardSequenceNumber();
 
     [DllImport("user32.dll")]
+    private static extern short GetKeyState(int virtualKey);
+
+    [DllImport("user32.dll")]
     private static extern void keybd_event(byte virtualKey, byte scanCode, uint flags, nuint extraInfo);
 
     private async void PickImageButton_Click(object sender, RoutedEventArgs e)
@@ -1943,8 +1979,8 @@ public sealed partial class MainWindow : Window
             StringComparer.CurrentCultureIgnoreCase.Compare(left.Name, right.Name));
         SelectedImagesListView.ItemsSource = _selectedImageFiles.Select(file => file.Name).ToList();
         ImageSelectionSummaryText.Text = _selectedImageFiles.Count == 1
-            ? "已选择 1 张图片"
-            : $"已选择 {_selectedImageFiles.Count} 张图片（将按文件名排序）";
+            ? Localization.Text("已选择 1 张图片")
+            : Localization.Text("已选择 {0} 张图片（将按文件名排序）", _selectedImageFiles.Count);
         ImageOutputTextBox.Text = string.Empty;
         ImageTranslationProgressText.Text = string.Empty;
 
@@ -1961,6 +1997,8 @@ public sealed partial class MainWindow : Window
     {
         var mini = MiniPageGrid.Visibility != Visibility.Visible;
         _isMiniMode = mini;
+        _pendingClipboardText = null;
+        ClipboardPasteTeachingTip.IsOpen = false;
         if (mini)
         {
             _backStack.Clear();
@@ -1990,13 +2028,13 @@ public sealed partial class MainWindow : Window
         HomePageGrid.Visibility = mini ? Visibility.Collapsed : (_currentPageTag == "Home" ? Visibility.Visible : Visibility.Collapsed);
         if (mini)
         {
-            PageTitleTextBlock.Text = "Windtranslator";
-            Title = "Windtranslator";
+            PageTitleTextBlock.Text = Localization.AppName;
+            Title = Localization.AppName;
         }
         else if (_currentPageTag == "Home")
         {
-            PageTitleTextBlock.Text = "Windtranslator";
-            Title = "Windtranslator";
+            PageTitleTextBlock.Text = Localization.AppName;
+            Title = Localization.AppName;
         }
         AppWindow.Resize(new SizeInt32(mini ? 520 : MinWindowWidth, mini ? 420 : MinWindowHeight));
         if (mini)
@@ -2058,7 +2096,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             MiniSourceTextBox.IsReadOnly = false;
-            ShowInfo("翻译失败：" + ex.Message, InfoBarSeverity.Error);
+            ShowInfo(Localization.Text("翻译失败：") + ex.Message, InfoBarSeverity.Error);
         }
         finally
         {
@@ -2075,21 +2113,21 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        if (!await ConfirmClearSelectionAsync("清除已选图片", "将清除已选图片、预览和当前译文。"))
+        if (!await ConfirmClearSelectionAsync(Localization.Text("清除已选图片"), Localization.Text("将清除已选图片、预览和当前译文。")))
         {
             return;
         }
 
         _selectedImageFiles.Clear();
         SelectedImagesListView.ItemsSource = null;
-        ImageSelectionSummaryText.Text = "未选择图片";
+        ImageSelectionSummaryText.Text = Localization.Text("未选择图片");
         ImagePreview.Source = null;
         ImagePreview.Visibility = Visibility.Collapsed;
         ImagePreviewPlaceholderText.Visibility = Visibility.Visible;
         ImageOutputTextBox.Text = string.Empty;
         ImageTranslationProgressText.Text = string.Empty;
         UpdateUiState();
-        ShowInfo("已清除选择的图片。", InfoBarSeverity.Success);
+        ShowInfo(Localization.Text("已清除选择的图片。"), InfoBarSeverity.Success);
     }
 
     private async void TranslateImageButton_Click(object sender, RoutedEventArgs e)
@@ -2132,25 +2170,25 @@ public sealed partial class MainWindow : Window
 
         if (string.IsNullOrWhiteSpace(endpoint))
         {
-            ShowInfo("请填写图片翻译接口地址。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("请填写图片翻译接口地址。"), InfoBarSeverity.Warning);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(model))
         {
-            ShowInfo("请填写支持图片的模型名称。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("请填写支持图片的模型名称。"), InfoBarSeverity.Warning);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            ShowInfo($"图片翻译使用{providerKey} API，请先在设置中为对应模型填写 API Key。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("图片翻译使用{0} API，请先在设置中为对应模型填写 API Key。", Localization.ProviderName(providerKey)), InfoBarSeverity.Warning);
             return;
         }
 
         _isImageTranslating = true;
         ImageOutputTextBox.Text = string.Empty;
-        ShowInfo($"正在翻译 {_selectedImageFiles.Count} 张图片...", InfoBarSeverity.Informational);
+        ShowInfo(Localization.Text("正在翻译 {0} 张图片...", _selectedImageFiles.Count), InfoBarSeverity.Informational);
         UpdateUiState();
 
         try
@@ -2173,15 +2211,15 @@ public sealed partial class MainWindow : Window
                 }
                 catch (Exception ex)
                 {
-                    results.Add($"翻译失败：{ex.Message}");
+                    results.Add(Localization.Text("翻译失败：{0}", ex.Message));
                 }
             }
 
             ImageOutputTextBox.Text = string.Join(
                 Environment.NewLine + Environment.NewLine + "--------------------" + Environment.NewLine + Environment.NewLine,
                 results);
-            ImageTranslationProgressText.Text = $"已完成 {_selectedImageFiles.Count} 张";
-            ShowInfo("图片翻译完成。", InfoBarSeverity.Success);
+            ImageTranslationProgressText.Text = Localization.Text("已完成 {0} 张", _selectedImageFiles.Count);
+            ShowInfo(Localization.Text("图片翻译完成。"), InfoBarSeverity.Success);
         }
         finally
         {
@@ -2226,7 +2264,7 @@ public sealed partial class MainWindow : Window
         }
 
         SetClipboardText(text);
-        ShowInfo("图片译文已复制到剪贴板。", InfoBarSeverity.Success);
+        ShowInfo(Localization.Text("图片译文已复制到剪贴板。"), InfoBarSeverity.Success);
     }
 
     private async void PickTextFileButton_Click(object sender, RoutedEventArgs e)
@@ -2248,7 +2286,7 @@ public sealed partial class MainWindow : Window
         const ulong maximumFileBytes = 5UL * 1024 * 1024;
         if (properties.Size > maximumFileBytes)
         {
-            ShowInfo("文件超过 5 MB 上限，无法进行文件翻译。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("文件超过 5 MB 上限，无法进行文件翻译。"), InfoBarSeverity.Warning);
             return;
         }
 
@@ -2280,14 +2318,14 @@ public sealed partial class MainWindow : Window
             var sourceText = await ReadTextFileAsync(_selectedTextFile.Path);
             if (sourceText.Length == 0)
             {
-                ShowInfo("所选文本文件为空。", InfoBarSeverity.Warning);
+                ShowInfo(Localization.Text("所选文本文件为空。"), InfoBarSeverity.Warning);
                 return;
             }
 
             var chunks = SplitTextIntoChunks(sourceText);
             if (chunks.Count == 0)
             {
-                ShowInfo("所选文本文件为空。", InfoBarSeverity.Warning);
+                ShowInfo(Localization.Text("所选文本文件为空。"), InfoBarSeverity.Warning);
                 return;
             }
 
@@ -2297,8 +2335,8 @@ public sealed partial class MainWindow : Window
             _isFileTranslating = true;
             FileOutputTextBox.Text = string.Empty;
             FileProgressRing.IsActive = true;
-            FileProgressText.Text = $"第 0/{chunks.Count} 块";
-            ShowInfo("正在翻译文件...", InfoBarSeverity.Informational);
+            FileProgressText.Text = Localization.Text("第 0/{0} 块", chunks.Count);
+            ShowInfo(Localization.Text("正在翻译文件..."), InfoBarSeverity.Informational);
             UpdateFileModeAvailability();
 
             var translatedChunks = new List<string>(chunks.Count);
@@ -2320,20 +2358,20 @@ public sealed partial class MainWindow : Window
                 }
                 catch (Exception ex)
                 {
-                    ShowInfo($"第 {index + 1}/{chunks.Count} 块翻译失败：{ex.Message}", InfoBarSeverity.Error);
+                    ShowInfo(Localization.Text("第 {0}/{1} 块翻译失败：{2}", index + 1, chunks.Count, ex.Message), InfoBarSeverity.Error);
                     return;
                 }
 
-                FileProgressText.Text = $"第 {index + 1}/{chunks.Count} 块";
+                FileProgressText.Text = Localization.Text("第 {0}/{1} 块", index + 1, chunks.Count);
             }
 
             FileOutputTextBox.Text = string.Concat(translatedChunks);
-            ShowInfo("文件翻译完成。", InfoBarSeverity.Success);
+            ShowInfo(Localization.Text("文件翻译完成。"), InfoBarSeverity.Success);
         }
         catch (OperationCanceledException)
         {
             FileOutputTextBox.Text = string.Empty;
-            ShowInfo("已取消文件翻译，未生成任何文件。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("已取消文件翻译，未生成任何文件。"), InfoBarSeverity.Warning);
         }
         catch (InvalidDataException ex)
         {
@@ -2341,7 +2379,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            ShowInfo("读取或翻译文件失败：" + ex.Message, InfoBarSeverity.Error);
+            ShowInfo(Localization.Text("读取或翻译文件失败：") + ex.Message, InfoBarSeverity.Error);
         }
         finally
         {
@@ -2360,18 +2398,18 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        if (!await ConfirmClearSelectionAsync("清除已选文件", "将清除已选文件和当前译文。"))
+        if (!await ConfirmClearSelectionAsync(Localization.Text("清除已选文件"), Localization.Text("将清除已选文件和当前译文。")))
         {
             return;
         }
 
         _selectedTextFile = null;
-        SelectedTextFilePathText.Text = "尚未选择文件";
+        SelectedTextFilePathText.Text = Localization.Text("尚未选择文件");
         SelectedTextFileSizeText.Text = string.Empty;
         FileOutputTextBox.Text = string.Empty;
         FileProgressText.Text = string.Empty;
         UpdateFileModeAvailability();
-        ShowInfo("已清除选择的文件。", InfoBarSeverity.Success);
+        ShowInfo(Localization.Text("已清除选择的文件。"), InfoBarSeverity.Success);
     }
 
     private async Task<bool> ConfirmClearSelectionAsync(string title, string message)
@@ -2381,8 +2419,8 @@ public sealed partial class MainWindow : Window
             XamlRoot = WindowRoot.XamlRoot,
             Title = title,
             Content = message,
-            PrimaryButtonText = "清除",
-            CloseButtonText = "取消",
+            PrimaryButtonText = Localization.Text("清除"),
+            CloseButtonText = Localization.Text("取消"),
             DefaultButton = ContentDialogButton.Close,
         };
         return await dialog.ShowAsync() == ContentDialogResult.Primary;
@@ -2396,7 +2434,7 @@ public sealed partial class MainWindow : Window
         }
 
         SetClipboardText(FileOutputTextBox.Text);
-        ShowInfo("文件译文已复制到剪贴板。", InfoBarSeverity.Success);
+        ShowInfo(Localization.Text("文件译文已复制到剪贴板。"), InfoBarSeverity.Success);
     }
 
     private async void ExportFileOutputButton_Click(object sender, RoutedEventArgs e)
@@ -2409,9 +2447,9 @@ public sealed partial class MainWindow : Window
         var picker = new FileSavePicker
         {
             SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
-            SuggestedFileName = Path.GetFileNameWithoutExtension(_selectedTextFile.Name) + "_译文",
+            SuggestedFileName = Path.GetFileNameWithoutExtension(_selectedTextFile.Name) + Localization.Text("_译文"),
         };
-        picker.FileTypeChoices.Add("文本文件", new List<string> { ".txt" });
+        picker.FileTypeChoices.Add(Localization.Text("文本文件"), new List<string> { ".txt" });
         InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
         var file = await picker.PickSaveFileAsync();
         if (file is null)
@@ -2422,11 +2460,11 @@ public sealed partial class MainWindow : Window
         try
         {
             await File.WriteAllTextAsync(file.Path, FileOutputTextBox.Text, new UTF8Encoding(false));
-            ShowInfo("译文已导出到：" + file.Path, InfoBarSeverity.Success);
+            ShowInfo(Localization.Text("译文已导出到：") + file.Path, InfoBarSeverity.Success);
         }
         catch (Exception ex)
         {
-            ShowInfo("导出失败：" + ex.Message, InfoBarSeverity.Error);
+            ShowInfo(Localization.Text("导出失败：") + ex.Message, InfoBarSeverity.Error);
         }
     }
 
@@ -2493,7 +2531,7 @@ public sealed partial class MainWindow : Window
         }
         catch (DecoderFallbackException ex)
         {
-            throw new InvalidDataException("无法识别文件编码。请将文件保存为 UTF-8、UTF-16 或 GBK 后重试。", ex);
+            throw new InvalidDataException(Localization.Text("无法识别文件编码。请将文件保存为 UTF-8、UTF-16 或 GBK 后重试。"), ex);
         }
     }
 
@@ -2607,6 +2645,24 @@ public sealed partial class MainWindow : Window
         return endings;
     }
 
+    private void SourceTextBox_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        if (!_settings.EnterToTranslate
+            || e.Key != Windows.System.VirtualKey.Enter
+            || GetKeyState((int)Windows.System.VirtualKey.Shift) < 0
+            || GetKeyState((int)Windows.System.VirtualKey.Control) < 0
+            || GetKeyState((int)Windows.System.VirtualKey.Menu) < 0)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        if (!_isTranslating && !string.IsNullOrWhiteSpace(SourceTextBox.Text))
+        {
+            TranslateButton_Click(TranslateButton, new RoutedEventArgs());
+        }
+    }
+
     private async void TranslateButton_Click(object sender, RoutedEventArgs e)
     {
         if (_isTranslating)
@@ -2618,7 +2674,7 @@ public sealed partial class MainWindow : Window
         var sourceText = SourceTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(sourceText))
         {
-            ShowInfo("请输入需要翻译的内容。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("请输入需要翻译的内容。"), InfoBarSeverity.Warning);
             return;
         }
 
@@ -2641,13 +2697,13 @@ public sealed partial class MainWindow : Window
             : GetApiKeyForModel(_currentProvider, model);
         if (!useLocalModel && string.IsNullOrWhiteSpace(endpoint))
         {
-            ShowInfo("请填写接口地址。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("请填写接口地址。"), InfoBarSeverity.Warning);
             return;
         }
 
         if (!useLocalModel && string.IsNullOrWhiteSpace(model))
         {
-            ShowInfo("请填写模型名称。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("请填写模型名称。"), InfoBarSeverity.Warning);
             return;
         }
 
@@ -2655,20 +2711,20 @@ public sealed partial class MainWindow : Window
         {
             if (!IsBergamotRuntimeAvailable())
             {
-                ShowInfo("当前发布包未包含 Mozilla Translations 本地翻译引擎。请构建并重新发布 Runtime\\Bergamot 运行库。", InfoBarSeverity.Warning);
+                ShowInfo(Localization.Text("当前发布包未包含 Mozilla Translations 本地翻译引擎。请构建并重新发布 Runtime\\Bergamot 运行库。"), InfoBarSeverity.Warning);
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(_selectedOfflineModelPath))
             {
-                ShowInfo("请先在设置中下载并选择离线语言模型。", InfoBarSeverity.Warning);
+                ShowInfo(Localization.Text("请先在设置中下载并选择离线语言模型。"), InfoBarSeverity.Warning);
                 return;
             }
         }
 
         if (!isLocalMode && string.IsNullOrWhiteSpace(apiKey))
         {
-            ShowInfo("请在设置中为当前模型填写 API Key。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("请在设置中为当前模型填写 API Key。"), InfoBarSeverity.Warning);
             return;
         }
 
@@ -2695,10 +2751,10 @@ public sealed partial class MainWindow : Window
 
         _cts = new CancellationTokenSource();
         _isTranslating = true;
-        TranslateButtonText.Text = "取消";
+        TranslateButtonText.Text = Localization.Text("取消");
         ProgressRing.IsActive = true;
         UpdateUiState();
-        ShowInfo(useLocalModel ? "正在使用本地模型翻译..." : "正在翻译...", InfoBarSeverity.Informational);
+        ShowInfo(useLocalModel ? Localization.Text("正在使用本地模型翻译...") : Localization.Text("正在翻译..."), InfoBarSeverity.Informational);
 
         try
         {
@@ -2711,11 +2767,11 @@ public sealed partial class MainWindow : Window
             OutputTextBox.Text = result;
             UpdateCounts();
             AddTranslationHistory(sourceText);
-            ShowInfo("翻译完成。", InfoBarSeverity.Success);
+            ShowInfo(Localization.Text("翻译完成。"), InfoBarSeverity.Success);
         }
         catch (OperationCanceledException)
         {
-            ShowInfo("已取消翻译。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("已取消翻译。"), InfoBarSeverity.Warning);
         }
         catch (Exception ex)
         {
@@ -2726,7 +2782,7 @@ public sealed partial class MainWindow : Window
             _isTranslating = false;
             _cts.Dispose();
             _cts = null;
-            TranslateButtonText.Text = "翻译";
+            TranslateButtonText.Text = Localization.Text("翻译");
             ProgressRing.IsActive = false;
             UpdateUiState();
         }
@@ -2740,28 +2796,28 @@ public sealed partial class MainWindow : Window
             || targetLanguage is null
             || string.IsNullOrEmpty(targetLanguage.ApiCode))
         {
-            ShowInfo("请选择有效的源语言和目标语言。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("请选择有效的源语言和目标语言。"), InfoBarSeverity.Warning);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_aliyunAccessKeyId))
         {
-            ShowInfo("请填写阿里云机器翻译 AccessKey ID。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("请填写阿里云机器翻译 AccessKey ID。"), InfoBarSeverity.Warning);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_aliyunAccessKeySecret))
         {
-            ShowInfo("请填写阿里云机器翻译 AccessKey Secret。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("请填写阿里云机器翻译 AccessKey Secret。"), InfoBarSeverity.Warning);
             return;
         }
 
         _cts = new CancellationTokenSource();
         _isTranslating = true;
-        TranslateButtonText.Text = "取消";
+        TranslateButtonText.Text = Localization.Text("取消");
         ProgressRing.IsActive = true;
         UpdateUiState();
-        ShowInfo("正在调用机器翻译...", InfoBarSeverity.Informational);
+        ShowInfo(Localization.Text("正在调用机器翻译..."), InfoBarSeverity.Informational);
 
         try
         {
@@ -2774,11 +2830,11 @@ public sealed partial class MainWindow : Window
             OutputTextBox.Text = result;
             UpdateCounts();
             AddTranslationHistory(sourceText);
-            ShowInfo("翻译完成。", InfoBarSeverity.Success);
+            ShowInfo(Localization.Text("翻译完成。"), InfoBarSeverity.Success);
         }
         catch (OperationCanceledException)
         {
-            ShowInfo("已取消翻译。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("已取消翻译。"), InfoBarSeverity.Warning);
         }
         catch (Exception ex)
         {
@@ -2789,7 +2845,7 @@ public sealed partial class MainWindow : Window
             _isTranslating = false;
             _cts.Dispose();
             _cts = null;
-            TranslateButtonText.Text = "翻译";
+            TranslateButtonText.Text = Localization.Text("翻译");
             ProgressRing.IsActive = false;
             UpdateUiState();
         }
@@ -2815,7 +2871,7 @@ public sealed partial class MainWindow : Window
             keybd_event(VkH, 0, 0, 0);
             keybd_event(VkH, 0, KeyEventKeyUp, 0);
             keybd_event(VkLeftWindows, 0, KeyEventKeyUp, 0);
-            ShowInfo("已打开 Windows 语音输入。", InfoBarSeverity.Informational);
+            ShowInfo(Localization.Text("已打开 Windows 语音输入。"), InfoBarSeverity.Informational);
         }
         finally
         {
@@ -2835,7 +2891,7 @@ public sealed partial class MainWindow : Window
         {
             if (string.IsNullOrWhiteSpace(_aliyunAccessKeyId) || string.IsNullOrWhiteSpace(_aliyunAccessKeySecret))
             {
-                throw new InvalidOperationException("请填写阿里云机器翻译 AccessKey ID 和 AccessKey Secret。");
+                throw new InvalidOperationException(Localization.Text("请填写阿里云机器翻译 AccessKey ID 和 AccessKey Secret。"));
             }
 
             return await _machineTranslationService.TranslateAsync(
@@ -2854,12 +2910,12 @@ public sealed partial class MainWindow : Window
         {
             if (!IsBergamotRuntimeAvailable())
             {
-                throw new InvalidOperationException("当前发布包未包含 Mozilla Translations 本地翻译引擎。");
+                throw new InvalidOperationException(Localization.Text("当前发布包未包含 Mozilla Translations 本地翻译引擎。"));
             }
 
             if (string.IsNullOrWhiteSpace(_selectedOfflineModelPath))
             {
-                throw new InvalidOperationException("请先在设置中下载并选择离线语言模型。");
+                throw new InvalidOperationException(Localization.Text("请先在设置中下载并选择离线语言模型。"));
             }
 
             return await _bergamotTranslationService.TranslateAsync(
@@ -2873,17 +2929,17 @@ public sealed partial class MainWindow : Window
         var apiKey = mode == 2 ? null : GetApiKeyForModel(_currentProvider, model);
         if (string.IsNullOrWhiteSpace(endpoint))
         {
-            throw new InvalidOperationException("请填写接口地址。");
+            throw new InvalidOperationException(Localization.Text("请填写接口地址。"));
         }
 
         if (string.IsNullOrWhiteSpace(model))
         {
-            throw new InvalidOperationException("请填写模型名称。");
+            throw new InvalidOperationException(Localization.Text("请填写模型名称。"));
         }
 
         if (mode != 2 && string.IsNullOrWhiteSpace(apiKey))
         {
-            throw new InvalidOperationException("请在设置中为当前模型填写 API Key。");
+            throw new InvalidOperationException(Localization.Text("请在设置中为当前模型填写 API Key。"));
         }
 
         var systemPrompt = BuildDefaultPrompt(
@@ -2905,22 +2961,22 @@ public sealed partial class MainWindow : Window
     {
         if (!IsTranslationModeEnabled(mode))
         {
-            return mode == 0 ? "API 翻译已在设置中关闭。" : "AI 翻译已在设置中关闭。";
+            return mode == 0 ? Localization.Text("API 翻译已在设置中关闭。") : Localization.Text("AI 翻译已在设置中关闭。");
         }
 
         if (mode == 0)
         {
             return string.IsNullOrWhiteSpace(_aliyunAccessKeyId) || string.IsNullOrWhiteSpace(_aliyunAccessKeySecret)
-                ? "API 翻译未配置阿里云 AccessKey。"
+                ? Localization.Text("API 翻译未配置阿里云 AccessKey。")
                 : null;
         }
 
         if (mode == 2 && LocalTranslationSourceComboBox.SelectedIndex == 1)
         {
             return string.IsNullOrWhiteSpace(_selectedOfflineModelPath)
-                ? "本地翻译未选择 Mozilla Translations 模型。"
+                ? Localization.Text("本地翻译未选择 Mozilla Translations 模型。")
                 : !IsBergamotRuntimeAvailable()
-                    ? "当前发布包未包含 Mozilla Translations 本地翻译引擎。"
+                    ? Localization.Text("当前发布包未包含 Mozilla Translations 本地翻译引擎。")
                     : null;
         }
 
@@ -2928,17 +2984,17 @@ public sealed partial class MainWindow : Window
         var model = mode == 2 ? LocalModelTextBox.Text : GetSelectedAiModel();
         if (string.IsNullOrWhiteSpace(endpoint))
         {
-            return mode == 2 ? "本地翻译未配置接口地址。" : "AI 翻译未配置接口地址。";
+            return mode == 2 ? Localization.Text("本地翻译未配置接口地址。") : Localization.Text("AI 翻译未配置接口地址。");
         }
 
         if (string.IsNullOrWhiteSpace(model))
         {
-            return mode == 2 ? "本地翻译未配置模型名称。" : "AI 翻译未配置模型名称。";
+            return mode == 2 ? Localization.Text("本地翻译未配置模型名称。") : Localization.Text("AI 翻译未配置模型名称。");
         }
 
         return mode == 2 || !string.IsNullOrWhiteSpace(GetApiKeyForModel(_currentProvider, model))
             ? null
-            : "AI 翻译未配置当前模型的 API Key。";
+            : Localization.Text("AI 翻译未配置当前模型的 API Key。");
     }
 
     private void UpdateFileModeAvailability()
@@ -2964,7 +3020,7 @@ public sealed partial class MainWindow : Window
 
         if (selectedIndex < items.Count && !items[selectedIndex].IsEnabled)
         {
-            FileModeHintText.Text = GetTranslationConfigurationError(selectedIndex) ?? "当前模式未配置。";
+            FileModeHintText.Text = GetTranslationConfigurationError(selectedIndex) ?? Localization.Text("当前模式未配置。");
         }
         else
         {
@@ -2984,7 +3040,7 @@ public sealed partial class MainWindow : Window
         {
             _speechOutput.Stop();
             SetSpeakingState(false);
-            ShowInfo("已停止朗读。", InfoBarSeverity.Informational);
+            ShowInfo(Localization.Text("已停止朗读。"), InfoBarSeverity.Informational);
             return;
         }
 
@@ -2999,15 +3055,15 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            ShowInfo("正在合成语音...", InfoBarSeverity.Informational);
+            ShowInfo(Localization.Text("正在合成语音..."), InfoBarSeverity.Informational);
             await _speechOutput.SpeakAsync(text, languageTag);
             SetSpeakingState(true);
-            ShowInfo("正在朗读译文。", InfoBarSeverity.Informational);
+            ShowInfo(Localization.Text("正在朗读译文。"), InfoBarSeverity.Informational);
         }
         catch (Exception ex)
         {
             SetSpeakingState(false);
-            ShowInfo("无法播放语音：" + ex.Message, InfoBarSeverity.Error);
+            ShowInfo(Localization.Text("无法播放语音：") + ex.Message, InfoBarSeverity.Error);
         }
     }
 
@@ -3022,7 +3078,7 @@ public sealed partial class MainWindow : Window
         var endpoint = LocalEndpointTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(endpoint))
         {
-            ShowInfo("请先填写本地接口地址。", InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("请先填写本地接口地址。"), InfoBarSeverity.Warning);
             return;
         }
 
@@ -3036,7 +3092,7 @@ public sealed partial class MainWindow : Window
 
             if (models.Count == 0)
             {
-                ShowInfo("本地服务没有返回模型列表。", InfoBarSeverity.Warning);
+                ShowInfo(Localization.Text("本地服务没有返回模型列表。"), InfoBarSeverity.Warning);
                 return;
             }
 
@@ -3046,11 +3102,11 @@ public sealed partial class MainWindow : Window
             _settings.Endpoints["本地 AI"] = endpoint;
             _settings.Models["本地 AI"] = models[0];
             SaveSettings();
-            ShowInfo($"找到 {models.Count} 个本地模型。", InfoBarSeverity.Success);
+            ShowInfo(Localization.Text("找到 {0} 个本地模型。", models.Count), InfoBarSeverity.Success);
         }
         catch (Exception ex)
         {
-            ShowInfo("刷新模型失败：" + ex.Message, InfoBarSeverity.Error);
+            ShowInfo(Localization.Text("刷新模型失败：") + ex.Message, InfoBarSeverity.Error);
         }
         finally
         {
@@ -3083,7 +3139,7 @@ public sealed partial class MainWindow : Window
     {
         var allowedTargets = Languages
             .Where(language => language.PromptName != "自动检测"
-                && (sourceLanguage.PromptName == "自动检测"
+                && (sourceLanguage.PromptName == Localization.Text("自动检测")
                     || language.PromptName != sourceLanguage.PromptName))
             .ToList();
 
@@ -3115,8 +3171,8 @@ public sealed partial class MainWindow : Window
 
     private void UpdateCounts()
     {
-        SourceCountText.Text = $"{SourceTextBox.Text.Length} 字";
-        OutputCountText.Text = $"{OutputTextBox.Text.Length} 字";
+        SourceCountText.Text = Localization.Text("{0} 字", SourceTextBox.Text.Length);
+        OutputCountText.Text = Localization.Text("{0} 字", OutputTextBox.Text.Length);
     }
 
     private void AddTranslationHistory(string sourceText)
@@ -3184,7 +3240,7 @@ public sealed partial class MainWindow : Window
         }
         catch
         {
-            return Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "未知";
+            return Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? Localization.Text("未知");
         }
     }
 
@@ -3208,6 +3264,7 @@ public sealed partial class MainWindow : Window
         _settings.ProviderName = _currentProvider;
         _settings.ThemeIndex = Math.Max(0, ThemeComboBox.SelectedIndex);
         _settings.MicaBackdropEnabled = MicaBackdropCheckBox.IsChecked == true;
+        _settings.EnterToTranslate = EnterToTranslateToggleSwitch.IsOn;
         _settings.TranslationHistoryLimit = NormalizeTranslationHistoryLimit(_settings.TranslationHistoryLimit);
         var sourceLanguage = SourceLanguageComboBox.SelectedItem as LanguageOption;
         var targetLanguage = TargetLanguageComboBox.SelectedItem as LanguageOption;
@@ -3324,11 +3381,11 @@ public sealed partial class MainWindow : Window
         if (includeLanguageDetails)
         {
             return $"你是一名专业的翻译引擎。{instruction}{styleInstruction}"
-                + "请使用 Markdown 格式组织输出，先给出译文，再简要给出必要的解释、读音和词性；如果某项不适用，可以省略。保持原文的格式和专有名词，不要输出原始 HTML。";
+                + "先输出译文，必要时空一行，再用普通文字简要说明翻译选择、读音和词性；不适用的内容可以省略。只使用纯文本和自然换行，不使用 Markdown 或 HTML 语法，不添加标题、项目符号、编号、强调标记或代码块。保留原文的段落结构和专有名词。";
         }
 
         return $"你是一名专业的翻译引擎。{instruction}{styleInstruction}"
-            + "只输出译文；如有多段内容，请使用 Markdown 段落或列表组织，不要添加解释、注释、读音、词性、代码块或任何额外内容。保持原文的格式和专有名词。";
+            + "只输出纯文本译文，保留原文的段落结构、换行和专有名词；不要添加解释、注释、读音、词性或任何额外内容。不要使用 Markdown 或 HTML 语法，不新增标题、项目符号、编号、强调标记或代码块。";
     }
 
     private static ProviderProfile GetProviderProfile(string provider) => provider switch
