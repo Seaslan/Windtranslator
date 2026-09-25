@@ -36,8 +36,15 @@ public sealed partial class MainWindow : Window
     private const string AliyunAccessKeyIdResource = "阿里云机器翻译:AccessKeyId";
     private const string AliyunAccessKeySecretResource = "阿里云机器翻译:AccessKeySecret";
     private const string CustomAiProviderName = "自定义模型";
-    private const int MinWindowWidth = 960;
-    private const int MinWindowHeight = 660;
+    private const int DefaultWindowWidth = 960;
+    private const int DefaultWindowHeight = 660;
+    private const int MinimumWindowWidth = 420;
+    private const int MinimumWindowHeight = 320;
+    private const int MiniWindowWidth = 520;
+    private const int MiniWindowHeight = 420;
+    private const int MiniModeEnterWidth = 680;
+    private const int MiniModeExitWidth = 760;
+    private const int NavigationPaneCollapseWidth = 900;
     private const double SettingsPanelMaxWidth = 760d;
     private const uint WmGetMinMaxInfo = 0x0024;
     private const uint WmXButtonUp = 0x020C;
@@ -105,7 +112,15 @@ public sealed partial class MainWindow : Window
     private CancellationTokenSource? _fileTranslationCts;
     private bool _isFileTranslating;
     private bool _isMiniMode;
+    private bool _openNavigationPaneWhenSpaceReturns;
+    private bool _isSelectionTranslating;
     private string? _pendingClipboardText;
+    private SelectionTranslationOrigin? _selectionTranslationOrigin;
+    private string? _pendingSelectionTranslationText;
+    private CancellationTokenSource? _selectionTranslationTipCts;
+    private int _selectionTranslationStart;
+    private int _selectionTranslationLength;
+    private bool _suppressSelectionTranslationEvents;
     private uint _lastHandledClipboardSequenceNumber;
     private readonly WindowProcedure _windowProcedure;
     private nint _windowHandle;
@@ -121,7 +136,8 @@ public sealed partial class MainWindow : Window
         AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
         SetTitleBar(TitleBarDragRegion);
         InstallMinimumSizeHandler();
-        AppWindow.Resize(new SizeInt32(MinWindowWidth, MinWindowHeight));
+        ResizeWindowInDips(DefaultWindowWidth, DefaultWindowHeight);
+        AppWindow.Changed += AppWindow_Changed;
 
         _settings = AppSettingsStore.Load();
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -132,6 +148,7 @@ public sealed partial class MainWindow : Window
         _speechOutput.PlaybackEnded += (_, _) => DispatcherQueue.TryEnqueue(() => SetSpeakingState(false));
         Closed += (_, _) =>
         {
+            AppWindow.Changed -= AppWindow_Changed;
             NetworkInformation.NetworkStatusChanged -= NetworkInformation_NetworkStatusChanged;
             Clipboard.ContentChanged -= Clipboard_ContentChanged;
             _speechOutput.Stop();
@@ -1299,6 +1316,206 @@ public sealed partial class MainWindow : Window
         UpdateUiState();
     }
 
+    private void SourceTextBox_SelectionChanged(object sender, RoutedEventArgs e) =>
+        UpdateSelectionTranslationTeachingTip(SourceTextBox, SelectionTranslationOrigin.Source);
+
+    private void OutputTextBox_SelectionChanged(object sender, RoutedEventArgs e) =>
+        UpdateSelectionTranslationTeachingTip(OutputTextBox, SelectionTranslationOrigin.Output);
+
+    private void UpdateSelectionTranslationTeachingTip(
+        TextBox textBox,
+        SelectionTranslationOrigin origin)
+    {
+        if (_suppressSelectionTranslationEvents)
+        {
+            return;
+        }
+
+        CloseSelectionTranslationTeachingTip();
+        if (_isMiniMode
+            || _currentPageTag != "Home"
+            || _isTranslating
+            || _isSelectionTranslating
+            || textBox.SelectionLength <= 0
+            || string.IsNullOrWhiteSpace(textBox.SelectedText))
+        {
+            return;
+        }
+
+        _selectionTranslationOrigin = origin;
+        _pendingSelectionTranslationText = textBox.SelectedText;
+        _selectionTranslationStart = textBox.SelectionStart;
+        _selectionTranslationLength = textBox.SelectionLength;
+        _selectionTranslationTipCts = new CancellationTokenSource();
+        _ = ShowSelectionTranslationTeachingTipAsync(
+            textBox,
+            origin,
+            _selectionTranslationTipCts.Token);
+    }
+
+    private async Task ShowSelectionTranslationTeachingTipAsync(
+        TextBox textBox,
+        SelectionTranslationOrigin origin,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (cancellationToken.IsCancellationRequested
+            || _selectionTranslationOrigin != origin
+            || textBox.SelectionStart != _selectionTranslationStart
+            || textBox.SelectionLength != _selectionTranslationLength
+            || !string.Equals(textBox.SelectedText, _pendingSelectionTranslationText, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        SelectionTranslationTeachingTip.Target = textBox;
+        SelectionTranslationTeachingTip.Subtitle = Localization.Text(
+            "将选中文字翻译成{0}",
+            origin == SelectionTranslationOrigin.Source
+                ? TargetLanguageComboBox.SelectedItem is LanguageOption target ? target.Display : Localization.Text("英语")
+                : SourceLanguageComboBox.SelectedItem is LanguageOption source && source.ApiCode != "auto"
+                    ? source.Display
+                    : Localization.Text("源语言"));
+        SelectionTranslationTeachingTip.IsOpen = true;
+        // TeachingTip can take focus after opening. Restore the selection on the next UI turn.
+        _ = RestoreSelectionHighlightAsync(textBox, origin);
+    }
+
+    private async Task RestoreSelectionHighlightAsync(TextBox textBox, SelectionTranslationOrigin origin)
+    {
+        await Task.Delay(50);
+        RestoreSelectionHighlight(textBox, origin);
+    }
+
+    private void RestoreSelectionHighlight(TextBox textBox, SelectionTranslationOrigin origin)
+    {
+        if (!SelectionTranslationTeachingTip.IsOpen
+            || _selectionTranslationOrigin != origin
+            || _selectionTranslationStart < 0
+            || _selectionTranslationStart > textBox.Text.Length
+            || _selectionTranslationLength > textBox.Text.Length - _selectionTranslationStart
+            || !string.Equals(
+                textBox.Text.Substring(_selectionTranslationStart, _selectionTranslationLength),
+                _pendingSelectionTranslationText,
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _suppressSelectionTranslationEvents = true;
+        try
+        {
+            textBox.Focus(FocusState.Programmatic);
+            textBox.SelectionStart = _selectionTranslationStart;
+            textBox.SelectionLength = _selectionTranslationLength;
+        }
+        finally
+        {
+            _suppressSelectionTranslationEvents = false;
+        }
+    }
+
+    private void CloseSelectionTranslationTeachingTip()
+    {
+        _selectionTranslationTipCts?.Cancel();
+        _selectionTranslationTipCts?.Dispose();
+        _selectionTranslationTipCts = null;
+        _selectionTranslationOrigin = null;
+        _pendingSelectionTranslationText = null;
+        SelectionTranslationTeachingTip.IsOpen = false;
+    }
+
+    private async void SelectionTranslationTeachingTip_ActionButtonClick(TeachingTip sender, object args)
+    {
+        var origin = _selectionTranslationOrigin;
+        var selectedText = _pendingSelectionTranslationText;
+        CloseSelectionTranslationTeachingTip();
+        if (origin is null || string.IsNullOrWhiteSpace(selectedText) || _isTranslating)
+        {
+            return;
+        }
+
+        var sourceLanguage = SourceLanguageComboBox.SelectedItem as LanguageOption ?? Languages[0];
+        var targetLanguage = TargetLanguageComboBox.SelectedItem as LanguageOption ?? Languages[3];
+        if (origin == SelectionTranslationOrigin.Output)
+        {
+            if (sourceLanguage.ApiCode == "auto")
+            {
+                ShowInfo(Localization.Text("请先指定源语言，再翻译选中的译文。"), InfoBarSeverity.Warning);
+                return;
+            }
+
+            (sourceLanguage, targetLanguage) = (targetLanguage, sourceLanguage);
+        }
+
+        try
+        {
+            _isSelectionTranslating = true;
+            UpdateUiState();
+            var translatedText = await TranslateTextAsync(
+                selectedText,
+                Math.Clamp(ModeComboBox.SelectedIndex, 0, 2),
+                sourceLanguage,
+                targetLanguage,
+                CancellationToken.None);
+            if (origin == SelectionTranslationOrigin.Source)
+            {
+                OutputTextBox.Text = translatedText;
+                OutputTextBox.Focus(FocusState.Programmatic);
+                OutputTextBox.SelectionStart = OutputTextBox.Text.Length;
+                OutputTextBox.SelectionLength = 0;
+            }
+            else
+            {
+                var outputText = OutputTextBox.Text;
+                if (_selectionTranslationStart < 0
+                    || _selectionTranslationStart > outputText.Length
+                    || _selectionTranslationLength > outputText.Length - _selectionTranslationStart
+                    || !string.Equals(
+                        outputText.Substring(_selectionTranslationStart, _selectionTranslationLength),
+                        selectedText,
+                        StringComparison.Ordinal))
+                {
+                    ShowInfo(Localization.Text("选中的译文已发生变化，请重新选择。"), InfoBarSeverity.Warning);
+                    return;
+                }
+
+                OutputTextBox.Text = outputText[.._selectionTranslationStart]
+                    + translatedText
+                    + outputText[(_selectionTranslationStart + _selectionTranslationLength)..];
+                OutputTextBox.Focus(FocusState.Programmatic);
+                OutputTextBox.SelectionStart = _selectionTranslationStart;
+                OutputTextBox.SelectionLength = translatedText.Length;
+            }
+
+            ShowInfo(Localization.Text("翻译完成。"), InfoBarSeverity.Success);
+        }
+        catch (OperationCanceledException)
+        {
+            ShowInfo(Localization.Text("已取消翻译。"), InfoBarSeverity.Warning);
+        }
+        catch (Exception ex)
+        {
+            ShowInfo(Localization.Text("选词翻译失败：{0}", ex.Message), InfoBarSeverity.Error);
+        }
+        finally
+        {
+            _isSelectionTranslating = false;
+            UpdateUiState();
+        }
+    }
+
+    private void SelectionTranslationTeachingTip_CloseButtonClick(TeachingTip sender, object args) =>
+        CloseSelectionTranslationTeachingTip();
+
     private void ImageOutputTextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         UpdateUiState();
@@ -1819,6 +2036,7 @@ public sealed partial class MainWindow : Window
         {
             _pendingClipboardText = null;
             ClipboardPasteTeachingTip.IsOpen = false;
+            CloseSelectionTranslationTeachingTip();
         }
 
         var pageTitle = tag switch
@@ -1889,8 +2107,8 @@ public sealed partial class MainWindow : Window
             var minMaxInfo = Marshal.PtrToStructure<MinMaxInfo>(lParam);
             var dpi = GetDpiForWindow(windowHandle);
             var scale = dpi == 0 ? 1d : dpi / 96d;
-            minMaxInfo.MinimumTrackSize.X = (int)Math.Ceiling((_isMiniMode ? 420 : MinWindowWidth) * scale);
-            minMaxInfo.MinimumTrackSize.Y = (int)Math.Ceiling((_isMiniMode ? 320 : MinWindowHeight) * scale);
+            minMaxInfo.MinimumTrackSize.X = (int)Math.Ceiling(MinimumWindowWidth * scale);
+            minMaxInfo.MinimumTrackSize.Y = (int)Math.Ceiling(MinimumWindowHeight * scale);
             Marshal.StructureToPtr(minMaxInfo, lParam, false);
         }
 
@@ -1995,16 +2213,56 @@ public sealed partial class MainWindow : Window
 
     private void MiniModeButton_Click(object sender, RoutedEventArgs e)
     {
-        var mini = MiniPageGrid.Visibility != Visibility.Visible;
+        var mini = !_isMiniMode;
+        SetMiniMode(mini, resizeWindow: true);
+    }
+
+    private void AppWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args)
+    {
+        if (!args.DidSizeChange)
+        {
+            return;
+        }
+
+        var logicalWidth = sender.ClientSize.Width / GetWindowScale();
+        if (!_isMiniMode && logicalWidth <= MiniModeEnterWidth)
+        {
+            SetMiniMode(true, resizeWindow: false);
+            return;
+        }
+
+        if (_isMiniMode && logicalWidth >= MiniModeExitWidth)
+        {
+            SetMiniMode(false, resizeWindow: false);
+        }
+
+        UpdateNavigationPaneForWindowWidth(logicalWidth);
+    }
+
+    private void SetMiniMode(bool mini, bool resizeWindow)
+    {
+        if (_isMiniMode == mini)
+        {
+            if (resizeWindow)
+            {
+                ResizeWindowInDips(
+                    mini ? MiniWindowWidth : DefaultWindowWidth,
+                    mini ? MiniWindowHeight : DefaultWindowHeight);
+            }
+
+            return;
+        }
+
+        if (mini && SidebarNavigationView.IsPaneOpen)
+        {
+            _openNavigationPaneWhenSpaceReturns = true;
+        }
+
         _isMiniMode = mini;
         _pendingClipboardText = null;
         ClipboardPasteTeachingTip.IsOpen = false;
-        if (mini)
-        {
-            _backStack.Clear();
-        }
-
-        SidebarNavigationView.IsBackEnabled = !mini && _backStack.Count > 0;
+        CloseSelectionTranslationTeachingTip();
+        ClearNavigationHistory();
         MiniPageGrid.Visibility = mini ? Visibility.Visible : Visibility.Collapsed;
         SidebarNavigationView.Visibility = Visibility.Visible;
         if (mini)
@@ -2022,7 +2280,7 @@ public sealed partial class MainWindow : Window
             SidebarNavigationView.PaneDisplayMode = NavigationViewPaneDisplayMode.Left;
             SidebarNavigationView.CompactPaneLength = 48;
             SidebarNavigationView.IsPaneToggleButtonVisible = true;
-            SidebarNavigationView.IsPaneOpen = true;
+            SidebarNavigationView.IsPaneOpen = false;
         }
         TranslationToolbar.Visibility = mini ? Visibility.Collapsed : (_currentPageTag == "Home" ? Visibility.Visible : Visibility.Collapsed);
         HomePageGrid.Visibility = mini ? Visibility.Collapsed : (_currentPageTag == "Home" ? Visibility.Visible : Visibility.Collapsed);
@@ -2031,12 +2289,19 @@ public sealed partial class MainWindow : Window
             PageTitleTextBlock.Text = Localization.AppName;
             Title = Localization.AppName;
         }
-        else if (_currentPageTag == "Home")
+        else
         {
-            PageTitleTextBlock.Text = Localization.AppName;
-            Title = Localization.AppName;
+            ShowPage(_currentPageTag);
         }
-        AppWindow.Resize(new SizeInt32(mini ? 520 : MinWindowWidth, mini ? 420 : MinWindowHeight));
+
+        if (resizeWindow)
+        {
+            ResizeWindowInDips(
+                mini ? MiniWindowWidth : DefaultWindowWidth,
+                mini ? MiniWindowHeight : DefaultWindowHeight);
+        }
+
+        UpdateNavigationPaneForWindowWidth(AppWindow.ClientSize.Width / GetWindowScale());
         if (mini)
         {
             MiniTargetLanguageComboBox.ItemsSource = Languages.Skip(1).ToList();
@@ -2663,11 +2928,55 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void UpdateNavigationPaneForWindowWidth(double logicalWidth)
+    {
+        if (_isMiniMode || !SidebarNavigationView.IsPaneVisible)
+        {
+            return;
+        }
+
+        if (logicalWidth < NavigationPaneCollapseWidth && SidebarNavigationView.IsPaneOpen)
+        {
+            _openNavigationPaneWhenSpaceReturns = true;
+            SidebarNavigationView.IsPaneOpen = false;
+        }
+        else if (logicalWidth >= DefaultWindowWidth && _openNavigationPaneWhenSpaceReturns)
+        {
+            SidebarNavigationView.IsPaneOpen = true;
+            _openNavigationPaneWhenSpaceReturns = false;
+        }
+    }
+
+    private void ClearNavigationHistory()
+    {
+        _backStack.Clear();
+        SidebarNavigationView.IsBackEnabled = false;
+    }
+
+    private double GetWindowScale()
+    {
+        var dpi = GetDpiForWindow(_windowHandle);
+        return dpi == 0 ? 1d : dpi / 96d;
+    }
+
+    private void ResizeWindowInDips(int width, int height)
+    {
+        var scale = GetWindowScale();
+        AppWindow.Resize(new SizeInt32(
+            (int)Math.Round(width * scale),
+            (int)Math.Round(height * scale)));
+    }
+
     private async void TranslateButton_Click(object sender, RoutedEventArgs e)
     {
         if (_isTranslating)
         {
             _cts?.Cancel();
+            return;
+        }
+
+        if (_isSelectionTranslating)
+        {
             return;
         }
 
@@ -3139,7 +3448,7 @@ public sealed partial class MainWindow : Window
     {
         var allowedTargets = Languages
             .Where(language => language.PromptName != "自动检测"
-                && (sourceLanguage.PromptName == Localization.Text("自动检测")
+                && (sourceLanguage.ApiCode == "auto"
                     || language.PromptName != sourceLanguage.PromptName))
             .ToList();
 
@@ -3167,6 +3476,12 @@ public sealed partial class MainWindow : Window
             ".gif" => "image/gif",
             _ => "application/octet-stream",
         };
+    }
+
+    private enum SelectionTranslationOrigin
+    {
+        Source,
+        Output,
     }
 
     private void UpdateCounts()
@@ -3246,8 +3561,8 @@ public sealed partial class MainWindow : Window
 
     private void UpdateUiState()
     {
-        TranslateButton.IsEnabled = !_isTranslating && SourceTextBox.Text.Trim().Length > 0;
-        MicButton.IsEnabled = !_isTranslating && !_isOpeningSystemDictation;
+        TranslateButton.IsEnabled = !_isTranslating && !_isSelectionTranslating && SourceTextBox.Text.Trim().Length > 0;
+        MicButton.IsEnabled = !_isTranslating && !_isSelectionTranslating && !_isOpeningSystemDictation;
         SpeakButton.IsEnabled = _speechOutput.IsSpeaking || OutputTextBox.Text.Trim().Length > 0;
         PickImageButton.IsEnabled = !_isImageTranslating;
         TranslateImageButton.IsEnabled = !_isImageTranslating && _selectedImageFiles.Count > 0;

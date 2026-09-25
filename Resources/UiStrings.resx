@@ -13,7 +13,7 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
   </resheader>
   <data name="Sd608ccd939a78fb2" xml:space="preserve">
-    <value>Windtanslator</value>
+    <value>Windtranslator</value>
     <comment>风译</comment>
   </data>
   <data name="S3e0d676d2d85073d" xml:space="preserve">
@@ -1079,5 +1079,25 @@
   <data name="S8d5dd50781ddc74b" xml:space="preserve">
     <value>Enable AI translation</value>
     <comment>启用 AI 翻译</comment>
+  </data>
+  <data name="S4847e29e6f5144bd" xml:space="preserve">
+    <value>Selection translation</value>
+    <comment>选词翻译</comment>
+  </data>
+  <data name="S84059a3833523ae7" xml:space="preserve">
+    <value>Translate the selected text into {0}</value>
+    <comment>将选中文字翻译成{0}</comment>
+  </data>
+  <data name="Sa6d2d858c91584cd" xml:space="preserve">
+    <value>Choose a source language before translating selected text.</value>
+    <comment>请先指定源语言，再翻译选中的译文。</comment>
+  </data>
+  <data name="S5252fa12f28f56da" xml:space="preserve">
+    <value>Selection translation failed: {0}</value>
+    <comment>选词翻译失败：{0}</comment>
+  </data>
+  <data name="S0f7b8096bd0754e3" xml:space="preserve">
+    <value>The selected translation changed. Please select it again.</value>
+    <comment>选中的译文已发生变化，请重新选择。</comment>
   </data>
 </root>

@@ -38,7 +38,7 @@ for path in [ROOT / 'MainWindow.xaml.cs', *(ROOT / 'Services').glob('*.cs')]:
         key = 'S' + hashlib.sha256(value.encode()).hexdigest()[:16]
         assert key in english, f'Missing code resource in {path.name}: {value}'
 
-for language, name in [('zh-CN', '风译'), ('en-US', 'Windtanslator')]:
+for language, name in [('zh-CN', '风译'), ('en-US', 'Windtranslator')]:
     resources = read_resources(ROOT / f'Strings/{language}/Resources.resw')
     assert resources['AppDisplayName'] == name
     app_key = 'S' + hashlib.sha256(b'Windtranslator').hexdigest()[:16]

@@ -813,4 +813,19 @@
   <data name="S8d5dd50781ddc74b" xml:space="preserve">
     <value>启用 AI 翻译</value>
   </data>
+  <data name="S4847e29e6f5144bd" xml:space="preserve">
+    <value>选词翻译</value>
+  </data>
+  <data name="S84059a3833523ae7" xml:space="preserve">
+    <value>将选中文字翻译成{0}</value>
+  </data>
+  <data name="Sa6d2d858c91584cd" xml:space="preserve">
+    <value>请先指定源语言，再翻译选中的译文。</value>
+  </data>
+  <data name="S5252fa12f28f56da" xml:space="preserve">
+    <value>选词翻译失败：{0}</value>
+  </data>
+  <data name="S0f7b8096bd0754e3" xml:space="preserve">
+    <value>选中的译文已发生变化，请重新选择。</value>
+  </data>
 </root>
