@@ -1,10 +1,10 @@
+using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Markup;
 using System;
 using System.Globalization;
 using System.Resources;
 using System.Security.Cryptography;
 using System.Text;
-using Microsoft.UI.Xaml.Data;
-using Microsoft.UI.Xaml.Markup;
 
 namespace Windtranslator.Services;
 

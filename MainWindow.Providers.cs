@@ -1,10 +1,10 @@
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using Windtranslator.Services;
 using Windows.Security.Credentials;
+using Windtranslator.Services;
 
 namespace Windtranslator;
 
