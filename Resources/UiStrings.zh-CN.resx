@@ -828,4 +828,80 @@
   <data name="S0f7b8096bd0754e3" xml:space="preserve">
     <value>选中的译文已发生变化，请重新选择。</value>
   </data>
+  <data name="S83095a6428e8d956" xml:space="preserve">
+    <value>翻译服务</value>
+  </data>
+  <data name="Sa1a42cd9b16e2162" xml:space="preserve">
+    <value>应用设置</value>
+  </data>
+  <data name="Sa63886dd9f495cd7" xml:space="preserve">
+    <value>窗口置顶</value>
+  </data>
+  <data name="Sc6755fea10868a8d" xml:space="preserve">
+    <value>让窗口始终显示在其他窗口上方</value>
+  </data>
+  <data name="S033ed59452549c51" xml:space="preserve">
+    <value>供应商</value>
+  </data>
+  <data name="S65f5df356d359832" xml:space="preserve">
+    <value>集中管理供应商、接口地址、模型和密钥</value>
+  </data>
+  <data name="Sfc7a472874bcbfb2" xml:space="preserve">
+    <value>添加供应商</value>
+  </data>
+  <data name="S4256f8b835ecf7c4" xml:space="preserve">
+    <value>删除供应商</value>
+  </data>
+  <data name="Scbb2ff384b747ed7" xml:space="preserve">
+    <value>供应商名称</value>
+  </data>
+  <data name="S7d9dd8065840f2b2" xml:space="preserve">
+    <value>请等待当前翻译完成后再修改供应商或模型。</value>
+  </data>
+  <data name="S13ae4c5da62e926c" xml:space="preserve">
+    <value>请填写唯一的供应商名称（不含冒号）、有效的 HTTP/HTTPS 接口地址和模型名称。</value>
+  </data>
+  <data name="Sc07453466796c6db" xml:space="preserve">
+    <value>至少需要保留一个供应商。</value>
+  </data>
+  <data name="Se8a3af5b22e4c8ab" xml:space="preserve">
+    <value>删除 {0} 及其模型配置和保存的密钥？</value>
+  </data>
+  <data name="Sfc845a324d6f21f8" xml:space="preserve">
+    <value>在供应商卡片中管理接口、模型和密钥。</value>
+  </data>
+  <data name="Se0d99ccba87fe53e" xml:space="preserve">
+    <value>请选择支持图片输入的模型；模型和密钥在供应商卡片中管理。</value>
+  </data>
+  <data name="Sf9b2ebb952cdc2f8" xml:space="preserve">
+    <value>选择供应商、模型和翻译提示词</value>
+  </data>
+  <data name="S38c87877f29cf060" xml:space="preserve">
+    <value>选择供应商和支持图片输入的模型</value>
+  </data>
+  <data name="S6ba34046a705daa6" xml:space="preserve">
+    <value>请在供应商卡片中设置 API Key。</value>
+  </data>
+  <data name="S98abcb19fbe48e85" xml:space="preserve">
+    <value>AI 翻译未配置当前供应商的 API Key。</value>
+  </data>
+  <data name="S9c0458fa899f1c4d" xml:space="preserve">
+    <value>图片翻译使用{0} API，请先在供应商卡片中设置 API Key。</value>
+  </data>
+  <data name="Scb5d682bac3d1a2d" xml:space="preserve">
+    <value>重置</value>
+    <comment>重置</comment>
+  </data>
+  <data name="Sc5dcfd20f2ed36e0" xml:space="preserve">
+    <value>恢复内置供应商和模型，并清除所有供应商 API Key。</value>
+    <comment>恢复内置供应商和模型，并清除所有供应商 API Key。</comment>
+  </data>
+  <data name="Sfbb3bc8bb8762968" xml:space="preserve">
+    <value>已恢复内置供应商和模型，并清除 API Key。</value>
+    <comment>已恢复内置供应商和模型，并清除 API Key。</comment>
+  </data>
+  <data name="S63b7637cc9ec5437" xml:space="preserve">
+    <value>重置供应商失败：{0}</value>
+    <comment>重置供应商失败：{0}</comment>
+  </data>
 </root>

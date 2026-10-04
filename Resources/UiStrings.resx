@@ -1100,4 +1100,100 @@
     <value>The selected translation changed. Please select it again.</value>
     <comment>选中的译文已发生变化，请重新选择。</comment>
   </data>
+  <data name="S83095a6428e8d956" xml:space="preserve">
+    <value>Translation services</value>
+    <comment>翻译服务</comment>
+  </data>
+  <data name="Sa1a42cd9b16e2162" xml:space="preserve">
+    <value>App settings</value>
+    <comment>应用设置</comment>
+  </data>
+  <data name="Sa63886dd9f495cd7" xml:space="preserve">
+    <value>Always on top</value>
+    <comment>窗口置顶</comment>
+  </data>
+  <data name="Sc6755fea10868a8d" xml:space="preserve">
+    <value>Keep the window above other windows</value>
+    <comment>让窗口始终显示在其他窗口上方</comment>
+  </data>
+  <data name="S033ed59452549c51" xml:space="preserve">
+    <value>Providers</value>
+    <comment>供应商</comment>
+  </data>
+  <data name="S65f5df356d359832" xml:space="preserve">
+    <value>Manage providers, endpoints, models and API keys</value>
+    <comment>集中管理供应商、接口地址、模型和密钥</comment>
+  </data>
+  <data name="Sfc7a472874bcbfb2" xml:space="preserve">
+    <value>Add provider</value>
+    <comment>添加供应商</comment>
+  </data>
+  <data name="S4256f8b835ecf7c4" xml:space="preserve">
+    <value>Delete provider</value>
+    <comment>删除供应商</comment>
+  </data>
+  <data name="Scbb2ff384b747ed7" xml:space="preserve">
+    <value>Provider name</value>
+    <comment>供应商名称</comment>
+  </data>
+  <data name="S7d9dd8065840f2b2" xml:space="preserve">
+    <value>Wait for the current translation to finish before changing providers or models.</value>
+    <comment>请等待当前翻译完成后再修改供应商或模型。</comment>
+  </data>
+  <data name="S13ae4c5da62e926c" xml:space="preserve">
+    <value>Enter a unique provider name without colons, a valid HTTP/HTTPS endpoint and a model name.</value>
+    <comment>请填写唯一的供应商名称（不含冒号）、有效的 HTTP/HTTPS 接口地址和模型名称。</comment>
+  </data>
+  <data name="Sc07453466796c6db" xml:space="preserve">
+    <value>Keep at least one provider.</value>
+    <comment>至少需要保留一个供应商。</comment>
+  </data>
+  <data name="Se8a3af5b22e4c8ab" xml:space="preserve">
+    <value>Delete {0}, its model configuration and saved API keys?</value>
+    <comment>删除 {0} 及其模型配置和保存的密钥？</comment>
+  </data>
+  <data name="Sfc845a324d6f21f8" xml:space="preserve">
+    <value>Manage endpoints, models and API keys in the Providers card.</value>
+    <comment>在供应商卡片中管理接口、模型和密钥。</comment>
+  </data>
+  <data name="Se0d99ccba87fe53e" xml:space="preserve">
+    <value>Choose a model that supports images. Manage models and API keys in the Providers card.</value>
+    <comment>请选择支持图片输入的模型；模型和密钥在供应商卡片中管理。</comment>
+  </data>
+  <data name="Sf9b2ebb952cdc2f8" xml:space="preserve">
+    <value>Choose a provider, model and translation prompt</value>
+    <comment>选择供应商、模型和翻译提示词</comment>
+  </data>
+  <data name="S38c87877f29cf060" xml:space="preserve">
+    <value>Choose a provider and a model that supports images</value>
+    <comment>选择供应商和支持图片输入的模型</comment>
+  </data>
+  <data name="S6ba34046a705daa6" xml:space="preserve">
+    <value>Set the API key in the Providers card.</value>
+    <comment>请在供应商卡片中设置 API Key。</comment>
+  </data>
+  <data name="S98abcb19fbe48e85" xml:space="preserve">
+    <value>AI translation has no API key for the current provider.</value>
+    <comment>AI 翻译未配置当前供应商的 API Key。</comment>
+  </data>
+  <data name="S9c0458fa899f1c4d" xml:space="preserve">
+    <value>Image translation uses the {0} API. Set its API key in the Providers card first.</value>
+    <comment>图片翻译使用{0} API，请先在供应商卡片中设置 API Key。</comment>
+  </data>
+  <data name="Scb5d682bac3d1a2d" xml:space="preserve">
+    <value>Reset</value>
+    <comment>重置</comment>
+  </data>
+  <data name="Sc5dcfd20f2ed36e0" xml:space="preserve">
+    <value>Restore built-in providers and models, and clear all provider API keys.</value>
+    <comment>恢复内置供应商和模型，并清除所有供应商 API Key。</comment>
+  </data>
+  <data name="Sfbb3bc8bb8762968" xml:space="preserve">
+    <value>Built-in providers and models restored. API keys cleared.</value>
+    <comment>已恢复内置供应商和模型，并清除 API Key。</comment>
+  </data>
+  <data name="S63b7637cc9ec5437" xml:space="preserve">
+    <value>Failed to reset providers: {0}</value>
+    <comment>重置供应商失败：{0}</comment>
+  </data>
 </root>

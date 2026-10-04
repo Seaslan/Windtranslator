@@ -31,7 +31,7 @@ for key in re.findall(r'localization:LocalizedString Key=(\w+)', xaml):
     assert key in english, f'Missing XAML resource: {key}'
 assert not re.search(r'="[^"{}]*[\u4e00-\u9fff][^"{}]*"', xaml), 'Unlocalized XAML attribute'
 
-for path in [ROOT / 'MainWindow.xaml.cs', *(ROOT / 'Services').glob('*.cs')]:
+for path in [*ROOT.glob('MainWindow*.cs'), *(ROOT / 'Services').glob('*.cs')]:
     source = path.read_text(encoding='utf-8')
     for literal in re.findall(r'Localization.Text\("((?:\\.|[^"\\])*)"', source):
         value = literal.replace('\\\\', '\\').replace('\\n', '\n').replace('\\"', '"')

@@ -35,7 +35,6 @@ public sealed partial class MainWindow : Window
     private const string AliyunServiceUrl = "http://mt.cn-hangzhou.aliyuncs.com/api/translate/web/ecommerce";
     private const string AliyunAccessKeyIdResource = "阿里云机器翻译:AccessKeyId";
     private const string AliyunAccessKeySecretResource = "阿里云机器翻译:AccessKeySecret";
-    private const string CustomAiProviderName = "自定义模型";
     private const int DefaultWindowWidth = 960;
     private const int DefaultWindowHeight = 660;
     private const int MinimumWindowWidth = 420;
@@ -57,8 +56,7 @@ public sealed partial class MainWindow : Window
     private const int GwlWndProc = -4;
     private static readonly int[] TranslationHistoryLimits = { 0, 5, 20, -1 };
 
-    private static readonly List<string> CloudProviders = new() { "DeepSeek", "千问", "Kimi", "智谱" };
-    private static readonly List<string> AiProviders = new(CloudProviders) { CustomAiProviderName };
+    private List<string> AiProviders => _settings.ProviderNames!;
 
     private static readonly List<LanguageOption> Languages = new()
     {
@@ -140,6 +138,7 @@ public sealed partial class MainWindow : Window
         AppWindow.Changed += AppWindow_Changed;
 
         _settings = AppSettingsStore.Load();
+        ProviderCatalog.Initialize(_settings);
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         _translationService = new TranslationService(_httpClient);
         _machineTranslationService = new AliyunMachineTranslationService(_httpClient);
@@ -215,11 +214,11 @@ public sealed partial class MainWindow : Window
         AiPromptStyleComboBox.SelectedIndex = Math.Clamp(_settings.AiPromptStyleIndex, 0, 3);
         AiIncludeLanguageDetailsCheckBox.IsChecked = _settings.AiIncludeLanguageDetails;
         AiRememberKeyCheckBox.IsChecked = _settings.RememberKeys;
-        ImageRememberKeyCheckBox.IsChecked = _settings.RememberImageKeys;
         AliyunRememberKeyCheckBox.IsChecked = _settings.RememberAliyunKeys;
         ThemeComboBox.ItemsSource = new[] { Localization.Text("跟随系统"), Localization.Text("浅色"), Localization.Text("深色") };
         ThemeComboBox.SelectedIndex = Math.Clamp(_settings.ThemeIndex, 0, 2);
         MicaBackdropCheckBox.IsChecked = _settings.MicaBackdropEnabled;
+        AlwaysOnTopToggleSwitch.IsOn = _settings.AlwaysOnTop;
         EnterToTranslateToggleSwitch.IsOn = _settings.EnterToTranslate;
         UpdateEnterShortcutLabels();
         TranslationHistoryLimitComboBox.ItemsSource = new[] { Localization.Text("不保存翻译历史"), Localization.Text("5 条"), Localization.Text("20 条"), Localization.Text("无上限") };
@@ -236,6 +235,7 @@ public sealed partial class MainWindow : Window
 
         ApplyTheme();
         ApplyMicaBackdrop();
+        ApplyAlwaysOnTop();
         AboutVersionTextBlock.Text = Localization.Text("版本 ") + GetApplicationVersion();
         SidebarNavigationView.SelectedItem = HomeNavigationItem;
         NavigateTo("Home", addBackEntry: false);
@@ -289,6 +289,18 @@ public sealed partial class MainWindow : Window
         SaveSettings();
     }
 
+    private void AlwaysOnTopToggleSwitch_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_suppressEvents)
+        {
+            return;
+        }
+
+        _settings.AlwaysOnTop = AlwaysOnTopToggleSwitch.IsOn;
+        ApplyAlwaysOnTop();
+        SaveSettings();
+    }
+
     private void EnterToTranslateToggleSwitch_Toggled(object sender, RoutedEventArgs e)
     {
         if (_suppressEvents)
@@ -338,21 +350,13 @@ public sealed partial class MainWindow : Window
     {
         _suppressEvents = true;
 
-        AiProviderComboBox.ItemsSource = AiProviders;
-        _currentProvider = AiProviders.Contains(_settings.ProviderName)
-            ? _settings.ProviderName
-            : "DeepSeek";
+        AiProviderComboBox.ItemsSource = AiProviders.ToList();
+        _currentProvider = AiProviders.FirstOrDefault(provider =>
+            string.Equals(provider, _settings.ProviderName, StringComparison.OrdinalIgnoreCase))
+            ?? AiProviders[0];
         AiProviderComboBox.SelectedItem = _currentProvider;
 
         var profile = GetProviderProfile(_currentProvider);
-        AiEndpointTextBox.Text = _settings.Endpoints.TryGetValue(_currentProvider, out var endpoint)
-            && !string.IsNullOrWhiteSpace(endpoint)
-                ? endpoint
-                : _currentProvider == CustomAiProviderName ? string.Empty : profile.DefaultEndpoint;
-        AiEndpointTextBox.PlaceholderText = _currentProvider == CustomAiProviderName
-            ? "https://example.com/v1"
-            : profile.DefaultEndpoint;
-        UpdateCustomProviderHint();
 
         var savedModel = _settings.Models.TryGetValue(_currentProvider, out var model)
             ? model.Trim()
@@ -394,6 +398,8 @@ public sealed partial class MainWindow : Window
                 : "qwen2.5:7b";
         _selectedOfflineModelPath = _settings.LocalModelPath;
         UpdateLocalTranslationSourceUi();
+        MigrateProviderCredentials();
+        RefreshManagedProviderOptions();
 
         _suppressEvents = false;
         SaveSettings();
@@ -411,15 +417,6 @@ public sealed partial class MainWindow : Window
         var profile = GetProviderProfile(provider);
 
         _suppressEvents = true;
-        AiEndpointTextBox.Text = _settings.Endpoints.TryGetValue(provider, out var endpoint)
-            && !string.IsNullOrWhiteSpace(endpoint)
-                ? endpoint
-                : provider == CustomAiProviderName ? string.Empty : profile.DefaultEndpoint;
-        AiEndpointTextBox.PlaceholderText = provider == CustomAiProviderName
-            ? "https://example.com/v1"
-            : profile.DefaultEndpoint;
-        UpdateCustomProviderHint();
-
         var savedModel = _settings.Models.TryGetValue(provider, out var model)
             ? model.Trim()
             : null;
@@ -435,17 +432,6 @@ public sealed partial class MainWindow : Window
         }
 
         _suppressEvents = false;
-        SaveSettings();
-    }
-
-    private void AiEndpointTextBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        if (_suppressEvents || string.IsNullOrEmpty(_currentProvider))
-        {
-            return;
-        }
-
-        _settings.Endpoints[_currentProvider] = AiEndpointTextBox.Text.Trim();
         SaveSettings();
     }
 
@@ -468,95 +454,16 @@ public sealed partial class MainWindow : Window
         return AiModelsListView.SelectedItem?.ToString()?.Trim() ?? string.Empty;
     }
 
-    private List<string> GetAvailableAiModels(ProviderProfile profile)
-    {
-        _settings.AvailableModels ??= new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-        if (!_settings.AvailableModels.TryGetValue(profile.Name, out var models) || models is null)
-        {
-            models = profile.DefaultModels
-                .Where(model => !string.IsNullOrWhiteSpace(model))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            _settings.AvailableModels[profile.Name] = models;
-        }
-
-        return models;
-    }
+    private List<string> GetAvailableAiModels(ProviderProfile profile) =>
+        ProviderCatalog.GetModels(_settings, profile.Name);
 
     private void RefreshAiModelOptions(ProviderProfile profile, string? preferredModel)
     {
         var models = GetAvailableAiModels(profile);
-        if (!string.IsNullOrWhiteSpace(preferredModel)
-            && !models.Contains(preferredModel, StringComparer.OrdinalIgnoreCase))
-        {
-            models.Add(preferredModel);
-        }
-
         AiModelsListView.ItemsSource = models.ToList();
         AiModelsListView.SelectedItem = models.FirstOrDefault(model =>
             string.Equals(model, preferredModel, StringComparison.OrdinalIgnoreCase))
             ?? models.FirstOrDefault();
-    }
-
-    private async void AddAiModelButton_Click(object sender, RoutedEventArgs e)
-    {
-        var modelTextBox = new TextBox
-        {
-            Header = Localization.Text("模型名称"),
-            PlaceholderText = Localization.Text("输入自定义模型名称"),
-        };
-        var apiKeyPasswordBox = new PasswordBox
-        {
-            Header = "API Key",
-            PlaceholderText = Localization.Text("可稍后通过列表右侧按钮修改"),
-        };
-        var content = new StackPanel { Spacing = 12 };
-        content.Children.Add(modelTextBox);
-        content.Children.Add(apiKeyPasswordBox);
-        var dialog = new ContentDialog
-        {
-            XamlRoot = WindowRoot.XamlRoot,
-            Title = Localization.Text("添加自定义模型"),
-            Content = content,
-            PrimaryButtonText = Localization.Text("添加"),
-            CloseButtonText = Localization.Text("取消"),
-            DefaultButton = ContentDialogButton.Primary,
-        };
-
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
-        {
-            return;
-        }
-
-        var model = modelTextBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(model))
-        {
-            ShowInfo(Localization.Text("请输入要添加的模型名称。"), InfoBarSeverity.Warning);
-            return;
-        }
-
-        var profile = GetProviderProfile(_currentProvider);
-        var models = GetAvailableAiModels(profile);
-        var existingModel = models.FirstOrDefault(item =>
-            string.Equals(item, model, StringComparison.OrdinalIgnoreCase));
-        if (existingModel is null)
-        {
-            models.Add(model);
-            existingModel = model;
-        }
-
-        _suppressEvents = true;
-        RefreshAiModelOptions(profile, existingModel);
-        _suppressEvents = false;
-        _settings.Models[_currentProvider] = existingModel;
-
-        var apiKey = apiKeyPasswordBox.Password.Trim();
-        if (!string.IsNullOrWhiteSpace(apiKey))
-        {
-            SetApiKeyForModel(_currentProvider, existingModel, apiKey);
-        }
-
-        SaveSettings();
     }
 
     private void ApiTranslationToggleSwitch_Toggled(object sender, RoutedEventArgs e)
@@ -644,116 +551,39 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void UpdateCustomProviderHint()
-    {
-        CustomProviderHintText.Visibility = _currentProvider == CustomAiProviderName
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-    }
-
-    private void DeleteAiModelButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { DataContext: string model })
-        {
-            return;
-        }
-
-        var profile = GetProviderProfile(_currentProvider);
-        var models = GetAvailableAiModels(profile);
-        if (models.Count <= 1)
-        {
-            ShowInfo(Localization.Text("至少需要保留一个 AI 翻译模型。"), InfoBarSeverity.Warning);
-            return;
-        }
-
-        var selectedModel = GetSelectedAiModel();
-        models.RemoveAll(item => string.Equals(item, model, StringComparison.OrdinalIgnoreCase));
-        var preferredModel = string.Equals(selectedModel, model, StringComparison.OrdinalIgnoreCase)
-            ? models.FirstOrDefault()
-            : selectedModel;
-        var credentialKey = GetModelCredentialKey(_currentProvider, model);
-        _apiKeys.Remove(credentialKey);
-        RemoveKeyFromVault(credentialKey);
-        _suppressEvents = true;
-        RefreshAiModelOptions(profile, preferredModel);
-        _suppressEvents = false;
-        _settings.Models[_currentProvider] = GetSelectedAiModel();
-        SaveSettings();
-    }
-
-    private async void EditAiModelApiKeyButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { DataContext: string model })
-        {
-            return;
-        }
-
-        var passwordBox = new PasswordBox
-        {
-            Header = "API Key",
-            Password = GetApiKeyForModel(_currentProvider, model),
-            PlaceholderText = Localization.Text("输入 API Key"),
-        };
-        var dialog = new ContentDialog
-        {
-            XamlRoot = WindowRoot.XamlRoot,
-            Title = Localization.Text("修改 {0} 的 API Key", model),
-            Content = passwordBox,
-            PrimaryButtonText = Localization.Text("保存"),
-            CloseButtonText = Localization.Text("取消"),
-            DefaultButton = ContentDialogButton.Primary,
-        };
-
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-        {
-            SetApiKeyForModel(_currentProvider, model, passwordBox.Password.Trim());
-            ShowInfo(Localization.Text("API Key 已更新。"), InfoBarSeverity.Success);
-        }
-    }
-
     private static string GetModelCredentialKey(string provider, string model) =>
         $"{provider}:Model:{model}";
 
     private static string GetImageModelCredentialKey(string provider, string model) =>
         $"Image:{provider}:Model:{model}";
 
-    private string GetApiKeyForModel(string provider, string model)
+    private string GetProviderApiKey(string provider)
     {
-        var credentialKey = GetModelCredentialKey(provider, model);
-        if (_apiKeys.TryGetValue(credentialKey, out var apiKey))
+        if (_apiKeys.TryGetValue(provider, out var key))
         {
-            return apiKey;
+            return key;
         }
-
-        if (_settings.RememberKeys)
+        key = _settings.RememberKeys ? LoadKeyFromVault(provider) : null;
+        if (!string.IsNullOrWhiteSpace(key))
         {
-            apiKey = LoadKeyFromVault(credentialKey) ?? string.Empty;
-            if (!string.IsNullOrWhiteSpace(apiKey))
-            {
-                _apiKeys[credentialKey] = apiKey;
-                return apiKey;
-            }
+            _apiKeys[provider] = key;
         }
-
-        return _apiKeys.GetValueOrDefault(provider)
-            ?? (_settings.RememberKeys ? LoadKeyFromVault(provider) : null)
-            ?? string.Empty;
+        return key ?? string.Empty;
     }
 
-    private void SetApiKeyForModel(string provider, string model, string apiKey)
+    private void SetProviderApiKey(string provider, string apiKey)
     {
-        var credentialKey = GetModelCredentialKey(provider, model);
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            _apiKeys.Remove(credentialKey);
-            RemoveKeyFromVault(credentialKey);
+            _apiKeys.Remove(provider);
+            RemoveKeyFromVault(provider);
             return;
         }
 
-        _apiKeys[credentialKey] = apiKey;
+        _apiKeys[provider] = apiKey;
         if (_settings.RememberKeys)
         {
-            SaveKeyToVault(credentialKey, apiKey);
+            SaveKeyToVault(provider, apiKey);
         }
     }
 
@@ -764,31 +594,32 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        _settings.RememberKeys = AiRememberKeyCheckBox.IsChecked == true;
-        SaveSettings();
-
-        var models = GetAvailableAiModels(GetProviderProfile(_currentProvider));
-        if (_settings.RememberKeys)
+        // Load provider credentials before turning persistence off, to keep this session working.
+        foreach (var provider in AiProviders)
         {
-            foreach (var model in models)
+            _ = GetProviderApiKey(provider);
+        }
+        _settings.RememberKeys = AiRememberKeyCheckBox.IsChecked == true;
+        _settings.RememberImageKeys = _settings.RememberKeys;
+        foreach (var provider in AiProviders)
+        {
+            if (_settings.RememberKeys)
             {
-                var credentialKey = GetModelCredentialKey(_currentProvider, model);
-                if (_apiKeys.TryGetValue(credentialKey, out var apiKey)
-                    && !string.IsNullOrWhiteSpace(apiKey))
+                if (_apiKeys.TryGetValue(provider, out var key) && !string.IsNullOrWhiteSpace(key))
                 {
-                    SaveKeyToVault(credentialKey, apiKey);
+                    SaveKeyToVault(provider, key);
+                }
+            }
+            else
+            {
+                RemoveKeyFromVault(provider);
+                foreach (var model in GetAvailableAiModels(GetProviderProfile(provider)))
+                {
+                    RemoveProviderModelCredentials(provider, model);
                 }
             }
         }
-        else
-        {
-            foreach (var model in models)
-            {
-                RemoveKeyFromVault(GetModelCredentialKey(_currentProvider, model));
-            }
-
-            RemoveKeyFromVault(_currentProvider);
-        }
+        SaveSettings();
     }
 
     private void AliyunRememberKeyCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -860,80 +691,6 @@ public sealed partial class MainWindow : Window
         LocalEndpointPanel.Visibility = useModel ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    private string GetApiKeyForImageModel(string provider, string model)
-    {
-        var credentialKey = GetImageModelCredentialKey(provider, model);
-        if (_apiKeys.TryGetValue(credentialKey, out var apiKey))
-        {
-            return apiKey;
-        }
-
-        if (_settings.RememberImageKeys)
-        {
-            apiKey = LoadKeyFromVault(credentialKey) ?? string.Empty;
-            if (!string.IsNullOrWhiteSpace(apiKey))
-            {
-                _apiKeys[credentialKey] = apiKey;
-            }
-        }
-
-        return apiKey ?? string.Empty;
-    }
-
-    private void SetApiKeyForImageModel(string provider, string model, string apiKey)
-    {
-        var credentialKey = GetImageModelCredentialKey(provider, model);
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            _apiKeys.Remove(credentialKey);
-            RemoveKeyFromVault(credentialKey);
-            return;
-        }
-
-        _apiKeys[credentialKey] = apiKey;
-        if (_settings.RememberImageKeys)
-        {
-            SaveKeyToVault(credentialKey, apiKey);
-        }
-    }
-
-    private void ImageRememberKeyCheckBox_Changed(object sender, RoutedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
-
-        _settings.RememberImageKeys = ImageRememberKeyCheckBox.IsChecked == true;
-        if (_settings.RememberImageKeys)
-        {
-            foreach (var provider in CloudProviders)
-            {
-                foreach (var model in _settings.ImageModels)
-                {
-                    var credentialKey = GetImageModelCredentialKey(provider, model);
-                    if (_apiKeys.TryGetValue(credentialKey, out var apiKey)
-                        && !string.IsNullOrWhiteSpace(apiKey))
-                    {
-                        SaveKeyToVault(credentialKey, apiKey);
-                    }
-                }
-            }
-        }
-        else
-        {
-            foreach (var provider in CloudProviders)
-            {
-                foreach (var model in _settings.ImageModels)
-                {
-                    RemoveKeyFromVault(GetImageModelCredentialKey(provider, model));
-                }
-            }
-        }
-
-        SaveSettings();
-    }
-
     private void NetworkInformation_NetworkStatusChanged(object sender)
     {
         DispatcherQueue.TryEnqueue(() =>
@@ -968,7 +725,9 @@ public sealed partial class MainWindow : Window
         UpdateOfflineModelDownloadAvailability();
         try
         {
-            _onlineOfflineModels = (await _offlineModelService.GetAvailableModelsAsync(CancellationToken.None)).ToList();
+            _onlineOfflineModels = (await _offlineModelService.GetAvailableModelsAsync(CancellationToken.None))
+                .Where(IsOfflineModelSupportedOnHomePage)
+                .ToList();
             OfflineModelsStatusTextBlock.Text = Localization.Text("已获取 {0} 个可下载模型", _onlineOfflineModels.Count);
             RefreshOfflineModelList();
         }
@@ -1027,7 +786,7 @@ public sealed partial class MainWindow : Window
             });
             await _offlineModelService.DownloadAsync(model, progress, CancellationToken.None);
             RefreshOfflineModelList();
-            var installed = _offlineModelService.GetInstalledModels()
+            var installed = GetSupportedInstalledOfflineModels()
                 .FirstOrDefault(item => item.Id.Equals(model.Id, StringComparison.OrdinalIgnoreCase));
             if (installed is not null)
             {
@@ -1115,7 +874,7 @@ public sealed partial class MainWindow : Window
 
     private void RefreshOfflineModelList()
     {
-        var installed = _offlineModelService.GetInstalledModels()
+        var installed = GetSupportedInstalledOfflineModels()
             .ToDictionary(model => model.Id, StringComparer.OrdinalIgnoreCase);
         var models = new List<OfflineTranslationModel>();
         foreach (var onlineModel in _onlineOfflineModels)
@@ -1164,7 +923,7 @@ public sealed partial class MainWindow : Window
         RefreshOfflineModelsButton.IsEnabled = online && !_isLoadingOfflineModels && !_isDownloadingOfflineModel;
         if (!online)
         {
-            OfflineModelsStatusTextBlock.Text = Localization.Text("网络不可用，已下载 {0} 个模型仍可使用", _offlineModelService.GetInstalledModels().Count);
+            OfflineModelsStatusTextBlock.Text = Localization.Text("网络不可用，已下载 {0} 个模型仍可使用", GetSupportedInstalledOfflineModels().Count);
         }
         else if (_isLoadingOfflineModels)
         {
@@ -1202,6 +961,22 @@ public sealed partial class MainWindow : Window
         "zh_hant" => "zh-tw",
         _ => code.ToLowerInvariant(),
     };
+
+    private static bool IsOfflineModelSupportedOnHomePage(OfflineTranslationModel model)
+    {
+        var sourceCode = ToApplicationLanguageCode(model.SourceLanguageCode);
+        var targetCode = ToApplicationLanguageCode(model.TargetLanguageCode);
+        return sourceCode != "auto"
+            && targetCode != "auto"
+            && !string.Equals(sourceCode, targetCode, StringComparison.OrdinalIgnoreCase)
+            && Languages.Any(language => string.Equals(language.ApiCode, sourceCode, StringComparison.OrdinalIgnoreCase))
+            && Languages.Any(language => string.Equals(language.ApiCode, targetCode, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private List<OfflineTranslationModel> GetSupportedInstalledOfflineModels() => _offlineModelService
+        .GetInstalledModels()
+        .Where(IsOfflineModelSupportedOnHomePage)
+        .ToList();
 
     private static string GetLanguageDisplayName(string code) => ToApplicationLanguageCode(code) switch
     {
@@ -1563,6 +1338,7 @@ public sealed partial class MainWindow : Window
         if (ImageModelComboBox.SelectedItem is string model)
         {
             _settings.ImageModel = model;
+            _settings.ImageSelectedModels[GetImageProvider()] = model;
             _suppressEvents = true;
             ImageModelsListView.SelectedItem = model;
             _suppressEvents = false;
@@ -1580,23 +1356,12 @@ public sealed partial class MainWindow : Window
         if (ImageModelsListView.SelectedItem is string model)
         {
             _settings.ImageModel = model;
+            _settings.ImageSelectedModels[GetImageProvider()] = model;
             _suppressEvents = true;
             ImageModelComboBox.SelectedItem = model;
             _suppressEvents = false;
             SaveSettings();
         }
-    }
-
-    private void ImageEndpointTextBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
-
-        _settings.ImageEndpoint = ImageEndpointTextBox.Text.Trim();
-        _settings.ImageEndpoints[GetImageProvider()] = _settings.ImageEndpoint;
-        SaveSettings();
     }
 
     private void ImageProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1608,54 +1373,26 @@ public sealed partial class MainWindow : Window
 
         _settings.ImageProviderName = provider;
         _suppressEvents = true;
-        ImageEndpointTextBox.Text = GetImageEndpoint(provider);
-        ImageEndpointTextBox.PlaceholderText = GetProviderProfile(provider).DefaultEndpoint;
+        RefreshImageModelOptions(_settings.ImageSelectedModels.GetValueOrDefault(provider));
         _suppressEvents = false;
-        _settings.ImageEndpoint = ImageEndpointTextBox.Text.Trim();
         SaveSettings();
     }
 
     private void InitializeImageModelSettings()
     {
-        _settings.ImageModels ??= new List<string>();
-        _settings.ImageEndpoints ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var provider = CloudProviders.Contains(_settings.ImageProviderName)
-            ? _settings.ImageProviderName
-            : "DeepSeek";
+        var provider = AiProviders.FirstOrDefault(name =>
+            string.Equals(name, _settings.ImageProviderName, StringComparison.OrdinalIgnoreCase))
+            ?? AiProviders[0];
         _settings.ImageProviderName = provider;
-        if (!_settings.ImageEndpoints.ContainsKey(provider)
-            && !string.IsNullOrWhiteSpace(_settings.ImageEndpoint))
-        {
-            _settings.ImageEndpoints[provider] = _settings.ImageEndpoint;
-        }
-
-        ImageProviderComboBox.ItemsSource = CloudProviders;
+        ImageProviderComboBox.ItemsSource = AiProviders.ToList();
         ImageProviderComboBox.SelectedItem = provider;
-        ImageEndpointTextBox.Text = GetImageEndpoint(provider);
-        ImageEndpointTextBox.PlaceholderText = GetProviderProfile(provider).DefaultEndpoint;
-        _settings.ImageEndpoint = ImageEndpointTextBox.Text.Trim();
-
-        if (!string.IsNullOrWhiteSpace(_settings.ImageModel)
-            && !_settings.ImageModels.Contains(_settings.ImageModel, StringComparer.OrdinalIgnoreCase))
-        {
-            _settings.ImageModels.Add(_settings.ImageModel);
-        }
-
-        if (_settings.ImageModels.Count == 0)
-        {
-            _settings.ImageModels.Add(GetDefaultImageModel(provider));
-        }
-
-        RefreshImageModelOptions(_settings.ImageModel);
+        RefreshImageModelOptions(_settings.ImageSelectedModels.GetValueOrDefault(provider));
     }
 
     private void RefreshImageModelOptions(string? preferredModel)
     {
-        var models = _settings.ImageModels
-            .Where(model => !string.IsNullOrWhiteSpace(model))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        _settings.ImageModels = models;
+        var provider = GetImageProvider();
+        var models = GetAvailableAiModels(GetProviderProfile(provider));
         ImageModelsListView.ItemsSource = models.ToList();
         ImageModelComboBox.ItemsSource = models.ToList();
         var selectedModel = models.FirstOrDefault(model =>
@@ -1663,125 +1400,15 @@ public sealed partial class MainWindow : Window
             ?? models.FirstOrDefault();
         ImageModelsListView.SelectedItem = selectedModel;
         ImageModelComboBox.SelectedItem = selectedModel;
+        _settings.ImageModel = selectedModel ?? string.Empty;
+        _settings.ImageSelectedModels[provider] = _settings.ImageModel;
     }
 
-    private string GetImageProvider()
-    {
-        return ImageProviderComboBox.SelectedItem as string is { Length: > 0 } provider
-            ? provider
-            : _settings.ImageProviderName;
-    }
+    private string GetImageProvider() =>
+        ImageProviderComboBox.SelectedItem as string ?? _settings.ImageProviderName;
 
-    private string GetImageEndpoint(string provider)
-    {
-        return _settings.ImageEndpoints.TryGetValue(provider, out var endpoint)
-            && !string.IsNullOrWhiteSpace(endpoint)
-                ? endpoint
-                : GetProviderProfile(provider).DefaultEndpoint;
-    }
-
-    private async void AddImageModelButton_Click(object sender, RoutedEventArgs e)
-    {
-        var modelTextBox = new TextBox
-        {
-            Header = Localization.Text("模型名称"),
-            PlaceholderText = Localization.Text("输入支持图片的模型名称"),
-        };
-        var dialog = new ContentDialog
-        {
-            XamlRoot = WindowRoot.XamlRoot,
-            Title = Localization.Text("添加图片翻译模型"),
-            Content = modelTextBox,
-            PrimaryButtonText = Localization.Text("添加"),
-            CloseButtonText = Localization.Text("取消"),
-            DefaultButton = ContentDialogButton.Primary,
-        };
-
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
-        {
-            return;
-        }
-
-        var model = modelTextBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(model))
-        {
-            ShowInfo(Localization.Text("请输入要添加的图片模型名称。"), InfoBarSeverity.Warning);
-            return;
-        }
-
-        var existingModel = _settings.ImageModels.FirstOrDefault(item =>
-            string.Equals(item, model, StringComparison.OrdinalIgnoreCase));
-        if (existingModel is null)
-        {
-            _settings.ImageModels.Add(model);
-            existingModel = model;
-        }
-
-        _suppressEvents = true;
-        RefreshImageModelOptions(existingModel);
-        _suppressEvents = false;
-        _settings.ImageModel = existingModel;
-        SaveSettings();
-    }
-
-    private void DeleteImageModelButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { DataContext: string model })
-        {
-            return;
-        }
-
-        if (_settings.ImageModels.Count <= 1)
-        {
-            ShowInfo(Localization.Text("至少需要保留一个图片翻译模型。"), InfoBarSeverity.Warning);
-            return;
-        }
-
-        _settings.ImageModels.RemoveAll(item =>
-            string.Equals(item, model, StringComparison.OrdinalIgnoreCase));
-        var credentialKey = GetImageModelCredentialKey(GetImageProvider(), model);
-        _apiKeys.Remove(credentialKey);
-        RemoveKeyFromVault(credentialKey);
-        var preferredModel = string.Equals(_settings.ImageModel, model, StringComparison.OrdinalIgnoreCase)
-            ? _settings.ImageModels.FirstOrDefault()
-            : _settings.ImageModel;
-        _suppressEvents = true;
-        RefreshImageModelOptions(preferredModel);
-        _suppressEvents = false;
-        _settings.ImageModel = ImageModelComboBox.SelectedItem?.ToString() ?? string.Empty;
-        SaveSettings();
-    }
-
-    private async void EditImageModelApiKeyButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { DataContext: string model })
-        {
-            return;
-        }
-
-        var provider = GetImageProvider();
-        var passwordBox = new PasswordBox
-        {
-            Header = "API Key",
-            Password = GetApiKeyForImageModel(provider, model),
-            PlaceholderText = Localization.Text("输入 API Key"),
-        };
-        var dialog = new ContentDialog
-        {
-            XamlRoot = WindowRoot.XamlRoot,
-            Title = Localization.Text("修改 {0} 的 API Key", model),
-            Content = passwordBox,
-            PrimaryButtonText = Localization.Text("保存"),
-            CloseButtonText = Localization.Text("取消"),
-            DefaultButton = ContentDialogButton.Primary,
-        };
-
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-        {
-            SetApiKeyForImageModel(provider, model, passwordBox.Password.Trim());
-            ShowInfo(Localization.Text("API Key 已更新。"), InfoBarSeverity.Success);
-        }
-    }
+    private string GetProviderEndpoint(string provider) =>
+        ProviderCatalog.GetEndpoint(_settings, provider);
 
     private void ImageTargetLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -2414,24 +2041,10 @@ public sealed partial class MainWindow : Window
             systemPrompt += "\n\n补充要求：" + CustomPromptTextBox.Text.Trim();
         }
 
-        var endpoint = ImageEndpointTextBox.Text.Trim();
-        var model = ImageModelComboBox.SelectedItem?.ToString()?.Trim() ?? string.Empty;
         var providerKey = GetImageProvider();
-        var apiKey = GetApiKeyForImageModel(providerKey, model);
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            apiKey = GetApiKeyForModel(providerKey, model);
-        }
-
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            var selectedAiModel = GetSelectedAiModelForProvider(providerKey);
-            apiKey = GetApiKeyForImageModel(providerKey, selectedAiModel);
-            if (string.IsNullOrWhiteSpace(apiKey))
-            {
-                apiKey = GetApiKeyForModel(providerKey, selectedAiModel);
-            }
-        }
+        var endpoint = GetProviderEndpoint(providerKey);
+        var model = ImageModelComboBox.SelectedItem?.ToString()?.Trim() ?? string.Empty;
+        var apiKey = GetProviderApiKey(providerKey);
 
         if (string.IsNullOrWhiteSpace(endpoint))
         {
@@ -2447,7 +2060,7 @@ public sealed partial class MainWindow : Window
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            ShowInfo(Localization.Text("图片翻译使用{0} API，请先在设置中为对应模型填写 API Key。", Localization.ProviderName(providerKey)), InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("图片翻译使用{0} API，请先在供应商卡片中设置 API Key。", Localization.ProviderName(providerKey)), InfoBarSeverity.Warning);
             return;
         }
 
@@ -2743,7 +2356,7 @@ public sealed partial class MainWindow : Window
         try
         {
             return RestoreOriginalLineEndings(
-                await TranslateTextAsync(chunk, mode, sourceLanguage, targetLanguage, cancellationToken),
+                await TranslateTextAsync(chunk, mode, sourceLanguage, targetLanguage, cancellationToken, requireApiKey: false),
                 chunk);
         }
         catch (OperationCanceledException)
@@ -2754,7 +2367,7 @@ public sealed partial class MainWindow : Window
         {
             cancellationToken.ThrowIfCancellationRequested();
             return RestoreOriginalLineEndings(
-                await TranslateTextAsync(chunk, mode, sourceLanguage, targetLanguage, cancellationToken),
+                await TranslateTextAsync(chunk, mode, sourceLanguage, targetLanguage, cancellationToken, requireApiKey: false),
                 chunk);
         }
     }
@@ -2997,13 +2610,13 @@ public sealed partial class MainWindow : Window
         var useLocalModel = isLocalMode && LocalTranslationSourceComboBox.SelectedIndex == 1;
         var endpoint = isLocalMode
             ? LocalEndpointTextBox.Text.Trim()
-            : AiEndpointTextBox.Text.Trim();
+            : GetProviderEndpoint(_currentProvider);
         var model = isLocalMode
             ? LocalModelTextBox.Text.Trim()
             : GetSelectedAiModel();
         var apiKey = isLocalMode
             ? null
-            : GetApiKeyForModel(_currentProvider, model);
+            : GetProviderApiKey(_currentProvider);
         if (!useLocalModel && string.IsNullOrWhiteSpace(endpoint))
         {
             ShowInfo(Localization.Text("请填写接口地址。"), InfoBarSeverity.Warning);
@@ -3033,7 +2646,7 @@ public sealed partial class MainWindow : Window
 
         if (!isLocalMode && string.IsNullOrWhiteSpace(apiKey))
         {
-            ShowInfo(Localization.Text("请在设置中为当前模型填写 API Key。"), InfoBarSeverity.Warning);
+            ShowInfo(Localization.Text("请在供应商卡片中设置 API Key。"), InfoBarSeverity.Warning);
             return;
         }
 
@@ -3194,7 +2807,8 @@ public sealed partial class MainWindow : Window
         int mode,
         LanguageOption sourceLanguage,
         LanguageOption targetLanguage,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool requireApiKey = true)
     {
         if (mode == 0)
         {
@@ -3233,9 +2847,9 @@ public sealed partial class MainWindow : Window
                 cancellationToken);
         }
 
-        var endpoint = mode == 2 ? LocalEndpointTextBox.Text.Trim() : AiEndpointTextBox.Text.Trim();
+        var endpoint = mode == 2 ? LocalEndpointTextBox.Text.Trim() : GetProviderEndpoint(_currentProvider);
         var model = mode == 2 ? LocalModelTextBox.Text.Trim() : GetSelectedAiModel();
-        var apiKey = mode == 2 ? null : GetApiKeyForModel(_currentProvider, model);
+        var apiKey = mode == 2 ? null : GetProviderApiKey(_currentProvider);
         if (string.IsNullOrWhiteSpace(endpoint))
         {
             throw new InvalidOperationException(Localization.Text("请填写接口地址。"));
@@ -3246,9 +2860,9 @@ public sealed partial class MainWindow : Window
             throw new InvalidOperationException(Localization.Text("请填写模型名称。"));
         }
 
-        if (mode != 2 && string.IsNullOrWhiteSpace(apiKey))
+        if (requireApiKey && mode != 2 && string.IsNullOrWhiteSpace(apiKey))
         {
-            throw new InvalidOperationException(Localization.Text("请在设置中为当前模型填写 API Key。"));
+            throw new InvalidOperationException(Localization.Text("请在供应商卡片中设置 API Key。"));
         }
 
         var systemPrompt = BuildDefaultPrompt(
@@ -3289,7 +2903,7 @@ public sealed partial class MainWindow : Window
                     : null;
         }
 
-        var endpoint = mode == 2 ? LocalEndpointTextBox.Text : AiEndpointTextBox.Text;
+        var endpoint = mode == 2 ? LocalEndpointTextBox.Text : GetProviderEndpoint(_currentProvider);
         var model = mode == 2 ? LocalModelTextBox.Text : GetSelectedAiModel();
         if (string.IsNullOrWhiteSpace(endpoint))
         {
@@ -3301,9 +2915,7 @@ public sealed partial class MainWindow : Window
             return mode == 2 ? Localization.Text("本地翻译未配置模型名称。") : Localization.Text("AI 翻译未配置模型名称。");
         }
 
-        return mode == 2 || !string.IsNullOrWhiteSpace(GetApiKeyForModel(_currentProvider, model))
-            ? null
-            : Localization.Text("AI 翻译未配置当前模型的 API Key。");
+        return null;
     }
 
     private void UpdateFileModeAvailability()
@@ -3579,6 +3191,7 @@ public sealed partial class MainWindow : Window
         _settings.ProviderName = _currentProvider;
         _settings.ThemeIndex = Math.Max(0, ThemeComboBox.SelectedIndex);
         _settings.MicaBackdropEnabled = MicaBackdropCheckBox.IsChecked == true;
+        _settings.AlwaysOnTop = AlwaysOnTopToggleSwitch.IsOn;
         _settings.EnterToTranslate = EnterToTranslateToggleSwitch.IsOn;
         _settings.TranslationHistoryLimit = NormalizeTranslationHistoryLimit(_settings.TranslationHistoryLimit);
         var sourceLanguage = SourceLanguageComboBox.SelectedItem as LanguageOption;
@@ -3588,15 +3201,12 @@ public sealed partial class MainWindow : Window
         _settings.CustomPrompt = CustomPromptTextBox.Text;
         _settings.AiPromptStyleIndex = Math.Clamp(AiPromptStyleComboBox.SelectedIndex, 0, 3);
         _settings.AiIncludeLanguageDetails = AiIncludeLanguageDetailsCheckBox.IsChecked == true;
-        _settings.ImageEndpoint = ImageEndpointTextBox.Text.Trim();
+        _settings.ImageEndpoint = GetProviderEndpoint(GetImageProvider());
         _settings.ImageProviderName = GetImageProvider();
         _settings.ImageEndpoints[_settings.ImageProviderName] = _settings.ImageEndpoint;
         _settings.ImageModel = ImageModelComboBox.SelectedItem?.ToString() ?? string.Empty;
-        _settings.ImageModels = _settings.ImageModels
-            .Where(model => !string.IsNullOrWhiteSpace(model))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        _settings.RememberImageKeys = ImageRememberKeyCheckBox.IsChecked == true;
+        _settings.ImageSelectedModels[_settings.ImageProviderName] = _settings.ImageModel;
+        _settings.RememberImageKeys = AiRememberKeyCheckBox.IsChecked == true;
         _settings.RememberKeys = AiRememberKeyCheckBox.IsChecked == true;
         _settings.RememberAliyunKeys = AliyunRememberKeyCheckBox.IsChecked == true;
         _settings.LocalTranslationSourceIndex = Math.Clamp(LocalTranslationSourceComboBox.SelectedIndex, 0, 1);
@@ -3605,7 +3215,6 @@ public sealed partial class MainWindow : Window
         _settings.Models["本地 AI"] = LocalModelTextBox.Text.Trim();
         if (!string.IsNullOrEmpty(_currentProvider))
         {
-            _settings.Endpoints[_currentProvider] = AiEndpointTextBox.Text.Trim();
             _settings.Models[_currentProvider] = GetSelectedAiModel();
         }
 
@@ -3642,6 +3251,14 @@ public sealed partial class MainWindow : Window
         var useMica = OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000);
         SystemBackdrop = useMica ? new MicaBackdrop() : new DesktopAcrylicBackdrop();
         AcrylicFallbackLayer.Visibility = useMica ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void ApplyAlwaysOnTop()
+    {
+        if (AppWindow.Presenter is OverlappedPresenter presenter)
+        {
+            presenter.IsAlwaysOnTop = AlwaysOnTopToggleSwitch.IsOn;
+        }
     }
 
     private void UpdateTitleBarButtonColors(ElementTheme theme)
@@ -3703,58 +3320,7 @@ public sealed partial class MainWindow : Window
             + "只输出纯文本译文，保留原文的段落结构、换行和专有名词；不要添加解释、注释、读音、词性或任何额外内容。不要使用 Markdown 或 HTML 语法，不新增标题、项目符号、编号、强调标记或代码块。";
     }
 
-    private static ProviderProfile GetProviderProfile(string provider) => provider switch
-    {
-        "DeepSeek" => new ProviderProfile(
-            "DeepSeek",
-            "https://api.deepseek.com",
-            new[] { "deepseek-flash", "deepseek-v4-pro" },
-            true),
-        "千问" => new ProviderProfile(
-            "千问",
-            "https://ws-hb89wnirs0jbftdm.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
-            new[] { "qwen3.7-plus", "qwen3.7-flash", "qwen3.7-max" },
-            true),
-        "Kimi" => new ProviderProfile(
-            "Kimi",
-            "https://api.moonshot.cn/v1",
-            new[] { "kimi-k2.6" },
-            true),
-        "智谱" => new ProviderProfile(
-            "智谱",
-            "https://open.bigmodel.cn/api/paas/v4",
-            new[] { "glm-5.3-flash" },
-            true),
-        CustomAiProviderName => new ProviderProfile(
-            CustomAiProviderName,
-            string.Empty,
-            Array.Empty<string>(),
-            true),
-        _ => new ProviderProfile(
-            "本地 AI",
-            "http://localhost:11434/v1",
-            Array.Empty<string>(),
-            false),
-    };
-
-    private string GetSelectedAiModelForProvider(string provider)
-    {
-        if (_settings.Models.TryGetValue(provider, out var model)
-            && !string.IsNullOrWhiteSpace(model))
-        {
-            return model.Trim();
-        }
-
-        return GetProviderProfile(provider).DefaultModels.FirstOrDefault() ?? string.Empty;
-    }
-
-    private static string GetDefaultImageModel(string provider) => provider switch
-    {
-        "DeepSeek" => "deepseek-flash",
-        "Kimi" => "kimi-k2.6",
-        "智谱" => "glm-5.3-flash",
-        _ => "qwen3.5-ocr",
-    };
+    private static ProviderProfile GetProviderProfile(string provider) => ProviderCatalog.GetProfile(provider);
 
     private static void SaveKeyToVault(string provider, string key)
     {

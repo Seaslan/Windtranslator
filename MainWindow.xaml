@@ -451,12 +451,28 @@
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                     </Style>
                     <Style x:Key="SettingsHeaderTitleStyle" TargetType="TextBlock">
+                        <Setter Property="HorizontalAlignment" Value="Stretch" />
+                        <Setter Property="TextAlignment" Value="Left" />
                         <Setter Property="FontWeight" Value="SemiBold" />
                         <Setter Property="TextWrapping" Value="Wrap" />
                     </Style>
                     <Style x:Key="SettingsHeaderDescriptionStyle" TargetType="TextBlock">
+                        <Setter Property="HorizontalAlignment" Value="Stretch" />
+                        <Setter Property="TextAlignment" Value="Left" />
                         <Setter Property="FontSize" Value="12" />
                         <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Setter Property="TextWrapping" Value="Wrap" />
+                    </Style>
+                    <Style x:Key="SettingsHeaderGridStyle" TargetType="Grid">
+                        <Setter Property="MinHeight" Value="64" />
+                        <Setter Property="Padding" Value="4,6,8,6" />
+                        <Setter Property="ColumnSpacing" Value="12" />
+                        <Setter Property="HorizontalAlignment" Value="Stretch" />
+                    </Style>
+                    <Style x:Key="SettingsSectionTitleStyle" TargetType="TextBlock">
+                        <Setter Property="Margin" Value="4,4,4,0" />
+                        <Setter Property="FontSize" Value="14" />
+                        <Setter Property="FontWeight" Value="SemiBold" />
                         <Setter Property="TextWrapping" Value="Wrap" />
                     </Style>
                     <Style x:Key="SettingsIconButtonStyle" TargetType="Button">
@@ -479,10 +495,14 @@
                     Padding="36"
                     Spacing="12">
 
+                    <TextBlock
+                        Text="{localization:LocalizedString Key=S83095a6428e8d956}"
+                        Style="{StaticResource SettingsSectionTitleStyle}" />
+
                     <Border Style="{StaticResource SettingsCardStyle}">
                         <Expander Style="{StaticResource SettingsExpanderStyle}">
                             <Expander.Header>
-                                <Grid MinHeight="64" Padding="4,6,0,6" ColumnSpacing="8">
+                                <Grid Style="{StaticResource SettingsHeaderGridStyle}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="24" />
                                         <ColumnDefinition Width="*" />
@@ -546,7 +566,122 @@
                     <Border Style="{StaticResource SettingsCardStyle}">
                         <Expander Style="{StaticResource SettingsExpanderStyle}">
                             <Expander.Header>
-                                <Grid MinHeight="64" Padding="4,6,0,6" ColumnSpacing="8">
+                                <Grid Style="{StaticResource SettingsHeaderGridStyle}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="24" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <SymbolIcon Symbol="People" Width="20" Height="20" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                        <TextBlock Text="{localization:LocalizedString Key=S033ed59452549c51}" Style="{StaticResource SettingsHeaderTitleStyle}" />
+                                        <TextBlock Text="{localization:LocalizedString Key=S65f5df356d359832}" Style="{StaticResource SettingsHeaderDescriptionStyle}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Expander.Header>
+                            <StackPanel Padding="16,0,16,16" Spacing="12">
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <ComboBox
+                                        x:Name="ProviderManagementComboBox"
+                                        ItemTemplate="{StaticResource ProviderTemplate}"
+                                        HorizontalAlignment="Stretch"
+                                        SelectionChanged="ProviderManagementComboBox_SelectionChanged" />
+                                    <Button
+                                        Grid.Column="1"
+                                        Click="AddProviderButton_Click"
+                                        Style="{StaticResource SettingsIconButtonStyle}"
+                                        ToolTipService.ToolTip="{localization:LocalizedString Key=Sfc7a472874bcbfb2}"
+                                        AutomationProperties.Name="{localization:LocalizedString Key=Sfc7a472874bcbfb2}">
+                                        <FontIcon FontSize="14" Glyph="&#xE710;" />
+                                    </Button>
+                                    <Button
+                                        Grid.Column="2"
+                                        Click="DeleteProviderButton_Click"
+                                        Style="{StaticResource SettingsIconButtonStyle}"
+                                        ToolTipService.ToolTip="{localization:LocalizedString Key=S4256f8b835ecf7c4}"
+                                        AutomationProperties.Name="{localization:LocalizedString Key=S4256f8b835ecf7c4}">
+                                        <FontIcon FontSize="14" Glyph="&#xE74D;" />
+                                    </Button>
+                                </Grid>
+                                <TextBlock
+                                    Text="{localization:LocalizedString Key=Sd2ddc5721495c249}"
+                                    Style="{StaticResource SettingsHeaderDescriptionStyle}" />
+                                <TextBox
+                                    x:Name="ProviderEndpointTextBox"
+                                    Header="{localization:LocalizedString Key=S03b11112dc970014}"
+                                    TextChanged="ProviderEndpointTextBox_TextChanged" />
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{localization:LocalizedString Key=Sc98e118e0a43f078}" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" />
+                                    <StackPanel
+                                        Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        Orientation="Horizontal"
+                                        Spacing="8">
+                                        <Button
+                                            Click="AddProviderModelButton_Click"
+                                            Style="{StaticResource SettingsIconButtonStyle}"
+                                            ToolTipService.ToolTip="{localization:LocalizedString Key=S168e845a86bc3703}">
+                                            <FontIcon FontSize="14" Glyph="&#xE710;" />
+                                        </Button>
+                                        <Button
+                                            Click="EditProviderApiKeyButton_Click"
+                                            Style="{StaticResource SettingsIconButtonStyle}"
+                                            ToolTipService.ToolTip="{localization:LocalizedString Key=S9123e7e8c5ce6d34}"
+                                            AutomationProperties.Name="{localization:LocalizedString Key=S9123e7e8c5ce6d34}">
+                                            <FontIcon FontSize="14" Glyph="&#xE70F;" />
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                                <ListView
+                                    x:Name="ProviderModelsListView"
+                                    HorizontalContentAlignment="Stretch"
+                                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                    ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                    ScrollViewer.VerticalScrollMode="Disabled"
+                                    SelectionMode="None">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid MinHeight="40" Padding="4" ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                                                    <Button Click="DeleteProviderModelButton_Click" Style="{StaticResource SettingsIconButtonStyle}" ToolTipService.ToolTip="{localization:LocalizedString Key=S1b5932b8946d2d68}">
+                                                        <FontIcon FontSize="14" Glyph="&#xE74D;" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                                <CheckBox
+                                    x:Name="AiRememberKeyCheckBox"
+                                    Content="{localization:LocalizedString Key=S6bf572941e265a92}"
+                                    Checked="AiRememberKeyCheckBox_Changed"
+                                    Unchecked="AiRememberKeyCheckBox_Changed" />
+                                <Button
+                                    HorizontalAlignment="Right"
+                                    Content="{localization:LocalizedString Key=Scb5d682bac3d1a2d}"
+                                    ToolTipService.ToolTip="{localization:LocalizedString Key=Sc5dcfd20f2ed36e0}"
+                                    Click="ResetProvidersButton_Click" />
+                            </StackPanel>
+                        </Expander>
+                    </Border>
+
+                    <Border Style="{StaticResource SettingsCardStyle}">
+                        <Expander Style="{StaticResource SettingsExpanderStyle}">
+                            <Expander.Header>
+                                <Grid Style="{StaticResource SettingsHeaderGridStyle}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="24" />
                                         <ColumnDefinition Width="*" />
@@ -559,7 +694,7 @@
                                         Symbol="Message" />
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                                         <TextBlock Text="{localization:LocalizedString Key=S5239fbb2909810d6}" Style="{StaticResource SettingsHeaderTitleStyle}" />
-                                        <TextBlock Text="{localization:LocalizedString Key=Sfaf50a886d51369b}" Style="{StaticResource SettingsHeaderDescriptionStyle}" />
+                                        <TextBlock Text="{localization:LocalizedString Key=Sf9b2ebb952cdc2f8}" Style="{StaticResource SettingsHeaderDescriptionStyle}" />
                                     </StackPanel>
                                     <StackPanel
                                         Grid.Column="2"
@@ -586,91 +721,23 @@
                                 </Grid>
                             </Expander.Header>
                             <StackPanel Padding="16,0,16,16" Spacing="8">
-                        <ComboBox
-                            x:Name="AiProviderComboBox" ItemTemplate="{StaticResource ProviderTemplate}"
-                            MinWidth="220"
-                            SelectionChanged="AiProviderComboBox_SelectionChanged" />
-
-                        <TextBlock Text="{localization:LocalizedString Key=S03b11112dc970014}" />
-                        <TextBox
-                            x:Name="AiEndpointTextBox"
-                            PlaceholderText="https://api.deepseek.com"
-                            TextChanged="AiEndpointTextBox_TextChanged" />
-                        <TextBlock
-                            x:Name="CustomProviderHintText"
-                            Text="{localization:LocalizedString Key=Sd2ddc5721495c249}"
-                            FontSize="12"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            TextWrapping="Wrap"
-                            Visibility="Collapsed" />
-
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock
-                                VerticalAlignment="Center"
-                                Text="{localization:LocalizedString Key=Sc98e118e0a43f078}"
-                                Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <Button
-                                Grid.Column="1"
-                                Click="AddAiModelButton_Click"
-                                Style="{StaticResource SettingsIconButtonStyle}"
-                                ToolTipService.ToolTip="{localization:LocalizedString Key=S168e845a86bc3703}">
-                                <FontIcon FontSize="14" Glyph="&#xE710;" />
-                            </Button>
-                        </Grid>
-
-                        <ListView
-                            x:Name="AiModelsListView"
-                            HorizontalContentAlignment="Stretch"
-                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                            ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                            ScrollViewer.VerticalScrollMode="Disabled"
-                            SelectionChanged="AiModelsListView_SelectionChanged"
-                            SelectionMode="Single">
-                            <ListView.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid
-                                        MinHeight="40"
-                                        Padding="4"
-                                        ColumnSpacing="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock
-                                            VerticalAlignment="Center"
-                                            Text="{Binding}"
-                                            TextTrimming="CharacterEllipsis" />
-                                        <StackPanel
-                                            Grid.Column="1"
-                                            Orientation="Horizontal"
-                                            Spacing="4">
-                                            <Button
-                                                Click="EditAiModelApiKeyButton_Click"
-                                                Style="{StaticResource SettingsIconButtonStyle}"
-                                                ToolTipService.ToolTip="{localization:LocalizedString Key=S9123e7e8c5ce6d34}">
-                                                <FontIcon FontSize="14" Glyph="&#xE70F;" />
-                                            </Button>
-                                            <Button
-                                                Click="DeleteAiModelButton_Click"
-                                                Style="{StaticResource SettingsIconButtonStyle}"
-                                                ToolTipService.ToolTip="{localization:LocalizedString Key=S1b5932b8946d2d68}">
-                                                <FontIcon FontSize="14" Glyph="&#xE74D;" />
-                                            </Button>
-                                        </StackPanel>
-                                    </Grid>
-                                </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
-
-                        <CheckBox
-                            x:Name="AiRememberKeyCheckBox"
-                            Content="{localization:LocalizedString Key=S6bf572941e265a92}"
-                            Checked="AiRememberKeyCheckBox_Changed"
-                            Unchecked="AiRememberKeyCheckBox_Changed" />
+                                <ComboBox
+                                    x:Name="AiProviderComboBox"
+                                    ItemTemplate="{StaticResource ProviderTemplate}"
+                                    Header="{localization:LocalizedString Key=S033ed59452549c51}"
+                                    HorizontalAlignment="Stretch"
+                                    SelectionChanged="AiProviderComboBox_SelectionChanged" />
+                                <TextBlock Text="{localization:LocalizedString Key=Sc98e118e0a43f078}" />
+                                <ListView
+                                    x:Name="AiModelsListView"
+                                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                    ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                    ScrollViewer.VerticalScrollMode="Disabled"
+                                    SelectionChanged="AiModelsListView_SelectionChanged"
+                                    SelectionMode="Single" />
+                                <TextBlock
+                                    Text="{localization:LocalizedString Key=Sfc845a324d6f21f8}"
+                                    Style="{StaticResource SettingsHeaderDescriptionStyle}" />
 
                         <TextBlock Text="{localization:LocalizedString Key=S874a8e31c7002510}" />
                         <ComboBox
@@ -697,7 +764,7 @@
                     <Border Style="{StaticResource SettingsCardStyle}">
                         <Expander Style="{StaticResource SettingsExpanderStyle}">
                             <Expander.Header>
-                                <Grid MinHeight="64" Padding="4,6,8,6" ColumnSpacing="12">
+                                <Grid Style="{StaticResource SettingsHeaderGridStyle}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="24" />
                                         <ColumnDefinition Width="*" />
@@ -709,88 +776,28 @@
                                         Symbol="Pictures" />
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                                         <TextBlock Text="{localization:LocalizedString Key=S0c84c73f4b24b3b8}" Style="{StaticResource SettingsHeaderTitleStyle}" />
-                                        <TextBlock Text="{localization:LocalizedString Key=Sc06143ca3b9faf0a}" Style="{StaticResource SettingsHeaderDescriptionStyle}" />
+                                        <TextBlock Text="{localization:LocalizedString Key=S38c87877f29cf060}" Style="{StaticResource SettingsHeaderDescriptionStyle}" />
                                     </StackPanel>
                                 </Grid>
                             </Expander.Header>
                             <StackPanel Padding="16,0,16,16" Spacing="8">
                                 <ComboBox
-                                    x:Name="ImageProviderComboBox" ItemTemplate="{StaticResource ProviderTemplate}"
-                                    Header="{localization:LocalizedString Key=Sa573affa93895101}"
-                                    MinWidth="220"
+                                    x:Name="ImageProviderComboBox"
+                                    ItemTemplate="{StaticResource ProviderTemplate}"
+                                    Header="{localization:LocalizedString Key=S033ed59452549c51}"
+                                    HorizontalAlignment="Stretch"
                                     SelectionChanged="ImageProviderComboBox_SelectionChanged" />
-                                <TextBox
-                                    x:Name="ImageEndpointTextBox"
-                                    Header="{localization:LocalizedString Key=S03b11112dc970014}"
-                                    PlaceholderText="https://api.example.com"
-                                    TextChanged="ImageEndpointTextBox_TextChanged" />
-
-                                <Grid ColumnSpacing="8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock
-                                        VerticalAlignment="Center"
-                                        Text="{localization:LocalizedString Key=Sc98e118e0a43f078}"
-                                        Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                    <Button
-                                        Grid.Column="1"
-                                        Click="AddImageModelButton_Click"
-                                        Style="{StaticResource SettingsIconButtonStyle}"
-                                        ToolTipService.ToolTip="{localization:LocalizedString Key=Scfc31a7dcfbc9fa8}">
-                                        <FontIcon FontSize="14" Glyph="&#xE710;" />
-                                    </Button>
-                                </Grid>
-
+                                <TextBlock Text="{localization:LocalizedString Key=Sc98e118e0a43f078}" />
                                 <ListView
                                     x:Name="ImageModelsListView"
-                                    HorizontalContentAlignment="Stretch"
                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
                                     ScrollViewer.VerticalScrollMode="Disabled"
                                     SelectionChanged="ImageModelsListView_SelectionChanged"
-                                    SelectionMode="Single">
-                                    <ListView.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid
-                                                MinHeight="40"
-                                                Padding="4"
-                                                ColumnSpacing="8">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock
-                                                    VerticalAlignment="Center"
-                                                    Text="{Binding}"
-                                                    TextTrimming="CharacterEllipsis" />
-                                                <StackPanel
-                                                    Grid.Column="1"
-                                                    Orientation="Horizontal"
-                                                    Spacing="4">
-                                                    <Button
-                                                        Click="EditImageModelApiKeyButton_Click"
-                                                        Style="{StaticResource SettingsIconButtonStyle}"
-                                                        ToolTipService.ToolTip="{localization:LocalizedString Key=S9123e7e8c5ce6d34}">
-                                                        <FontIcon FontSize="14" Glyph="&#xE70F;" />
-                                                    </Button>
-                                                    <Button
-                                                        Click="DeleteImageModelButton_Click"
-                                                        Style="{StaticResource SettingsIconButtonStyle}"
-                                                        ToolTipService.ToolTip="{localization:LocalizedString Key=Sd4efa17cb054a4c9}">
-                                                        <FontIcon FontSize="14" Glyph="&#xE74D;" />
-                                                    </Button>
-                                                </StackPanel>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ListView.ItemTemplate>
-                                </ListView>
-                                <CheckBox
-                                    x:Name="ImageRememberKeyCheckBox"
-                                    Content="{localization:LocalizedString Key=S6bf572941e265a92}"
-                                    Checked="ImageRememberKeyCheckBox_Changed"
-                                    Unchecked="ImageRememberKeyCheckBox_Changed" />
+                                    SelectionMode="Single" />
+                                <TextBlock
+                                    Text="{localization:LocalizedString Key=Se0d99ccba87fe53e}"
+                                    Style="{StaticResource SettingsHeaderDescriptionStyle}" />
                             </StackPanel>
                         </Expander>
                     </Border>
@@ -798,7 +805,7 @@
                     <Border Style="{StaticResource SettingsCardStyle}">
                         <Expander Style="{StaticResource SettingsExpanderStyle}">
                             <Expander.Header>
-                                <Grid MinHeight="64" Padding="4,6,8,6" ColumnSpacing="12">
+                                <Grid Style="{StaticResource SettingsHeaderGridStyle}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="24" />
                                         <ColumnDefinition Width="*" />
@@ -845,7 +852,7 @@
                     <Border Style="{StaticResource SettingsCardStyle}">
                         <Expander Style="{StaticResource SettingsExpanderStyle}">
                             <Expander.Header>
-                                <Grid MinHeight="64" Padding="4,6,8,6" ColumnSpacing="12">
+                                <Grid Style="{StaticResource SettingsHeaderGridStyle}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="24" />
                                         <ColumnDefinition Width="*" />
@@ -925,10 +932,15 @@
                         </Expander>
                     </Border>
 
+                    <TextBlock
+                        Margin="4,16,4,0"
+                        Text="{localization:LocalizedString Key=Sa1a42cd9b16e2162}"
+                        Style="{StaticResource SettingsSectionTitleStyle}" />
+
                     <Border Style="{StaticResource SettingsCardStyle}">
                         <Expander Style="{StaticResource SettingsExpanderStyle}">
                             <Expander.Header>
-                                <Grid MinHeight="64" Padding="4,6,8,6" ColumnSpacing="12">
+                                <Grid Style="{StaticResource SettingsHeaderGridStyle}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="24" />
                                         <ColumnDefinition Width="*" />
@@ -966,6 +978,29 @@
                             Content="{localization:LocalizedString Key=Sa750b72486c0d855}"
                             Checked="MicaBackdropCheckBox_Changed"
                             Unchecked="MicaBackdropCheckBox_Changed" />
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center" Spacing="2">
+                                <TextBlock
+                                    Text="{localization:LocalizedString Key=Sa63886dd9f495cd7}"
+                                    Style="{StaticResource SettingsHeaderTitleStyle}" />
+                                <TextBlock
+                                    Text="{localization:LocalizedString Key=Sc6755fea10868a8d}"
+                                    Style="{StaticResource SettingsHeaderDescriptionStyle}" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                x:Name="AlwaysOnTopToggleSwitch"
+                                Grid.Column="1"
+                                MinWidth="0"
+                                VerticalAlignment="Center"
+                                AutomationProperties.Name="{localization:LocalizedString Key=Sa63886dd9f495cd7}"
+                                OffContent=""
+                                OnContent=""
+                                Toggled="AlwaysOnTopToggleSwitch_Toggled" />
+                        </Grid>
                             </StackPanel>
                         </Expander>
                     </Border>
@@ -973,7 +1008,7 @@
                     <Border Style="{StaticResource SettingsCardStyle}">
                         <Expander Style="{StaticResource SettingsExpanderStyle}">
                             <Expander.Header>
-                                <Grid MinHeight="64" Padding="4,6,8,6" ColumnSpacing="12">
+                                <Grid Style="{StaticResource SettingsHeaderGridStyle}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="24" />
                                         <ColumnDefinition Width="*" />
@@ -1016,7 +1051,7 @@
                     <Border Style="{StaticResource SettingsCardStyle}">
                         <Expander Style="{StaticResource SettingsExpanderStyle}">
                             <Expander.Header>
-                                <Grid MinHeight="64" Padding="4,6,8,6" ColumnSpacing="12">
+                                <Grid Style="{StaticResource SettingsHeaderGridStyle}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="24" />
                                         <ColumnDefinition Width="*" />
@@ -1448,10 +1483,11 @@
                             Orientation="Horizontal"
                             Spacing="16">
                             <Image
-                                Width="64"
-                                Height="64"
+                                Width="96"
+                                Height="96"
                                 VerticalAlignment="Center"
-                                Source="ms-appx:///Assets/Square150x150Logo.scale-200.png" />
+                                Source="ms-appx:///Assets/Square44x44Logo.altform-unplated_targetsize-256.png"
+                                Stretch="Uniform" />
 
                             <StackPanel VerticalAlignment="Center" Spacing="4">
                                 <TextBlock

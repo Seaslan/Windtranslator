@@ -113,6 +113,8 @@ public sealed class AppSettings
 
     public bool MicaBackdropEnabled { get; set; } = true;
 
+    public bool AlwaysOnTop { get; set; }
+
     public bool EnterToTranslate { get; set; }
 
     public int LocalTranslationSourceIndex { get; set; }
@@ -129,6 +131,16 @@ public sealed class AppSettings
     public Dictionary<string, string> Models { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public Dictionary<string, List<string>> AvailableModels { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    // Null identifies settings created before the shared provider catalog.
+    public List<string>? ProviderNames { get; set; }
+
+    public Dictionary<string, string> ImageSelectedModels { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    // One-time credential migration for image endpoints that differed from the AI endpoint.
+    public Dictionary<string, string> LegacyProviderAliases { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public bool ProviderKeysMigrated { get; set; }
 }
 
 public sealed class OfflineTranslationModel
