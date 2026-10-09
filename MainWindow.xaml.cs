@@ -213,6 +213,7 @@ public sealed partial class MainWindow : Window
         AiPromptStyleComboBox.ItemsSource = new[] { Localization.Text("标准"), Localization.Text("正式"), Localization.Text("自然"), Localization.Text("简洁") };
         AiPromptStyleComboBox.SelectedIndex = Math.Clamp(_settings.AiPromptStyleIndex, 0, 3);
         AiIncludeLanguageDetailsCheckBox.IsChecked = _settings.AiIncludeLanguageDetails;
+        AiStreamingToggleSwitch.IsOn = _settings.AiStreamingEnabled;
         AiRememberKeyCheckBox.IsChecked = _settings.RememberKeys;
         AliyunRememberKeyCheckBox.IsChecked = _settings.RememberAliyunKeys;
         ThemeComboBox.ItemsSource = new[] { Localization.Text("跟随系统"), Localization.Text("浅色"), Localization.Text("深色") };
@@ -229,6 +230,7 @@ public sealed partial class MainWindow : Window
         TrimTranslationHistory();
         RefreshTranslationHistory();
         RefreshOfflineModelList();
+        RefreshFavorites();
         UpdateOfflineModelDownloadAvailability();
 
         _suppressEvents = false;
@@ -1079,6 +1081,13 @@ public sealed partial class MainWindow : Window
         SaveSettings();
     }
 
+    private void AiStreamingToggleSwitch_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_suppressEvents || _settings is null) return;
+        _settings.AiStreamingEnabled = AiStreamingToggleSwitch.IsOn;
+        SaveSettings();
+    }
+
     private void SourceTextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         UpdateCounts();
@@ -1231,6 +1240,33 @@ public sealed partial class MainWindow : Window
             (sourceLanguage, targetLanguage) = (targetLanguage, sourceLanguage);
         }
 
+        var originalOutput = OutputTextBox.Text;
+        var selectionStart = _selectionTranslationStart;
+        var selectionLength = _selectionTranslationLength;
+        if (origin == SelectionTranslationOrigin.Output
+            && (selectionStart < 0 || selectionStart > originalOutput.Length
+                || selectionLength > originalOutput.Length - selectionStart
+                || !string.Equals(originalOutput.Substring(selectionStart, selectionLength), selectedText, StringComparison.Ordinal)))
+        {
+            ShowInfo(Localization.Text("选中的译文已发生变化，请重新选择。"), InfoBarSeverity.Warning);
+            return;
+        }
+        var expectedOutput = originalOutput;
+        void UpdateSelectedTranslation(string text)
+        {
+            if (origin == SelectionTranslationOrigin.Output)
+            {
+                if (!string.Equals(OutputTextBox.Text, expectedOutput, StringComparison.Ordinal))
+                    throw new InvalidOperationException(Localization.Text("选中的译文已发生变化，请重新选择。"));
+                expectedOutput = originalOutput[..selectionStart] + text + originalOutput[(selectionStart + selectionLength)..];
+                OutputTextBox.Text = expectedOutput;
+            }
+            else
+            {
+                OutputTextBox.Text = text;
+            }
+        }
+
         try
         {
             _isSelectionTranslating = true;
@@ -1240,7 +1276,8 @@ public sealed partial class MainWindow : Window
                 Math.Clamp(ModeComboBox.SelectedIndex, 0, 2),
                 sourceLanguage,
                 targetLanguage,
-                CancellationToken.None);
+                CancellationToken.None,
+                onTextUpdated: UpdateSelectedTranslation);
             if (origin == SelectionTranslationOrigin.Source)
             {
                 OutputTextBox.Text = translatedText;
@@ -1250,24 +1287,9 @@ public sealed partial class MainWindow : Window
             }
             else
             {
-                var outputText = OutputTextBox.Text;
-                if (_selectionTranslationStart < 0
-                    || _selectionTranslationStart > outputText.Length
-                    || _selectionTranslationLength > outputText.Length - _selectionTranslationStart
-                    || !string.Equals(
-                        outputText.Substring(_selectionTranslationStart, _selectionTranslationLength),
-                        selectedText,
-                        StringComparison.Ordinal))
-                {
-                    ShowInfo(Localization.Text("选中的译文已发生变化，请重新选择。"), InfoBarSeverity.Warning);
-                    return;
-                }
-
-                OutputTextBox.Text = outputText[.._selectionTranslationStart]
-                    + translatedText
-                    + outputText[(_selectionTranslationStart + _selectionTranslationLength)..];
+                UpdateSelectedTranslation(translatedText);
                 OutputTextBox.Focus(FocusState.Programmatic);
-                OutputTextBox.SelectionStart = _selectionTranslationStart;
+                OutputTextBox.SelectionStart = selectionStart;
                 OutputTextBox.SelectionLength = translatedText.Length;
             }
 
@@ -1279,6 +1301,8 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            if (origin == SelectionTranslationOrigin.Output && OutputTextBox.Text == expectedOutput)
+                OutputTextBox.Text = originalOutput;
             ShowInfo(Localization.Text("选词翻译失败：{0}", ex.Message), InfoBarSeverity.Error);
         }
         finally
@@ -1672,6 +1696,7 @@ public sealed partial class MainWindow : Window
             "Image" => Localization.Text("图片翻译"),
             "File" => Localization.Text("文件翻译"),
             "History" => Localization.Text("翻译历史"),
+            "Favorites" => Localization.Text("收藏列表"),
             "Settings" => Localization.Text("设置"),
             "About" => Localization.Text("关于"),
             _ => Localization.AppName,
@@ -1682,6 +1707,7 @@ public sealed partial class MainWindow : Window
         TranslationToolbar.Visibility = tag == "Home" ? Visibility.Visible : Visibility.Collapsed;
         HomePageGrid.Visibility = tag == "Home" ? Visibility.Visible : Visibility.Collapsed;
         TranslationHistoryPageGrid.Visibility = tag == "History" ? Visibility.Visible : Visibility.Collapsed;
+        FavoritesPageGrid.Visibility = tag == "Favorites" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPageScrollViewer.Visibility = tag == "Settings" ? Visibility.Visible : Visibility.Collapsed;
         ImagePageGrid.Visibility = tag == "Image" ? Visibility.Visible : Visibility.Collapsed;
         FilePageGrid.Visibility = tag == "File" ? Visibility.Visible : Visibility.Collapsed;
@@ -1981,13 +2007,15 @@ public sealed partial class MainWindow : Window
                 Math.Clamp(ModeComboBox.SelectedIndex, 0, 2),
                 Languages[0],
                 targetLanguage,
-                CancellationToken.None);
+                CancellationToken.None,
+                onTextUpdated: text => MiniSourceTextBox.Text = text);
             MiniSourceTextBox.Text = result;
             AddTranslationHistory(text);
         }
         catch (Exception ex)
         {
             MiniSourceTextBox.IsReadOnly = false;
+            MiniSourceTextBox.Text = text;
             ShowInfo(Localization.Text("翻译失败：") + ex.Message, InfoBarSeverity.Error);
         }
         finally
@@ -2079,18 +2107,25 @@ public sealed partial class MainWindow : Window
 
                 try
                 {
+                    var completedImages = string.Join(
+                        Environment.NewLine + Environment.NewLine + "--------------------" + Environment.NewLine + Environment.NewLine, results);
+                    var prefix = results.Count == 0 ? string.Empty : completedImages
+                        + Environment.NewLine + Environment.NewLine + "--------------------" + Environment.NewLine + Environment.NewLine;
                     var result = await TranslateImageFileAsync(
                         file,
                         endpoint,
                         apiKey,
                         model,
-                        systemPrompt);
+                        systemPrompt,
+                        text => ImageOutputTextBox.Text = prefix + text);
                     results.Add(result);
                 }
                 catch (Exception ex)
                 {
                     results.Add(Localization.Text("翻译失败：{0}", ex.Message));
                 }
+                ImageOutputTextBox.Text = string.Join(
+                    Environment.NewLine + Environment.NewLine + "--------------------" + Environment.NewLine + Environment.NewLine, results);
             }
 
             ImageOutputTextBox.Text = string.Join(
@@ -2111,7 +2146,8 @@ public sealed partial class MainWindow : Window
         string endpoint,
         string apiKey,
         string model,
-        string systemPrompt)
+        string systemPrompt,
+        Action<string>? onTextUpdated = null)
     {
         byte[] imageBytes;
         using (var imageStream = await file.OpenStreamForReadAsync())
@@ -2130,7 +2166,8 @@ public sealed partial class MainWindow : Window
             "请识别图片中的文字，并翻译成目标语言。",
             imageDataUrl);
 
-        return await _translationService.TranslateImageAsync(request, CancellationToken.None);
+        return await _translationService.TranslateImageAsync(
+            request, CancellationToken.None, _settings.AiStreamingEnabled, onTextUpdated);
     }
 
     private void CopyImageOutputButton_Click(object sender, RoutedEventArgs e)
@@ -2223,12 +2260,15 @@ public sealed partial class MainWindow : Window
                 _fileTranslationCts.Token.ThrowIfCancellationRequested();
                 try
                 {
+                    var completedChunks = string.Concat(translatedChunks);
                     translatedChunks.Add(await TranslateFileChunkWithRetryAsync(
                         chunks[index],
                         FileModeComboBox.SelectedIndex,
                         sourceLanguage,
                         targetLanguage,
-                        _fileTranslationCts.Token));
+                        _fileTranslationCts.Token,
+                        text => FileOutputTextBox.Text = completedChunks + text));
+                    FileOutputTextBox.Text = string.Concat(translatedChunks);
                 }
                 catch (OperationCanceledException)
                 {
@@ -2236,6 +2276,7 @@ public sealed partial class MainWindow : Window
                 }
                 catch (Exception ex)
                 {
+                    FileOutputTextBox.Text = string.Concat(translatedChunks);
                     ShowInfo(Localization.Text("第 {0}/{1} 块翻译失败：{2}", index + 1, chunks.Count, ex.Message), InfoBarSeverity.Error);
                     return;
                 }
@@ -2351,12 +2392,14 @@ public sealed partial class MainWindow : Window
         int mode,
         LanguageOption sourceLanguage,
         LanguageOption targetLanguage,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<string>? onTextUpdated = null)
     {
         try
         {
             return RestoreOriginalLineEndings(
-                await TranslateTextAsync(chunk, mode, sourceLanguage, targetLanguage, cancellationToken, requireApiKey: false),
+                await TranslateTextAsync(chunk, mode, sourceLanguage, targetLanguage, cancellationToken,
+                    requireApiKey: false, onTextUpdated: onTextUpdated),
                 chunk);
         }
         catch (OperationCanceledException)
@@ -2366,8 +2409,10 @@ public sealed partial class MainWindow : Window
         catch
         {
             cancellationToken.ThrowIfCancellationRequested();
+            onTextUpdated?.Invoke(string.Empty);
             return RestoreOriginalLineEndings(
-                await TranslateTextAsync(chunk, mode, sourceLanguage, targetLanguage, cancellationToken, requireApiKey: false),
+                await TranslateTextAsync(chunk, mode, sourceLanguage, targetLanguage, cancellationToken,
+                    requireApiKey: false, onTextUpdated: onTextUpdated),
                 chunk);
         }
     }
@@ -2685,7 +2730,8 @@ public sealed partial class MainWindow : Window
                 ModeComboBox.SelectedIndex,
                 sourceLanguage,
                 targetLanguage,
-                _cts.Token);
+                _cts.Token,
+                onTextUpdated: text => OutputTextBox.Text = text);
             OutputTextBox.Text = result;
             UpdateCounts();
             AddTranslationHistory(sourceText);
@@ -2808,7 +2854,8 @@ public sealed partial class MainWindow : Window
         LanguageOption sourceLanguage,
         LanguageOption targetLanguage,
         CancellationToken cancellationToken,
-        bool requireApiKey = true)
+        bool requireApiKey = true,
+        Action<string>? onTextUpdated = null)
     {
         if (mode == 0)
         {
@@ -2877,7 +2924,7 @@ public sealed partial class MainWindow : Window
 
         return await _translationService.TranslateAsync(
             new TranslationRequest(endpoint, apiKey, model, systemPrompt, text),
-            cancellationToken);
+            cancellationToken, _settings.AiStreamingEnabled, onTextUpdated);
     }
 
     private string? GetTranslationConfigurationError(int mode)
@@ -3173,7 +3220,8 @@ public sealed partial class MainWindow : Window
 
     private void UpdateUiState()
     {
-        TranslateButton.IsEnabled = !_isTranslating && !_isSelectionTranslating && SourceTextBox.Text.Trim().Length > 0;
+        UpdateFavoritesState();
+        TranslateButton.IsEnabled = _isTranslating || (!_isSelectionTranslating && SourceTextBox.Text.Trim().Length > 0);
         MicButton.IsEnabled = !_isTranslating && !_isSelectionTranslating && !_isOpeningSystemDictation;
         SpeakButton.IsEnabled = _speechOutput.IsSpeaking || OutputTextBox.Text.Trim().Length > 0;
         PickImageButton.IsEnabled = !_isImageTranslating;
@@ -3201,6 +3249,7 @@ public sealed partial class MainWindow : Window
         _settings.CustomPrompt = CustomPromptTextBox.Text;
         _settings.AiPromptStyleIndex = Math.Clamp(AiPromptStyleComboBox.SelectedIndex, 0, 3);
         _settings.AiIncludeLanguageDetails = AiIncludeLanguageDetailsCheckBox.IsChecked == true;
+        _settings.AiStreamingEnabled = AiStreamingToggleSwitch.IsOn;
         _settings.ImageEndpoint = GetProviderEndpoint(GetImageProvider());
         _settings.ImageProviderName = GetImageProvider();
         _settings.ImageEndpoints[_settings.ImageProviderName] = _settings.ImageEndpoint;

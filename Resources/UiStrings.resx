@@ -1196,4 +1196,64 @@
     <value>Failed to reset providers: {0}</value>
     <comment>重置供应商失败：{0}</comment>
   </data>
+  <data name="Sc65e6c6ea8ca51a2" xml:space="preserve">
+    <value>Streaming output</value>
+    <comment>流式输出</comment>
+  </data>
+  <data name="Sfdacdfb1a22025b3" xml:space="preserve">
+    <value>Show results as they arrive for AI translation, image translation and local APIs.</value>
+    <comment>翻译时逐步显示结果，适用于 AI、图片翻译和本地接口。</comment>
+  </data>
+  <data name="S73108d18c8a11e1f" xml:space="preserve">
+    <value>The streaming translation response ended unexpectedly. Please retry.</value>
+    <comment>流式翻译响应意外中断，请重试。</comment>
+  </data>
+  <data name="S91b5c7c48f7c05c2" xml:space="preserve">
+    <value>Save source text and translation to favorites</value>
+    <comment>收藏源文本和译文</comment>
+  </data>
+  <data name="Saa32dcd1b2c738fe" xml:space="preserve">
+    <value>Favorites</value>
+    <comment>收藏列表</comment>
+  </data>
+  <data name="Sf4320f16d26729e4" xml:space="preserve">
+    <value>No favorites yet.</value>
+    <comment>暂无收藏。</comment>
+  </data>
+  <data name="S922070afb40b28a7" xml:space="preserve">
+    <value>Added to favorites.</value>
+    <comment>已加入收藏。</comment>
+  </data>
+  <data name="S0ce587c79cbf51dc" xml:space="preserve">
+    <value>This translation is already in favorites.</value>
+    <comment>此翻译已收藏。</comment>
+  </data>
+  <data name="S9a27790c41c14ecc" xml:space="preserve">
+    <value>Remove favorite</value>
+    <comment>删除收藏</comment>
+  </data>
+  <data name="S39dba9511fe344da" xml:space="preserve">
+    <value>Read source text aloud</value>
+    <comment>朗读源文本</comment>
+  </data>
+  <data name="S442b827de0b2550e" xml:space="preserve">
+    <value>Copy source text</value>
+    <comment>复制源文本</comment>
+  </data>
+  <data name="Sf2e278ea1f6c1cf1" xml:space="preserve">
+    <value>Copy all</value>
+    <comment>全部复制</comment>
+  </data>
+  <data name="S38844b135cf70dfc" xml:space="preserve">
+    <value>More</value>
+    <comment>更多</comment>
+  </data>
+  <data name="S816e96b0f6838c7c" xml:space="preserve">
+    <value>Copied to clipboard.</value>
+    <comment>已复制到剪贴板。</comment>
+  </data>
+  <data name="Sdcedf4b61e036701" xml:space="preserve">
+    <value>Reading source text aloud.</value>
+    <comment>正在朗读源文本。</comment>
+  </data>
 </root>

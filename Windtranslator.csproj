@@ -15,6 +15,8 @@
     <WinUISDKReferences>false</WinUISDKReferences>
     <EnableMsixTooling>true</EnableMsixTooling>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- Use the SDK C# compiler for satellite resources; legacy al.exe cannot target ARM64. -->
+    <GenerateSatelliteAssembliesForCore>true</GenerateSatelliteAssembliesForCore>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
@@ -83,7 +85,7 @@
          Microsoft during ingestion. Do not sign them with the local CN=nonem test cert. -->
     <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
-    <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
+    <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>False</GenerateTestArtifacts>
     <AppxBundle>Never</AppxBundle>
     <AppInstallerUri>https://github.com/Seaslan/Windtranslator/releases/</AppInstallerUri>
@@ -91,7 +93,7 @@
     <DefaultLanguage>en-US</DefaultLanguage>
     <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
     <AppxBundlePlatforms>x64|arm64</AppxBundlePlatforms>
-    <PackageCertificateThumbprint>078FC7E14BB94CA9F17803094A46394969733126</PackageCertificateThumbprint>
+    <PackageCertificateThumbprint>B54FD08C59E42BDCDDC479B037FD4DDFBB7FC181</PackageCertificateThumbprint>
   </PropertyGroup>
   <ItemGroup>
     <PRIResource Remove="AppPackages\Windtranslator_0.5.1.0_x64_Test\**" />

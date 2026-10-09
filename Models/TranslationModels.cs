@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Windtranslator.Services;
 
 namespace Windtranslator.Models;
@@ -71,6 +72,15 @@ public sealed record MachineTranslationRequest(
     string TargetLanguage,
     string SourceText);
 
+public sealed class FavoriteTranslation
+{
+    public string SourceText { get; set; } = string.Empty;
+
+    public string TranslatedText { get; set; } = string.Empty;
+
+    public string? SourceSpeechTag { get; set; }
+}
+
 public sealed class AppSettings
 {
     public string UiLanguage { get; set; } = "system";
@@ -92,6 +102,8 @@ public sealed class AppSettings
     public int AiPromptStyleIndex { get; set; }
 
     public bool AiIncludeLanguageDetails { get; set; }
+
+    public bool AiStreamingEnabled { get; set; } = true;
 
     public string ImageEndpoint { get; set; } = string.Empty;
 
@@ -125,6 +137,33 @@ public sealed class AppSettings
     public int TranslationHistoryLimit { get; set; } = 20;
 
     public List<string> TranslationHistory { get; set; } = new();
+
+    public List<string> FavoriteSourceTexts { get; set; } = new();
+
+    public List<FavoriteTranslation> Favorites { get; set; } = new();
+
+    public void NormalizeFavorites()
+    {
+        Favorites = (Favorites ?? new())
+            .Where(item => item is not null && !string.IsNullOrWhiteSpace(item.SourceText))
+            .ToList();
+        foreach (var item in Favorites)
+        {
+            item.TranslatedText ??= string.Empty;
+        }
+
+        // Migrate source-only favorites without guessing a translation or changing the text.
+        foreach (var sourceText in FavoriteSourceTexts ?? new())
+        {
+            if (!string.IsNullOrWhiteSpace(sourceText)
+                && !Favorites.Any(item => string.Equals(item.SourceText, sourceText, StringComparison.Ordinal)))
+            {
+                Favorites.Add(new FavoriteTranslation { SourceText = sourceText });
+            }
+        }
+        FavoriteSourceTexts = new();
+        Favorites = Favorites.DistinctBy(item => (item.SourceText, item.TranslatedText)).ToList();
+    }
 
     public Dictionary<string, string> Endpoints { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 

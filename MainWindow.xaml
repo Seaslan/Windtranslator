@@ -16,6 +16,45 @@
         PointerPressed="WindowRoot_PointerPressed">
         <Grid.Resources>
             <localization:LocalizedProviderConverter x:Key="LocalizedProviderConverter" />
+            <Style x:Key="SavedTextItemStyle" TargetType="ListViewItem">
+                <Setter Property="Margin" Value="0,0,0,8" />
+                <Setter Property="Padding" Value="12" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListViewItem">
+                            <Border
+                                x:Name="SavedTextItemBackground"
+                                Padding="{TemplateBinding Padding}"
+                                Background="{ThemeResource WindCardBackgroundBrush}"
+                                BorderBrush="{ThemeResource WindCardStrokeBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="SavedTextItemBackground.Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="SavedTextItemBackground.Background" Value="{ThemeResource SubtleFillColorTertiaryBrush}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                                <ContentPresenter
+                                    HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                    Content="{TemplateBinding Content}"
+                                    ContentTemplate="{TemplateBinding ContentTemplate}" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
             <DataTemplate x:Key="ProviderTemplate">
                 <TextBlock Text="{Binding Converter={StaticResource LocalizedProviderConverter}}" />
             </DataTemplate>
@@ -248,17 +287,28 @@
                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                             ScrollViewer.VerticalScrollBarVisibility="Auto" />
 
-                        <Button
-                            x:Name="TranslationHistoryButton"
+                        <StackPanel
                             Grid.Row="2"
                             Margin="0,8,0,0"
                             HorizontalAlignment="Left"
-                            Click="TranslationHistoryButton_Click">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <SymbolIcon Symbol="Clock" />
-                                <TextBlock Text="{localization:LocalizedString Key=S25a4303fc7712d0a}" />
-                            </StackPanel>
-                        </Button>
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <Button Click="FavoritesButton_Click">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <SymbolIcon Symbol="Favorite" />
+                                    <TextBlock Text="{localization:LocalizedString Key=Saa32dcd1b2c738fe}" />
+                                </StackPanel>
+                            </Button>
+                            <Button
+                                x:Name="TranslationHistoryButton"
+                                VerticalAlignment="Bottom"
+                                Click="TranslationHistoryButton_Click">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <SymbolIcon Symbol="Clock" />
+                                    <TextBlock Text="{localization:LocalizedString Key=S25a4303fc7712d0a}" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                     </Grid>
                 </Border>
 
@@ -281,6 +331,7 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
                             <TextBlock
@@ -297,8 +348,22 @@
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
 
                             <Button
-                                x:Name="CopyButton"
+                                x:Name="AddFavoriteButton"
                                 Grid.Column="2"
+                                Width="38"
+                                Height="34"
+                                Padding="8,6"
+                                Click="AddFavoriteButton_Click"
+                                ToolTipService.ToolTip="{localization:LocalizedString Key=S91b5c7c48f7c05c2}"
+                                AutomationProperties.Name="{localization:LocalizedString Key=S91b5c7c48f7c05c2}">
+                                <FontIcon x:Name="FavoriteIcon" Width="20" Height="20" FontSize="20" Glyph="&#xE734;" />
+                            </Button>
+
+                            <Button
+                                x:Name="CopyButton"
+                                Grid.Column="3"
+                                Width="38"
+                                Height="34"
                                 Padding="8,6"
                                 Click="CopyButton_Click"
                                 ToolTipService.ToolTip="{localization:LocalizedString Key=S032eb48c7a431ec0}">
@@ -307,7 +372,9 @@
 
                             <Button
                                 x:Name="SpeakButton"
-                                Grid.Column="3"
+                                Grid.Column="4"
+                                Width="38"
+                                Height="34"
                                 Padding="8,6"
                                 Click="SpeakButton_Click"
                                 ToolTipService.ToolTip="{localization:LocalizedString Key=S6d5747e03cc75137}">
@@ -369,50 +436,10 @@
                 <Grid Grid.Row="1" Margin="0,24,0,0">
                     <ListView
                         x:Name="TranslationHistoryListView"
+                        ItemContainerStyle="{StaticResource SavedTextItemStyle}"
                         IsItemClickEnabled="True"
                         ItemClick="TranslationHistoryListView_ItemClick"
                         SelectionMode="None">
-                        <ListView.ItemContainerStyle>
-                            <Style TargetType="ListViewItem">
-                                <Setter Property="Margin" Value="0,0,0,8" />
-                                <Setter Property="Padding" Value="12" />
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListViewItem">
-                                            <Border
-                                                x:Name="HistoryItemBackground"
-                                                Padding="{TemplateBinding Padding}"
-                                                Background="{ThemeResource WindCardBackgroundBrush}"
-                                                BorderBrush="{ThemeResource WindCardStrokeBrush}"
-                                                BorderThickness="1"
-                                                CornerRadius="8">
-                                                <VisualStateManager.VisualStateGroups>
-                                                    <VisualStateGroup x:Name="CommonStates">
-                                                        <VisualState x:Name="Normal" />
-                                                        <VisualState x:Name="PointerOver">
-                                                            <VisualState.Setters>
-                                                                <Setter Target="HistoryItemBackground.Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
-                                                            </VisualState.Setters>
-                                                        </VisualState>
-                                                        <VisualState x:Name="Pressed">
-                                                            <VisualState.Setters>
-                                                                <Setter Target="HistoryItemBackground.Background" Value="{ThemeResource SubtleFillColorTertiaryBrush}" />
-                                                            </VisualState.Setters>
-                                                        </VisualState>
-                                                    </VisualStateGroup>
-                                                </VisualStateManager.VisualStateGroups>
-                                                <ContentPresenter
-                                                    HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                    VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                                    Content="{TemplateBinding Content}"
-                                                    ContentTemplate="{TemplateBinding ContentTemplate}" />
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </ListView.ItemContainerStyle>
                         <ListView.ItemTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding}" TextWrapping="Wrap" />
@@ -426,6 +453,73 @@
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         IsHitTestVisible="False"
                         Text="{localization:LocalizedString Key=S6ea15464fb844e0c}" />
+                </Grid>
+            </Grid>
+
+            <Grid
+                x:Name="FavoritesPageGrid"
+                Grid.Row="2"
+                Margin="36,24,36,36"
+                Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <TextBlock
+                    Text="{localization:LocalizedString Key=Saa32dcd1b2c738fe}"
+                    Style="{StaticResource SubtitleTextBlockStyle}"
+                    VerticalAlignment="Center" />
+                <Grid Grid.Row="1" Margin="0,24,0,0">
+                    <ListView
+                        x:Name="FavoritesListView"
+                        ItemContainerStyle="{StaticResource SavedTextItemStyle}"
+                        IsItemClickEnabled="True"
+                        ItemClick="FavoritesListView_ItemClick"
+                        SelectionMode="None">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="12">
+                                        <TextBlock Text="{Binding SourceText}" TextWrapping="Wrap" />
+                                        <Border Height="1" Background="{ThemeResource WindCardStrokeBrush}" />
+                                        <TextBlock
+                                            Text="{Binding TranslatedText}"
+                                            TextWrapping="Wrap"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Vertical" Spacing="4" VerticalAlignment="Top">
+                                        <Button
+                                            MinWidth="28"
+                                            Padding="4"
+                                            Click="RemoveFavoriteButton_Click"
+                                            ToolTipService.ToolTip="{localization:LocalizedString Key=S9a27790c41c14ecc}"
+                                            AutomationProperties.Name="{localization:LocalizedString Key=S9a27790c41c14ecc}">
+                                            <FontIcon FontSize="14" Glyph="&#xE711;" />
+                                        </Button>
+                                        <Button
+                                            MinWidth="28"
+                                            Padding="4"
+                                            Click="FavoriteMoreButton_Click"
+                                            ToolTipService.ToolTip="{localization:LocalizedString Key=S38844b135cf70dfc}"
+                                            AutomationProperties.Name="{localization:LocalizedString Key=S38844b135cf70dfc}">
+                                            <FontIcon FontSize="14" Glyph="&#xE712;" />
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <TextBlock
+                        x:Name="FavoritesEmptyText"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        IsHitTestVisible="False"
+                        Text="{localization:LocalizedString Key=Sf4320f16d26729e4}" />
                 </Grid>
             </Grid>
 
@@ -739,6 +833,14 @@
                                     Text="{localization:LocalizedString Key=Sfc845a324d6f21f8}"
                                     Style="{StaticResource SettingsHeaderDescriptionStyle}" />
 
+                        <ToggleSwitch
+                            x:Name="AiStreamingToggleSwitch"
+                            Header="{localization:LocalizedString Key=Sc65e6c6ea8ca51a2}"
+                            IsOn="True"
+                            Toggled="AiStreamingToggleSwitch_Toggled" />
+                        <TextBlock
+                            Text="{localization:LocalizedString Key=Sfdacdfb1a22025b3}"
+                            Style="{StaticResource SettingsHeaderDescriptionStyle}" />
                         <TextBlock Text="{localization:LocalizedString Key=S874a8e31c7002510}" />
                         <ComboBox
                             x:Name="AiPromptStyleComboBox"

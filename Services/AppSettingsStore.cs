@@ -23,6 +23,7 @@ public static class AppSettingsStore
                 var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsFile), JsonOptions)
                     ?? new AppSettings();
                 settings.TranslationHistory ??= new();
+                settings.NormalizeFavorites();
                 settings.Endpoints ??= new(StringComparer.OrdinalIgnoreCase);
                 settings.Models ??= new(StringComparer.OrdinalIgnoreCase);
                 settings.AvailableModels ??= new(StringComparer.OrdinalIgnoreCase);
