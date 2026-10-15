@@ -212,6 +212,7 @@ public sealed partial class MainWindow : Window
         CustomPromptTextBox.Text = _settings.CustomPrompt;
         AiPromptStyleComboBox.ItemsSource = new[] { Localization.Text("标准"), Localization.Text("正式"), Localization.Text("自然"), Localization.Text("简洁") };
         AiPromptStyleComboBox.SelectedIndex = Math.Clamp(_settings.AiPromptStyleIndex, 0, 3);
+        UpdateAiPromptStyleDescription();
         AiIncludeLanguageDetailsCheckBox.IsChecked = _settings.AiIncludeLanguageDetails;
         AiStreamingToggleSwitch.IsOn = _settings.AiStreamingEnabled;
         AiRememberKeyCheckBox.IsChecked = _settings.RememberKeys;
@@ -1067,7 +1068,19 @@ public sealed partial class MainWindow : Window
         }
 
         _settings.AiPromptStyleIndex = Math.Clamp(AiPromptStyleComboBox.SelectedIndex, 0, 3);
+        UpdateAiPromptStyleDescription();
         SaveSettings();
+    }
+
+    private void UpdateAiPromptStyleDescription()
+    {
+        AiPromptStyleDescriptionText.Text = AiPromptStyleComboBox.SelectedIndex switch
+        {
+            1 => Localization.Text("适合商务与公文，使用严谨、完整的书面表达。"),
+            2 => Localization.Text("适合日常交流，使用地道口语，可灵活调整句式。"),
+            3 => Localization.Text("删减客套和重复表达，用更少的文字保留关键信息。"),
+            _ => Localization.Text("忠实保留原文语气、句式和信息，不额外润色。"),
+        };
     }
 
     private void AiIncludeLanguageDetailsCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -2705,17 +2718,6 @@ public sealed partial class MainWindow : Window
 
         var sourceLanguage = SourceLanguageComboBox.SelectedItem as LanguageOption ?? Languages[0];
         var targetLanguage = TargetLanguageComboBox.SelectedItem as LanguageOption ?? Languages[3];
-        var systemPrompt = BuildDefaultPrompt(
-            sourceLanguage,
-            targetLanguage,
-            AiPromptStyleComboBox.SelectedIndex,
-            AiIncludeLanguageDetailsCheckBox.IsChecked == true);
-
-        if (ModeComboBox.SelectedIndex != 0 && !string.IsNullOrWhiteSpace(CustomPromptTextBox.Text))
-        {
-            systemPrompt += "\n\n补充要求：" + CustomPromptTextBox.Text.Trim();
-        }
-
         _cts = new CancellationTokenSource();
         _isTranslating = true;
         TranslateButtonText.Text = Localization.Text("取消");
@@ -3221,6 +3223,8 @@ public sealed partial class MainWindow : Window
     private void UpdateUiState()
     {
         UpdateFavoritesState();
+        ProviderApiKeyPasswordBox.IsEnabled = !_isTranslating && !_isSelectionTranslating
+            && !_isImageTranslating && !_isFileTranslating && !MiniProgressRing.IsActive;
         TranslateButton.IsEnabled = _isTranslating || (!_isSelectionTranslating && SourceTextBox.Text.Trim().Length > 0);
         MicButton.IsEnabled = !_isTranslating && !_isSelectionTranslating && !_isOpeningSystemDictation;
         SpeakButton.IsEnabled = _speechOutput.IsSpeaking || OutputTextBox.Text.Trim().Length > 0;
@@ -3347,27 +3351,7 @@ public sealed partial class MainWindow : Window
         LanguageOption target,
         int styleIndex = 0,
         bool includeLanguageDetails = false)
-    {
-        var instruction = source.PromptName == "自动检测"
-            ? $"请自动识别用户输入的语言，并翻译成{target.PromptName}。"
-            : $"请把用户输入的内容从{source.PromptName}翻译成{target.PromptName}。";
-        var styleInstruction = styleIndex switch
-        {
-            1 => "使用正式、严谨、专业的表达方式。",
-            2 => "使用自然、流畅、符合目标语言习惯的表达方式。",
-            3 => "使用简洁、精炼的表达方式，在不遗漏信息的前提下避免冗余。",
-            _ => "保持准确、清晰、自然的表达方式。",
-        };
-
-        if (includeLanguageDetails)
-        {
-            return $"你是一名专业的翻译引擎。{instruction}{styleInstruction}"
-                + "先输出译文，必要时空一行，再用普通文字简要说明翻译选择、读音和词性；不适用的内容可以省略。只使用纯文本和自然换行，不使用 Markdown 或 HTML 语法，不添加标题、项目符号、编号、强调标记或代码块。保留原文的段落结构和专有名词。";
-        }
-
-        return $"你是一名专业的翻译引擎。{instruction}{styleInstruction}"
-            + "只输出纯文本译文，保留原文的段落结构、换行和专有名词；不要添加解释、注释、读音、词性或任何额外内容。不要使用 Markdown 或 HTML 语法，不新增标题、项目符号、编号、强调标记或代码块。";
-    }
+        => TranslationPromptBuilder.Build(source, target, styleIndex, includeLanguageDetails);
 
     private static ProviderProfile GetProviderProfile(string provider) => ProviderCatalog.GetProfile(provider);
 

@@ -1256,4 +1256,68 @@
     <value>Reading source text aloud.</value>
     <comment>正在朗读源文本。</comment>
   </data>
+  <data name="S23189d55f6973f2c" xml:space="preserve">
+    <value>API Key</value>
+    <comment>API Key</comment>
+  </data>
+  <data name="S0f522b7680f988e0" xml:space="preserve">
+    <value>Preserve the original tone, sentence structure and information without extra polishing.</value>
+    <comment>忠实保留原文语气、句式和信息，不额外润色。</comment>
+  </data>
+  <data name="S8fd68928d872d0b0" xml:space="preserve">
+    <value>Use precise, complete written language for business and official documents.</value>
+    <comment>适合商务与公文，使用严谨、完整的书面表达。</comment>
+  </data>
+  <data name="S0c7e77febb0aa102" xml:space="preserve">
+    <value>Use idiomatic, conversational language and flexible phrasing for everyday communication.</value>
+    <comment>适合日常交流，使用地道口语，可灵活调整句式。</comment>
+  </data>
+  <data name="S4f6b20935cd9b754" xml:space="preserve">
+    <value>Remove pleasantries and repetition to convey essential information in fewer words.</value>
+    <comment>删减客套和重复表达，用更少的文字保留关键信息。</comment>
+  </data>
+  <data name="S83fcfb4c1f2c1641" xml:space="preserve">
+    <value>Fetch models</value>
+    <comment>获取模型</comment>
+  </data>
+  <data name="S146da2e2a991493e" xml:space="preserve">
+    <value>Fetching…</value>
+    <comment>获取中…</comment>
+  </data>
+  <data name="S80afebc4f7669e66" xml:space="preserve">
+    <value>Wait for the model list request to finish before changing providers or models.</value>
+    <comment>请等待模型列表获取完成后再修改供应商或模型。</comment>
+  </data>
+  <data name="S164c11cdf94d8d6c" xml:space="preserve">
+    <value>Enter a valid HTTP/HTTPS endpoint.</value>
+    <comment>请填写有效的 HTTP/HTTPS 接口地址。</comment>
+  </data>
+  <data name="S6fce7aa55edeac8f" xml:space="preserve">
+    <value>The provider returned no available models.</value>
+    <comment>供应商没有返回可用的模型。</comment>
+  </data>
+  <data name="Sed6fefff5f6b24e2" xml:space="preserve">
+    <value>All fetched models are already saved.</value>
+    <comment>获取到的模型均已保存。</comment>
+  </data>
+  <data name="Sd774ac2cab939cec" xml:space="preserve">
+    <value>Select models to save — {0}</value>
+    <comment>选择要保存的模型 — {0}</comment>
+  </data>
+  <data name="Sd35ebf502a0bd155" xml:space="preserve">
+    <value>Only models that are not yet saved are shown. Select one or more to add. Existing models will be kept.</value>
+    <comment>仅显示尚未保存的模型，可多选。现有模型会保留。</comment>
+  </data>
+  <data name="S17a1576a33e0fb67" xml:space="preserve">
+    <value>Added {0} models.</value>
+    <comment>已添加 {0} 个模型。</comment>
+  </data>
+  <data name="S89f15911a5e8d2c8" xml:space="preserve">
+    <value>The model list request timed out. Please try again later.</value>
+    <comment>获取模型列表超时，请稍后重试。</comment>
+  </data>
+  <data name="Scaac234b836ef4f7" xml:space="preserve">
+    <value>The service returned an invalid model list.</value>
+    <comment>服务返回了无法解析的模型列表。</comment>
+  </data>
 </root>

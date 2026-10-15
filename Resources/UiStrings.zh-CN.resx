@@ -958,4 +958,52 @@
   <data name="Sdcedf4b61e036701" xml:space="preserve">
     <value>正在朗读源文本。</value>
   </data>
+  <data name="S23189d55f6973f2c" xml:space="preserve">
+    <value>API Key</value>
+  </data>
+  <data name="S0f522b7680f988e0" xml:space="preserve">
+    <value>忠实保留原文语气、句式和信息，不额外润色。</value>
+  </data>
+  <data name="S8fd68928d872d0b0" xml:space="preserve">
+    <value>适合商务与公文，使用严谨、完整的书面表达。</value>
+  </data>
+  <data name="S0c7e77febb0aa102" xml:space="preserve">
+    <value>适合日常交流，使用地道口语，可灵活调整句式。</value>
+  </data>
+  <data name="S4f6b20935cd9b754" xml:space="preserve">
+    <value>删减客套和重复表达，用更少的文字保留关键信息。</value>
+  </data>
+  <data name="S83fcfb4c1f2c1641" xml:space="preserve">
+    <value>获取模型</value>
+  </data>
+  <data name="S146da2e2a991493e" xml:space="preserve">
+    <value>获取中…</value>
+  </data>
+  <data name="S80afebc4f7669e66" xml:space="preserve">
+    <value>请等待模型列表获取完成后再修改供应商或模型。</value>
+  </data>
+  <data name="S164c11cdf94d8d6c" xml:space="preserve">
+    <value>请填写有效的 HTTP/HTTPS 接口地址。</value>
+  </data>
+  <data name="S6fce7aa55edeac8f" xml:space="preserve">
+    <value>供应商没有返回可用的模型。</value>
+  </data>
+  <data name="Sed6fefff5f6b24e2" xml:space="preserve">
+    <value>获取到的模型均已保存。</value>
+  </data>
+  <data name="Sd774ac2cab939cec" xml:space="preserve">
+    <value>选择要保存的模型 — {0}</value>
+  </data>
+  <data name="Sd35ebf502a0bd155" xml:space="preserve">
+    <value>仅显示尚未保存的模型，可多选。现有模型会保留。</value>
+  </data>
+  <data name="S17a1576a33e0fb67" xml:space="preserve">
+    <value>已添加 {0} 个模型。</value>
+  </data>
+  <data name="S89f15911a5e8d2c8" xml:space="preserve">
+    <value>获取模型列表超时，请稍后重试。</value>
+  </data>
+  <data name="Scaac234b836ef4f7" xml:space="preserve">
+    <value>服务返回了无法解析的模型列表。</value>
+  </data>
 </root>

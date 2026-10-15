@@ -144,6 +144,23 @@ public static class ProviderCatalog
         settings.AvailableModels.TryGetValue(provider, out var models)
             ? models : settings.AvailableModels[provider] = new List<string>();
 
+    public static int AddModels(AppSettings settings, string provider, IEnumerable<string> modelIds)
+    {
+        var models = GetModels(settings, provider);
+        var known = new HashSet<string>(models, StringComparer.OrdinalIgnoreCase);
+        var added = 0;
+        foreach (var id in modelIds)
+        {
+            var model = id?.Trim();
+            if (!string.IsNullOrEmpty(model) && known.Add(model))
+            {
+                models.Add(model);
+                added++;
+            }
+        }
+        return added;
+    }
+
     public static string GetEndpoint(AppSettings settings, string provider) =>
         settings.Endpoints.TryGetValue(provider, out var endpoint)
             ? endpoint : GetProfile(provider).DefaultEndpoint;

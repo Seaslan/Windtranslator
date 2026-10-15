@@ -25,6 +25,7 @@ public sealed class TranslationService
         TranslationRequest request, CancellationToken cancellationToken,
         bool stream = false, Action<string>? onTextUpdated = null)
     {
+        // Use model defaults: some providers reject custom sampling parameters.
         var payload = JsonSerializer.Serialize(new
         {
             model = request.Model,
@@ -33,7 +34,6 @@ public sealed class TranslationService
                 new { role = "system", content = request.SystemPrompt },
                 new { role = "user", content = request.UserText },
             },
-            temperature = 0.2,
             stream,
         });
         return SendChatAsync(request.Endpoint, request.ApiKey, payload, stream, false, onTextUpdated, cancellationToken);
@@ -59,7 +59,6 @@ public sealed class TranslationService
                     },
                 },
             },
-            temperature = 0.2,
             stream,
         });
         return SendChatAsync(request.Endpoint, request.ApiKey, payload, stream, true, onTextUpdated, cancellationToken);
@@ -74,6 +73,10 @@ public sealed class TranslationService
             Content = new StringContent(payload, Encoding.UTF8, "application/json"),
         };
         AddAuthorization(requestMessage, apiKey);
+        if (stream)
+        {
+            requestMessage.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
+        }
         using var response = await _httpClient.SendAsync(
             requestMessage, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
@@ -82,26 +85,10 @@ public sealed class TranslationService
             throw RequestFailed(image, ExtractErrorMessage(body) ?? $"HTTP {(int)response.StatusCode}");
         }
 
-        // Some compatible providers return a normal JSON response even when streaming is requested.
-        if (!stream || string.Equals(response.Content.Headers.ContentType?.MediaType, "application/json", StringComparison.OrdinalIgnoreCase))
+        if (!stream)
         {
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            try
-            {
-                using var document = JsonDocument.Parse(body);
-                if (TryGetContent(document.RootElement, "message", out var text) && !string.IsNullOrWhiteSpace(text))
-                {
-                    onTextUpdated?.Invoke(text.Trim());
-                    return text.Trim();
-                }
-                var error = ExtractErrorMessage(body);
-                if (error is not null) throw RequestFailed(image, error);
-            }
-            catch (JsonException)
-            {
-                throw InvalidResponse(image);
-            }
-            throw EmptyResponse(image);
+            return ReadJsonResponse(body, image, onTextUpdated, cancellationToken);
         }
 
         await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -109,11 +96,25 @@ public sealed class TranslationService
         var result = new StringBuilder();
         var eventData = new StringBuilder();
         var lastUpdate = Stopwatch.StartNew();
+        var publishedLength = 0;
+        var responseFormatKnown = false;
         var completed = false;
         var finishedChoice = false;
         while (!completed)
         {
             var line = await reader.ReadLineAsync(cancellationToken);
+            if (!responseFormatKnown && !string.IsNullOrWhiteSpace(line))
+            {
+                responseFormatKnown = true;
+                var start = line.TrimStart();
+                // Compatible gateways can mislabel SSE as application/json, or return
+                // JSON despite stream=true. Inspect the body without buffering SSE.
+                if (start.StartsWith("{", StringComparison.Ordinal) || start.StartsWith("[", StringComparison.Ordinal))
+                {
+                    var body = line + "\n" + await reader.ReadToEndAsync(cancellationToken);
+                    return ReadJsonResponse(body, image, onTextUpdated, cancellationToken);
+                }
+            }
             if (line is null || line.Length == 0)
             {
                 if (eventData.Length > 0)
@@ -145,11 +146,14 @@ public sealed class TranslationService
                         {
                             throw InvalidResponse(image);
                         }
-                        // Limit UI refreshes to about 20 per second, with no queued updates after cancellation.
-                        if (result.Length > 0 && lastUpdate.ElapsedMilliseconds >= 50)
+                        // Show the first content event immediately. Throttle only later
+                        // updates, so a short response is not held until completion.
+                        if (result.Length > publishedLength
+                            && (publishedLength == 0 || lastUpdate.ElapsedMilliseconds >= 50))
                         {
                             cancellationToken.ThrowIfCancellationRequested();
                             onTextUpdated?.Invoke(result.ToString());
+                            publishedLength = result.Length;
                             lastUpdate.Restart();
                         }
                     }
@@ -170,6 +174,29 @@ public sealed class TranslationService
         if (translated.Length == 0) throw EmptyResponse(image);
         onTextUpdated?.Invoke(translated);
         return translated;
+    }
+
+    private static string ReadJsonResponse(
+        string body, bool image, Action<string>? onTextUpdated, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            if (TryGetContent(document.RootElement, "message", out var text) && !string.IsNullOrWhiteSpace(text))
+            {
+                var translated = text.Trim();
+                onTextUpdated?.Invoke(translated);
+                return translated;
+            }
+            var error = ExtractErrorMessage(body);
+            if (error is not null) throw RequestFailed(image, error);
+        }
+        catch (JsonException)
+        {
+            throw InvalidResponse(image);
+        }
+        throw EmptyResponse(image);
     }
 
     private static bool TryGetContent(JsonElement root, string messageProperty, out string text)
@@ -220,28 +247,30 @@ public sealed class TranslationService
             using var document = JsonDocument.Parse(responseBody);
             var root = document.RootElement;
             var models = new List<string>();
-
-            if (root.TryGetProperty("data", out var data)
-                && data.ValueKind == JsonValueKind.Array)
+            if (root.ValueKind != JsonValueKind.Object)
             {
-                foreach (var item in data.EnumerateArray())
-                {
-                    if (item.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String)
-                    {
-                        var modelId = id.GetString();
-                        if (!string.IsNullOrWhiteSpace(modelId))
-                        {
-                            models.Add(modelId);
-                        }
-                    }
-                }
+                throw new InvalidOperationException(Localization.Text("服务返回了无法解析的模型列表。"));
+            }
+            var error = ExtractErrorMessage(responseBody);
+            if (error is not null)
+                throw new InvalidOperationException(Localization.Text("获取模型列表失败：{0}", error));
+            if (!root.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
+                throw new InvalidOperationException(Localization.Text("服务返回了无法解析的模型列表。"));
+
+            var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in data.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object
+                    || !item.TryGetProperty("id", out var id) || id.ValueKind != JsonValueKind.String) continue;
+                var modelId = id.GetString()?.Trim();
+                if (!string.IsNullOrEmpty(modelId) && known.Add(modelId)) models.Add(modelId);
             }
 
             return models;
         }
         catch (JsonException)
         {
-            throw new InvalidOperationException(Localization.Text("本地服务返回了无法解析的模型列表。"));
+            throw new InvalidOperationException(Localization.Text("服务返回了无法解析的模型列表。"));
         }
     }
 
@@ -266,7 +295,11 @@ public sealed class TranslationService
 
     private static string BuildModelsEndpoint(string baseUrl)
     {
-        var url = baseUrl.Trim();
+        var url = baseUrl.Trim().TrimEnd('/');
+        if (url.EndsWith("/models", StringComparison.OrdinalIgnoreCase))
+        {
+            return url;
+        }
         if (url.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase))
         {
             return url[..^"/chat/completions".Length].TrimEnd('/') + "/models";

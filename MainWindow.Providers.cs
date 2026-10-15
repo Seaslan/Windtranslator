@@ -3,6 +3,8 @@ using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Windows.Security.Credentials;
 using Windtranslator.Services;
 
@@ -10,6 +12,8 @@ namespace Windtranslator;
 
 public sealed partial class MainWindow
 {
+    private bool _isFetchingProviderModels;
+
     private string ManagedProvider => ProviderManagementComboBox.SelectedItem as string ?? AiProviders[0];
 
     private void MigrateProviderCredentials()
@@ -78,9 +82,19 @@ public sealed partial class MainWindow
 
     private void RefreshManagedProvider()
     {
-        ProviderEndpointTextBox.Text = GetProviderEndpoint(ManagedProvider);
-        ProviderEndpointTextBox.PlaceholderText = GetProviderProfile(ManagedProvider).DefaultEndpoint;
-        ProviderModelsListView.ItemsSource = GetAvailableAiModels(GetProviderProfile(ManagedProvider)).ToList();
+        var suppressed = _suppressEvents;
+        _suppressEvents = true;
+        try
+        {
+            ProviderEndpointTextBox.Text = GetProviderEndpoint(ManagedProvider);
+            ProviderEndpointTextBox.PlaceholderText = GetProviderProfile(ManagedProvider).DefaultEndpoint;
+            ProviderApiKeyPasswordBox.Password = GetProviderApiKey(ManagedProvider);
+            ProviderModelsListView.ItemsSource = GetAvailableAiModels(GetProviderProfile(ManagedProvider)).ToList();
+        }
+        finally
+        {
+            _suppressEvents = suppressed;
+        }
     }
 
     private void RefreshProviderConsumers(string? managedProvider = null, bool resetSelections = false)
@@ -137,6 +151,11 @@ public sealed partial class MainWindow
 
     private bool CanChangeProviderCatalog()
     {
+        if (_isFetchingProviderModels)
+        {
+            ShowInfo(Localization.Text("请等待模型列表获取完成后再修改供应商或模型。"), InfoBarSeverity.Warning);
+            return false;
+        }
         if (_isTranslating || _isSelectionTranslating || _isImageTranslating || _isFileTranslating || MiniProgressRing.IsActive)
         {
             ShowInfo(Localization.Text("请等待当前翻译完成后再修改供应商或模型。"), InfoBarSeverity.Warning);
@@ -290,11 +309,97 @@ public sealed partial class MainWindow
             }
         };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
-        var models = GetAvailableAiModels(GetProviderProfile(provider));
-        var model = models.FirstOrDefault(item => string.Equals(item, modelBox.Text.Trim(), StringComparison.OrdinalIgnoreCase))
-            ?? modelBox.Text.Trim();
-        if (!models.Contains(model, StringComparer.OrdinalIgnoreCase)) models.Add(model);
+        ProviderCatalog.AddModels(_settings, provider, new[] { modelBox.Text });
         RefreshProviderConsumers(provider);
+    }
+
+    private async void FetchProviderModelsButton_Click(object sender, RoutedEventArgs e)
+        => await FetchProviderModelsAsync();
+
+    private async Task FetchProviderModelsAsync()
+    {
+        if (!CanChangeProviderCatalog()) return;
+        var provider = ManagedProvider;
+        var endpoint = GetProviderEndpoint(provider);
+        if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
+        {
+            ShowInfo(Localization.Text("请填写有效的 HTTP/HTTPS 接口地址。"), InfoBarSeverity.Warning);
+            return;
+        }
+
+        _isFetchingProviderModels = true;
+        ProviderCatalogExpander.IsEnabled = false;
+        FetchProviderModelsButtonText.Text = Localization.Text("获取中…");
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var fetched = await _translationService.GetModelsAsync(endpoint, GetProviderApiKey(provider), timeout.Token);
+            if (fetched.Count == 0)
+            {
+                ShowInfo(Localization.Text("供应商没有返回可用的模型。"), InfoBarSeverity.Warning);
+                return;
+            }
+
+            var available = fetched.Except(GetAvailableAiModels(GetProviderProfile(provider)), StringComparer.OrdinalIgnoreCase).ToList();
+            if (available.Count == 0)
+            {
+                ShowInfo(Localization.Text("获取到的模型均已保存。"), InfoBarSeverity.Informational);
+                return;
+            }
+
+            var modelList = new ListView
+            {
+                ItemsSource = available,
+                ItemTemplate = (DataTemplate)WindowRoot.Resources["ProviderModelSelectionTemplate"],
+                SelectionMode = ListViewSelectionMode.Multiple,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                MaxHeight = 360,
+            };
+            ScrollViewer.SetHorizontalScrollBarVisibility(modelList, ScrollBarVisibility.Disabled);
+            var panel = new StackPanel { Spacing = 12 };
+            panel.Children.Add(new TextBlock
+            {
+                Text = Localization.Text("仅显示尚未保存的模型，可多选。现有模型会保留。"),
+                TextWrapping = TextWrapping.Wrap,
+            });
+            panel.Children.Add(modelList);
+            var dialog = new ContentDialog
+            {
+                XamlRoot = WindowRoot.XamlRoot,
+                Title = Localization.Text("选择要保存的模型 — {0}", Localization.ProviderName(provider)),
+                Content = panel,
+                PrimaryButtonText = Localization.Text("保存"),
+                CloseButtonText = Localization.Text("取消"),
+                DefaultButton = ContentDialogButton.Primary,
+                IsPrimaryButtonEnabled = false,
+            };
+            modelList.SelectionChanged += (_, _) => dialog.IsPrimaryButtonEnabled = modelList.SelectedItems.Count > 0;
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+            // Another translation may have started while the model list was loading.
+            _isFetchingProviderModels = false;
+            if (!CanChangeProviderCatalog()) return;
+            var added = ProviderCatalog.AddModels(_settings, provider, modelList.SelectedItems.Cast<string>());
+            if (added == 0) return;
+            RefreshProviderConsumers(provider);
+            ShowInfo(Localization.Text("已添加 {0} 个模型。", added), InfoBarSeverity.Success);
+        }
+        catch (OperationCanceledException)
+        {
+            ShowInfo(Localization.Text("获取模型列表超时，请稍后重试。"), InfoBarSeverity.Warning);
+        }
+        catch (Exception ex)
+        {
+            ShowInfo(ex.Message, InfoBarSeverity.Error);
+        }
+        finally
+        {
+            _isFetchingProviderModels = false;
+            ProviderCatalogExpander.IsEnabled = true;
+            FetchProviderModelsButtonText.Text = Localization.Text("获取模型");
+            UpdateUiState();
+        }
     }
 
     private void DeleteProviderModelButton_Click(object sender, RoutedEventArgs e)
@@ -325,30 +430,13 @@ public sealed partial class MainWindow
         }
     }
 
-    private async void EditProviderApiKeyButton_Click(object sender, RoutedEventArgs e)
+    private void ProviderApiKeyPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
     {
-        if (!CanChangeProviderCatalog()) return;
-        var provider = ManagedProvider;
-        var keyBox = new PasswordBox
+        if (_suppressEvents || ProviderManagementComboBox.SelectedItem is not string provider)
         {
-            Header = "API Key",
-            Password = GetProviderApiKey(provider),
-            PlaceholderText = Localization.Text("输入 API Key"),
-        };
-        var dialog = new ContentDialog
-        {
-            XamlRoot = WindowRoot.XamlRoot,
-            Title = Localization.Text("修改 {0} 的 API Key", Localization.ProviderName(provider)),
-            Content = keyBox,
-            PrimaryButtonText = Localization.Text("保存"),
-            CloseButtonText = Localization.Text("取消"),
-            DefaultButton = ContentDialogButton.Primary,
-        };
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-        {
-            SetProviderApiKey(provider, keyBox.Password.Trim());
-            SaveSettings();
-            ShowInfo(Localization.Text("API Key 已更新。"), InfoBarSeverity.Success);
+            return;
         }
+        SetProviderApiKey(provider, ProviderApiKeyPasswordBox.Password.Trim());
+        UpdateFileModeAvailability();
     }
 }

@@ -58,6 +58,9 @@
             <DataTemplate x:Key="ProviderTemplate">
                 <TextBlock Text="{Binding Converter={StaticResource LocalizedProviderConverter}}" />
             </DataTemplate>
+            <DataTemplate x:Key="ProviderModelSelectionTemplate">
+                <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+            </DataTemplate>
         </Grid.Resources>
         <Border
             x:Name="AcrylicFallbackLayer"
@@ -658,7 +661,7 @@
                     </Border>
 
                     <Border Style="{StaticResource SettingsCardStyle}">
-                        <Expander Style="{StaticResource SettingsExpanderStyle}">
+                        <Expander x:Name="ProviderCatalogExpander" Style="{StaticResource SettingsExpanderStyle}">
                             <Expander.Header>
                                 <Grid Style="{StaticResource SettingsHeaderGridStyle}">
                                     <Grid.ColumnDefinitions>
@@ -708,6 +711,11 @@
                                     x:Name="ProviderEndpointTextBox"
                                     Header="{localization:LocalizedString Key=S03b11112dc970014}"
                                     TextChanged="ProviderEndpointTextBox_TextChanged" />
+                                <PasswordBox
+                                    x:Name="ProviderApiKeyPasswordBox"
+                                    Header="{localization:LocalizedString Key=S23189d55f6973f2c}"
+                                    PlaceholderText="{localization:LocalizedString Key=Sca478c91d3839a44}"
+                                    PasswordChanged="ProviderApiKeyPasswordBox_PasswordChanged" />
                                 <Grid ColumnSpacing="8">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -720,17 +728,21 @@
                                         Orientation="Horizontal"
                                         Spacing="8">
                                         <Button
+                                            x:Name="FetchProviderModelsButton"
+                                            Padding="8,4"
+                                            Click="FetchProviderModelsButton_Click">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <FontIcon FontSize="14" Glyph="&#xE72C;" />
+                                                <TextBlock
+                                                    x:Name="FetchProviderModelsButtonText"
+                                                    Text="{localization:LocalizedString Key=S83fcfb4c1f2c1641}" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button
                                             Click="AddProviderModelButton_Click"
                                             Style="{StaticResource SettingsIconButtonStyle}"
                                             ToolTipService.ToolTip="{localization:LocalizedString Key=S168e845a86bc3703}">
                                             <FontIcon FontSize="14" Glyph="&#xE710;" />
-                                        </Button>
-                                        <Button
-                                            Click="EditProviderApiKeyButton_Click"
-                                            Style="{StaticResource SettingsIconButtonStyle}"
-                                            ToolTipService.ToolTip="{localization:LocalizedString Key=S9123e7e8c5ce6d34}"
-                                            AutomationProperties.Name="{localization:LocalizedString Key=S9123e7e8c5ce6d34}">
-                                            <FontIcon FontSize="14" Glyph="&#xE70F;" />
                                         </Button>
                                     </StackPanel>
                                 </Grid>
@@ -846,6 +858,9 @@
                             x:Name="AiPromptStyleComboBox"
                             MinWidth="180"
                             SelectionChanged="AiPromptStyleComboBox_SelectionChanged" />
+                        <TextBlock
+                            x:Name="AiPromptStyleDescriptionText"
+                            Style="{StaticResource SettingsHeaderDescriptionStyle}" />
                         <CheckBox
                             x:Name="AiIncludeLanguageDetailsCheckBox"
                             Content="{localization:LocalizedString Key=S635407edd2f3b389}"
