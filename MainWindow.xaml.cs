@@ -43,7 +43,6 @@ public sealed partial class MainWindow : Window
     private const int MiniWindowHeight = 420;
     private const int MiniModeEnterWidth = 680;
     private const int MiniModeExitWidth = 760;
-    private const int NavigationPaneCollapseWidth = 900;
     private const double SettingsPanelMaxWidth = 760d;
     private const uint WmGetMinMaxInfo = 0x0024;
     private const uint WmXButtonUp = 0x020C;
@@ -110,7 +109,8 @@ public sealed partial class MainWindow : Window
     private CancellationTokenSource? _fileTranslationCts;
     private bool _isFileTranslating;
     private bool _isMiniMode;
-    private bool _openNavigationPaneWhenSpaceReturns;
+    private bool _windowLayoutUpdateQueued;
+    private bool _isWindowClosed;
     private bool _isSelectionTranslating;
     private string? _pendingClipboardText;
     private SelectionTranslationOrigin? _selectionTranslationOrigin;
@@ -147,6 +147,7 @@ public sealed partial class MainWindow : Window
         _speechOutput.PlaybackEnded += (_, _) => DispatcherQueue.TryEnqueue(() => SetSpeakingState(false));
         Closed += (_, _) =>
         {
+            _isWindowClosed = true;
             AppWindow.Changed -= AppWindow_Changed;
             NetworkInformation.NetworkStatusChanged -= NetworkInformation_NetworkStatusChanged;
             Clipboard.ContentChanged -= Clipboard_ContentChanged;
@@ -222,6 +223,7 @@ public sealed partial class MainWindow : Window
         MicaBackdropCheckBox.IsChecked = _settings.MicaBackdropEnabled;
         AlwaysOnTopToggleSwitch.IsOn = _settings.AlwaysOnTop;
         EnterToTranslateToggleSwitch.IsOn = _settings.EnterToTranslate;
+        ApplyEnterToTranslateInputMode();
         UpdateEnterShortcutLabels();
         TranslationHistoryLimitComboBox.ItemsSource = new[] { Localization.Text("不保存翻译历史"), Localization.Text("5 条"), Localization.Text("20 条"), Localization.Text("无上限") };
         _settings.TranslationHistoryLimit = NormalizeTranslationHistoryLimit(_settings.TranslationHistoryLimit);
@@ -312,6 +314,7 @@ public sealed partial class MainWindow : Window
         }
 
         _settings.EnterToTranslate = EnterToTranslateToggleSwitch.IsOn;
+        ApplyEnterToTranslateInputMode();
         UpdateEnterShortcutLabels();
         SaveSettings();
         if (_settings.EnterToTranslate)
@@ -327,6 +330,14 @@ public sealed partial class MainWindow : Window
         ShiftEnterShortcutRow.Visibility = EnterToTranslateToggleSwitch.IsOn
             ? Visibility.Visible
             : Visibility.Collapsed;
+    }
+
+    private void ApplyEnterToTranslateInputMode()
+    {
+        // Prevent TextBox's built-in AcceptsReturn handling from inserting a newline
+        // before SourceTextBox_KeyDown can dispatch the translation command. Shift+Enter
+        // is inserted explicitly by the handler while this mode is enabled.
+        SourceTextBox.AcceptsReturn = !_settings.EnterToTranslate;
     }
 
     private void TranslationHistoryLimitComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1885,24 +1896,37 @@ public sealed partial class MainWindow : Window
 
     private void AppWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args)
     {
-        if (!args.DidSizeChange)
+        if (!args.DidSizeChange || _windowLayoutUpdateQueued || _isWindowClosed)
         {
             return;
         }
 
-        var logicalWidth = sender.ClientSize.Width / GetWindowScale();
-        if (!_isMiniMode && logicalWidth <= MiniModeEnterWidth)
+        // Only switch the full/mini surface here. NavigationView owns its adaptive
+        // pane state so resize notifications cannot interrupt its open/close animation.
+        _windowLayoutUpdateQueued = true;
+        if (!DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
         {
-            SetMiniMode(true, resizeWindow: false);
-            return;
-        }
+            _windowLayoutUpdateQueued = false;
+            if (_isWindowClosed)
+            {
+                return;
+            }
 
-        if (_isMiniMode && logicalWidth >= MiniModeExitWidth)
+            var logicalWidth = AppWindow.ClientSize.Width / GetWindowScale();
+            if (!_isMiniMode && logicalWidth <= MiniModeEnterWidth)
+            {
+                SetMiniMode(true, resizeWindow: false);
+                return;
+            }
+
+            if (_isMiniMode && logicalWidth >= MiniModeExitWidth)
+            {
+                SetMiniMode(false, resizeWindow: false);
+            }
+        }))
         {
-            SetMiniMode(false, resizeWindow: false);
+            _windowLayoutUpdateQueued = false;
         }
-
-        UpdateNavigationPaneForWindowWidth(logicalWidth);
     }
 
     private void SetMiniMode(bool mini, bool resizeWindow)
@@ -1919,35 +1943,14 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        if (mini && SidebarNavigationView.IsPaneOpen)
-        {
-            _openNavigationPaneWhenSpaceReturns = true;
-        }
-
         _isMiniMode = mini;
         _pendingClipboardText = null;
         ClipboardPasteTeachingTip.IsOpen = false;
         CloseSelectionTranslationTeachingTip();
         ClearNavigationHistory();
-        MiniPageGrid.Visibility = mini ? Visibility.Visible : Visibility.Collapsed;
-        SidebarNavigationView.Visibility = Visibility.Visible;
-        if (mini)
-        {
-            // Collapse every navigation surface before showing the mini overlay.
-            SidebarNavigationView.IsPaneOpen = false;
-            SidebarNavigationView.IsPaneToggleButtonVisible = false;
-            SidebarNavigationView.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftMinimal;
-            SidebarNavigationView.CompactPaneLength = 0;
-            SidebarNavigationView.IsPaneVisible = false;
-        }
-        else
-        {
-            SidebarNavigationView.IsPaneVisible = true;
-            SidebarNavigationView.PaneDisplayMode = NavigationViewPaneDisplayMode.Left;
-            SidebarNavigationView.CompactPaneLength = 48;
-            SidebarNavigationView.IsPaneToggleButtonVisible = true;
-            SidebarNavigationView.IsPaneOpen = false;
-        }
+        SidebarNavigationView.Visibility = mini ? Visibility.Collapsed : Visibility.Visible;
+        MiniWindowGrid.Visibility = mini ? Visibility.Visible : Visibility.Collapsed;
+        SetTitleBar(mini ? MiniTitleBarDragRegion : TitleBarDragRegion);
         TranslationToolbar.Visibility = mini ? Visibility.Collapsed : (_currentPageTag == "Home" ? Visibility.Visible : Visibility.Collapsed);
         HomePageGrid.Visibility = mini ? Visibility.Collapsed : (_currentPageTag == "Home" ? Visibility.Visible : Visibility.Collapsed);
         if (mini)
@@ -1967,7 +1970,6 @@ public sealed partial class MainWindow : Window
                 mini ? MiniWindowHeight : DefaultWindowHeight);
         }
 
-        UpdateNavigationPaneForWindowWidth(AppWindow.ClientSize.Width / GetWindowScale());
         if (mini)
         {
             MiniTargetLanguageComboBox.ItemsSource = Languages.Skip(1).ToList();
@@ -2583,38 +2585,34 @@ public sealed partial class MainWindow : Window
 
     private void SourceTextBox_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
     {
-        if (!_settings.EnterToTranslate
-            || e.Key != Windows.System.VirtualKey.Enter
-            || GetKeyState((int)Windows.System.VirtualKey.Shift) < 0
-            || GetKeyState((int)Windows.System.VirtualKey.Control) < 0
-            || GetKeyState((int)Windows.System.VirtualKey.Menu) < 0)
+        if (!_settings.EnterToTranslate || e.Key != Windows.System.VirtualKey.Enter)
         {
             return;
         }
 
         e.Handled = true;
-        if (!_isTranslating && !string.IsNullOrWhiteSpace(SourceTextBox.Text))
-        {
-            TranslateButton_Click(TranslateButton, new RoutedEventArgs());
-        }
-    }
-
-    private void UpdateNavigationPaneForWindowWidth(double logicalWidth)
-    {
-        if (_isMiniMode || !SidebarNavigationView.IsPaneVisible)
+        var shiftDown = GetKeyState((int)Windows.System.VirtualKey.Shift) < 0;
+        var controlDown = GetKeyState((int)Windows.System.VirtualKey.Control) < 0;
+        var altDown = GetKeyState((int)Windows.System.VirtualKey.Menu) < 0;
+        if (controlDown || altDown)
         {
             return;
         }
 
-        if (logicalWidth < NavigationPaneCollapseWidth && SidebarNavigationView.IsPaneOpen)
+        if (shiftDown)
         {
-            _openNavigationPaneWhenSpaceReturns = true;
-            SidebarNavigationView.IsPaneOpen = false;
+            var start = SourceTextBox.SelectionStart;
+            var length = SourceTextBox.SelectionLength;
+            SourceTextBox.Text = SourceTextBox.Text.Remove(start, length)
+                .Insert(start, Environment.NewLine);
+            SourceTextBox.SelectionStart = start + Environment.NewLine.Length;
+            SourceTextBox.SelectionLength = 0;
+            return;
         }
-        else if (logicalWidth >= DefaultWindowWidth && _openNavigationPaneWhenSpaceReturns)
+
+        if (!_isTranslating && !string.IsNullOrWhiteSpace(SourceTextBox.Text))
         {
-            SidebarNavigationView.IsPaneOpen = true;
-            _openNavigationPaneWhenSpaceReturns = false;
+            TranslateButton_Click(TranslateButton, new RoutedEventArgs());
         }
     }
 

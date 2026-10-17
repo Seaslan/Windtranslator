@@ -14,6 +14,10 @@
         x:Name="WindowRoot"
         Background="Transparent"
         PointerPressed="WindowRoot_PointerPressed">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
         <Grid.Resources>
             <localization:LocalizedProviderConverter x:Key="LocalizedProviderConverter" />
             <Style x:Key="SavedTextItemStyle" TargetType="ListViewItem">
@@ -64,6 +68,7 @@
         </Grid.Resources>
         <Border
             x:Name="AcrylicFallbackLayer"
+            Grid.RowSpan="2"
             Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
             IsHitTestVisible="False"
             Visibility="Collapsed" />
@@ -71,8 +76,11 @@
         <NavigationView
             x:Name="SidebarNavigationView"
             Background="Transparent"
-            PaneDisplayMode="Left"
+            PaneDisplayMode="Auto"
+            CompactModeThresholdWidth="0"
+            ExpandedModeThresholdWidth="900"
             IsPaneOpen="True"
+            CompactPaneLength="48"
             OpenPaneLength="200"
             IsBackButtonVisible="Visible"
             IsBackEnabled="False"
@@ -109,7 +117,6 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <Grid
@@ -1388,37 +1395,6 @@
                 </Border>
             </Grid>
 
-            <Grid x:Name="MiniPageGrid" Grid.Row="1" Grid.RowSpan="3" Canvas.ZIndex="100" Padding="12" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}" IsHitTestVisible="True" Visibility="Collapsed">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <Grid Grid.Row="0" ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Button x:Name="MiniExitButton" Width="36" Height="34" Padding="0" Click="MiniModeButton_Click" ToolTipService.ToolTip="{localization:LocalizedString Key=S9ad30df5111b0ead}">
-                        <SymbolIcon Symbol="FullScreen" />
-                    </Button>
-                    <TextBlock Grid.Column="1" Text="{localization:LocalizedString Key=S34f52662eeb52c89}" VerticalAlignment="Center" />
-                    <ComboBox x:Name="MiniTargetLanguageComboBox" Grid.Column="2" DisplayMemberPath="Display" HorizontalAlignment="Stretch" />
-                </Grid>
-                <TextBox x:Name="MiniSourceTextBox" Grid.Row="1" Margin="0,8" AcceptsReturn="True" TextWrapping="Wrap" PlaceholderText="{localization:LocalizedString Key=S99a6de45d0cd7780}" KeyDown="MiniSourceTextBox_KeyDown" ScrollViewer.VerticalScrollBarVisibility="Auto" />
-                <Grid Grid.Row="2" ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <Button x:Name="MiniClearButton" Width="36" Height="34" Padding="0" Click="MiniClearButton_Click" ToolTipService.ToolTip="{localization:LocalizedString Key=S8adc7488d992ff3b}"><SymbolIcon Symbol="Clear" /></Button>
-                    <ProgressRing x:Name="MiniProgressRing" Grid.Column="1" Width="22" Height="22" HorizontalAlignment="Right" VerticalAlignment="Center" IsActive="False" />
-                    <Button x:Name="MiniTranslateButton" Grid.Column="2" MinWidth="96" Height="34" Style="{StaticResource AccentButtonStyle}" Click="MiniTranslateButton_Click"><StackPanel Orientation="Horizontal" Spacing="8"><SymbolIcon Symbol="Forward" /><TextBlock Text="{localization:LocalizedString Key=Sa52a08335185f048}" /></StackPanel></Button>
-                </Grid>
-            </Grid>
-
             <Grid
                 x:Name="FilePageGrid"
                 Grid.Row="2"
@@ -1711,40 +1687,88 @@
                     Text="{localization:LocalizedString Key=S3b2edcaffaaf8c03}" />
             </StackPanel>
 
-            <InfoBar
-                x:Name="StatusInfoBar"
-                Grid.Row="3"
-                Margin="16,0,16,16"
-                CornerRadius="8"
-                IsOpen="False"
-                Severity="Informational" />
-
-            <TeachingTip
-                x:Name="ClipboardPasteTeachingTip"
-                Title="{localization:LocalizedString Key=S897b4ae359a2e50b}"
-                Subtitle="{localization:LocalizedString Key=S2b0572ab4a258608}"
-                ActionButtonContent="{localization:LocalizedString Key=S33517926747180e6}"
-                CloseButtonContent="{localization:LocalizedString Key=S6e90ac940752ebf1}"
-                IsLightDismissEnabled="True"
-                PlacementMargin="8"
-                PreferredPlacement="Bottom"
-                Target="{Binding ElementName=TranslationHistoryButton}"
-                ActionButtonClick="ClipboardPasteTeachingTip_ActionButtonClick"
-                CloseButtonClick="ClipboardPasteTeachingTip_CloseButtonClick" />
-
-            <TeachingTip
-                x:Name="SelectionTranslationTeachingTip"
-                Title="{localization:LocalizedString Key=S4847e29e6f5144bd}"
-                ActionButtonContent="{localization:LocalizedString Key=Sa52a08335185f048}"
-                CloseButtonContent="{localization:LocalizedString Key=S6e90ac940752ebf1}"
-                IsLightDismissEnabled="True"
-                PlacementMargin="8"
-                PreferredPlacement="Bottom"
-                Target="{Binding ElementName=SourceTextBox}"
-                ActionButtonClick="SelectionTranslationTeachingTip_ActionButtonClick"
-                CloseButtonClick="SelectionTranslationTeachingTip_CloseButtonClick" />
         </Grid>
             </NavigationView.Content>
         </NavigationView>
+
+        <!-- Mini mode fills the window independently of NavigationView's pane layout. -->
+        <Grid x:Name="MiniWindowGrid" Background="{ThemeResource WindPageBackgroundBrush}" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="48" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Grid Background="Transparent">
+                <Border x:Name="MiniTitleBarDragRegion" Background="Transparent" />
+                <TextBlock
+                    Text="{localization:LocalizedString Key=Sd608ccd939a78fb2}"
+                    Margin="16,0,0,0"
+                    FontSize="16"
+                    FontWeight="SemiBold"
+                    VerticalAlignment="Center" />
+            </Grid>
+            <Grid x:Name="MiniPageGrid" Grid.Row="1" Padding="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="MiniExitButton" Width="36" Height="34" Padding="0" Click="MiniModeButton_Click" ToolTipService.ToolTip="{localization:LocalizedString Key=S9ad30df5111b0ead}">
+                        <SymbolIcon Symbol="FullScreen" />
+                    </Button>
+                    <TextBlock Grid.Column="1" Text="{localization:LocalizedString Key=S34f52662eeb52c89}" VerticalAlignment="Center" />
+                    <ComboBox x:Name="MiniTargetLanguageComboBox" Grid.Column="2" DisplayMemberPath="Display" HorizontalAlignment="Stretch" />
+                </Grid>
+                <TextBox x:Name="MiniSourceTextBox" Grid.Row="1" Margin="0,8" AcceptsReturn="True" TextWrapping="Wrap" PlaceholderText="{localization:LocalizedString Key=S99a6de45d0cd7780}" KeyDown="MiniSourceTextBox_KeyDown" ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                <Grid Grid.Row="2" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="MiniClearButton" Width="36" Height="34" Padding="0" Click="MiniClearButton_Click" ToolTipService.ToolTip="{localization:LocalizedString Key=S8adc7488d992ff3b}"><SymbolIcon Symbol="Clear" /></Button>
+                    <ProgressRing x:Name="MiniProgressRing" Grid.Column="1" Width="22" Height="22" HorizontalAlignment="Right" VerticalAlignment="Center" IsActive="False" />
+                    <Button x:Name="MiniTranslateButton" Grid.Column="2" MinWidth="96" Height="34" Style="{StaticResource AccentButtonStyle}" Click="MiniTranslateButton_Click"><StackPanel Orientation="Horizontal" Spacing="8"><SymbolIcon Symbol="Forward" /><TextBlock Text="{localization:LocalizedString Key=Sa52a08335185f048}" /></StackPanel></Button>
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <InfoBar
+            x:Name="StatusInfoBar"
+            Grid.Row="1"
+            Margin="16,0,16,16"
+            CornerRadius="8"
+            IsOpen="False"
+            Severity="Informational" />
+
+        <TeachingTip
+            x:Name="ClipboardPasteTeachingTip"
+            Title="{localization:LocalizedString Key=S897b4ae359a2e50b}"
+            Subtitle="{localization:LocalizedString Key=S2b0572ab4a258608}"
+            ActionButtonContent="{localization:LocalizedString Key=S33517926747180e6}"
+            CloseButtonContent="{localization:LocalizedString Key=S6e90ac940752ebf1}"
+            IsLightDismissEnabled="True"
+            PlacementMargin="8"
+            PreferredPlacement="Bottom"
+            Target="{Binding ElementName=TranslationHistoryButton}"
+            ActionButtonClick="ClipboardPasteTeachingTip_ActionButtonClick"
+            CloseButtonClick="ClipboardPasteTeachingTip_CloseButtonClick" />
+
+        <TeachingTip
+            x:Name="SelectionTranslationTeachingTip"
+            Title="{localization:LocalizedString Key=S4847e29e6f5144bd}"
+            ActionButtonContent="{localization:LocalizedString Key=Sa52a08335185f048}"
+            CloseButtonContent="{localization:LocalizedString Key=S6e90ac940752ebf1}"
+            IsLightDismissEnabled="True"
+            PlacementMargin="8"
+            PreferredPlacement="Bottom"
+            Target="{Binding ElementName=SourceTextBox}"
+            ActionButtonClick="SelectionTranslationTeachingTip_ActionButtonClick"
+            CloseButtonClick="SelectionTranslationTeachingTip_CloseButtonClick" />
     </Grid>
 </Window>
