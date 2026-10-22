@@ -129,6 +129,8 @@ public sealed class AppSettings
 
     public bool EnterToTranslate { get; set; }
 
+    public bool RealtimeTranslationEnabled { get; set; } = true;
+
     public int LocalTranslationSourceIndex { get; set; }
 
     public string LocalModelPath { get; set; } = string.Empty;

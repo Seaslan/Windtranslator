@@ -23,7 +23,7 @@ public sealed partial class MainWindow
         if (_settings is null) return;
         var sourceText = SourceTextBox.Text;
         var translatedText = OutputTextBox.Text;
-        AddFavoriteButton.IsEnabled = !_isTranslating && !_isSelectionTranslating
+        AddFavoriteButton.IsEnabled = !_isTranslating && !_isSelectionTranslating && !_isRealtimeTranslating
             && !string.IsNullOrWhiteSpace(sourceText);
         FavoriteIcon.Glyph = _settings.Favorites.Any(item =>
             string.Equals(item.SourceText, sourceText, StringComparison.Ordinal)
@@ -35,7 +35,7 @@ public sealed partial class MainWindow
     private void AddFavoriteButton_Click(object sender, RoutedEventArgs e)
     {
         var sourceText = SourceTextBox.Text;
-        if (_isTranslating || _isSelectionTranslating || string.IsNullOrWhiteSpace(sourceText)) return;
+        if (_isTranslating || _isSelectionTranslating || _isRealtimeTranslating || string.IsNullOrWhiteSpace(sourceText)) return;
         var translatedText = OutputTextBox.Text;
         if (_settings.Favorites.Any(item =>
             string.Equals(item.SourceText, sourceText, StringComparison.Ordinal)
@@ -64,6 +64,7 @@ public sealed partial class MainWindow
         SourceTextBox.Text = favorite.SourceText;
         OutputTextBox.Text = favorite.TranslatedText;
         NavigateTo("Home");
+        SuspendRealtimeTranslationForCurrentInput();
         SourceTextBox.Focus(FocusState.Programmatic);
         SourceTextBox.SelectionStart = favorite.SourceText.Length;
         SourceTextBox.SelectionLength = 0;

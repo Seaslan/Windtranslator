@@ -148,6 +148,7 @@ public sealed partial class MainWindow : Window
         Closed += (_, _) =>
         {
             _isWindowClosed = true;
+            CancelRealtimeTranslation();
             AppWindow.Changed -= AppWindow_Changed;
             NetworkInformation.NetworkStatusChanged -= NetworkInformation_NetworkStatusChanged;
             Clipboard.ContentChanged -= Clipboard_ContentChanged;
@@ -223,6 +224,7 @@ public sealed partial class MainWindow : Window
         MicaBackdropCheckBox.IsChecked = _settings.MicaBackdropEnabled;
         AlwaysOnTopToggleSwitch.IsOn = _settings.AlwaysOnTop;
         EnterToTranslateToggleSwitch.IsOn = _settings.EnterToTranslate;
+        RealtimeTranslationToggleSwitch.IsOn = _settings.RealtimeTranslationEnabled;
         ApplyEnterToTranslateInputMode();
         UpdateEnterShortcutLabels();
         TranslationHistoryLimitComboBox.ItemsSource = new[] { Localization.Text("不保存翻译历史"), Localization.Text("5 条"), Localization.Text("20 条"), Localization.Text("无上限") };
@@ -1040,6 +1042,7 @@ public sealed partial class MainWindow : Window
         }
 
         _aliyunAccessKeyId = AliyunAccessKeyIdPasswordBox.Password;
+        UpdateUiState();
         if (AliyunRememberKeyCheckBox.IsChecked == true && !string.IsNullOrEmpty(_aliyunAccessKeyId))
         {
             SaveKeyToVault(AliyunAccessKeyIdResource, _aliyunAccessKeyId);
@@ -1054,6 +1057,7 @@ public sealed partial class MainWindow : Window
         }
 
         _aliyunAccessKeySecret = AliyunAccessKeySecretPasswordBox.Password;
+        UpdateUiState();
         if (AliyunRememberKeyCheckBox.IsChecked == true && !string.IsNullOrEmpty(_aliyunAccessKeySecret))
         {
             SaveKeyToVault(AliyunAccessKeySecretResource, _aliyunAccessKeySecret);
@@ -1293,6 +1297,7 @@ public sealed partial class MainWindow : Window
 
         try
         {
+            SuspendRealtimeTranslationForCurrentInput();
             _isSelectionTranslating = true;
             UpdateUiState();
             var translatedText = await TranslateTextAsync(
@@ -1594,9 +1599,8 @@ public sealed partial class MainWindow : Window
 
         if (_isMiniMode)
         {
-            MiniSourceTextBox.IsReadOnly = false;
-            MiniSourceTextBox.Text = text;
-            MiniTranslateButton.IsEnabled = true;
+            if (_isMiniTranslating) return;
+            SetMiniInputText(text);
             MiniSourceTextBox.Focus(FocusState.Programmatic);
             MiniSourceTextBox.SelectionStart = text.Length;
             return;
@@ -1755,6 +1759,7 @@ public sealed partial class MainWindow : Window
         };
         _suppressSidebarSync = false;
         SidebarNavigationView.IsBackEnabled = _backStack.Count > 0;
+        UpdateUiState();
     }
 
     private void InstallMinimumSizeHandler()
@@ -1913,15 +1918,20 @@ public sealed partial class MainWindow : Window
             }
 
             var logicalWidth = AppWindow.ClientSize.Width / GetWindowScale();
+            var logicalHeight = AppWindow.ClientSize.Height / GetWindowScale();
             if (!_isMiniMode && logicalWidth <= MiniModeEnterWidth)
             {
                 SetMiniMode(true, resizeWindow: false);
                 return;
             }
 
-            if (_isMiniMode && logicalWidth >= MiniModeExitWidth)
+            if (_isMiniMode && logicalWidth >= MiniModeExitWidth && logicalWidth >= logicalHeight)
             {
                 SetMiniMode(false, resizeWindow: false);
+            }
+            else if (_isMiniMode)
+            {
+                UpdateMiniLayout(logicalWidth, logicalHeight);
             }
         }))
         {
@@ -1931,13 +1941,21 @@ public sealed partial class MainWindow : Window
 
     private void SetMiniMode(bool mini, bool resizeWindow)
     {
+        var scale = GetWindowScale();
+        var currentWidth = AppWindow.ClientSize.Width / scale;
+        var currentHeight = AppWindow.ClientSize.Height / scale;
+        // Keep a tall window tall when the user explicitly enters mini mode.
+        // Landscape windows retain the original compact mini size.
+        var useTallWindow = mini && ShouldUseStackedMiniLayout(currentWidth, currentHeight, false);
+        var targetWidth = useTallWindow ? Math.Min((int)currentWidth, MiniWindowWidth) : MiniWindowWidth;
+        var targetHeight = useTallWindow ? (int)currentHeight : MiniWindowHeight;
         if (_isMiniMode == mini)
         {
             if (resizeWindow)
             {
                 ResizeWindowInDips(
-                    mini ? MiniWindowWidth : DefaultWindowWidth,
-                    mini ? MiniWindowHeight : DefaultWindowHeight);
+                    mini ? targetWidth : DefaultWindowWidth,
+                    mini ? targetHeight : DefaultWindowHeight);
             }
 
             return;
@@ -1966,12 +1984,15 @@ public sealed partial class MainWindow : Window
         if (resizeWindow)
         {
             ResizeWindowInDips(
-                mini ? MiniWindowWidth : DefaultWindowWidth,
-                mini ? MiniWindowHeight : DefaultWindowHeight);
+                mini ? targetWidth : DefaultWindowWidth,
+                mini ? targetHeight : DefaultWindowHeight);
         }
 
         if (mini)
         {
+            UpdateMiniLayout(
+                resizeWindow ? targetWidth : currentWidth,
+                resizeWindow ? targetHeight : currentHeight);
             MiniTargetLanguageComboBox.ItemsSource = Languages.Skip(1).ToList();
             MiniTargetLanguageComboBox.SelectedIndex = Math.Clamp(
                 _settings.TargetLanguageIndex - 1,
@@ -1982,19 +2003,20 @@ public sealed partial class MainWindow : Window
                 MiniSourceTextBox.Focus(FocusState.Programmatic);
             }
         }
+        UpdateUiState();
     }
 
     private void MiniClearButton_Click(object sender, RoutedEventArgs e)
     {
-        MiniSourceTextBox.IsReadOnly = false;
-        MiniSourceTextBox.Text = string.Empty;
-        MiniTranslateButton.IsEnabled = true;
+        if (_isMiniTranslating) return;
+        SetMiniInputText(string.Empty);
         MiniSourceTextBox.Focus(FocusState.Programmatic);
     }
 
     private void MiniSourceTextBox_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
     {
-        if (e.Key == Windows.System.VirtualKey.Enter && !MiniSourceTextBox.IsReadOnly)
+        if (e.Key == Windows.System.VirtualKey.Enter && !MiniSourceTextBox.IsReadOnly
+            && GetKeyState((int)Windows.System.VirtualKey.Shift) >= 0)
         {
             e.Handled = true;
             _ = MiniTranslateButton_ClickAsync();
@@ -2006,38 +2028,46 @@ public sealed partial class MainWindow : Window
     private async Task MiniTranslateButton_ClickAsync()
     {
         var text = MiniSourceTextBox.Text.Trim();
-        if (text.Length == 0 || MiniTargetLanguageComboBox.SelectedItem is not LanguageOption targetLanguage)
+        if (_isMiniTranslating || (!_isStackedMiniLayout && _miniHasResult)
+            || text.Length == 0 || MiniTargetLanguageComboBox.SelectedItem is not LanguageOption targetLanguage)
         {
             return;
         }
 
         try
         {
-            MiniTranslateButton.IsEnabled = false;
-            MiniClearButton.IsEnabled = false;
-            MiniSourceTextBox.IsReadOnly = true;
-            MiniProgressRing.IsActive = true;
+            _miniInputText = MiniSourceTextBox.Text;
+            _isMiniTranslating = true;
+            _miniHasResult = false;
+            _miniResultText = string.Empty;
+            UpdateMiniTextPresentation();
+            UpdateUiState();
             var result = await TranslateTextAsync(
                 text,
                 Math.Clamp(ModeComboBox.SelectedIndex, 0, 2),
                 Languages[0],
                 targetLanguage,
                 CancellationToken.None,
-                onTextUpdated: text => MiniSourceTextBox.Text = text);
-            MiniSourceTextBox.Text = result;
+                onTextUpdated: translatedText =>
+                {
+                    _miniResultText = translatedText;
+                    UpdateMiniTextPresentation();
+                });
+            _miniResultText = result;
+            _miniHasResult = true;
             AddTranslationHistory(text);
         }
         catch (Exception ex)
         {
-            MiniSourceTextBox.IsReadOnly = false;
-            MiniSourceTextBox.Text = text;
+            _miniHasResult = false;
+            _miniResultText = string.Empty;
             ShowInfo(Localization.Text("翻译失败：") + ex.Message, InfoBarSeverity.Error);
         }
         finally
         {
-            MiniProgressRing.IsActive = false;
-            MiniClearButton.IsEnabled = true;
-            MiniTranslateButton.IsEnabled = !MiniSourceTextBox.IsReadOnly;
+            _isMiniTranslating = false;
+            UpdateMiniTextPresentation();
+            if (!_isWindowClosed) UpdateUiState();
         }
     }
 
@@ -2649,6 +2679,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        SuspendRealtimeTranslationForCurrentInput();
         var sourceText = SourceTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(sourceText))
         {
@@ -2864,34 +2895,32 @@ public sealed partial class MainWindow : Window
                 throw new InvalidOperationException(Localization.Text("请填写阿里云机器翻译 AccessKey ID 和 AccessKey Secret。"));
             }
 
-            return await _machineTranslationService.TranslateAsync(
-                new MachineTranslationRequest(
-                    AliyunServiceUrl,
-                    _aliyunAccessKeyId,
-                    _aliyunAccessKeySecret,
-                    sourceLanguage.ApiCode,
-                    targetLanguage.ApiCode,
-                    text),
-                cancellationToken);
+            var request = new MachineTranslationRequest(
+                AliyunServiceUrl,
+                _aliyunAccessKeyId,
+                _aliyunAccessKeySecret,
+                sourceLanguage.ApiCode,
+                targetLanguage.ApiCode,
+                text);
+            return await RunTranslationInBackgroundAsync(
+                () => _machineTranslationService.TranslateAsync(request, cancellationToken), cancellationToken);
         }
 
         var useLocalModel = mode == 2 && LocalTranslationSourceComboBox.SelectedIndex == 1;
         if (useLocalModel)
         {
-            if (!IsBergamotRuntimeAvailable())
-            {
-                throw new InvalidOperationException(Localization.Text("当前发布包未包含 Mozilla Translations 本地翻译引擎。"));
-            }
-
             if (string.IsNullOrWhiteSpace(_selectedOfflineModelPath))
             {
                 throw new InvalidOperationException(Localization.Text("请先在设置中下载并选择离线语言模型。"));
             }
 
-            return await _bergamotTranslationService.TranslateAsync(
-                _selectedOfflineModelPath,
-                text,
-                cancellationToken);
+            var modelPath = _selectedOfflineModelPath;
+            return await RunTranslationInBackgroundAsync(async () =>
+            {
+                if (!IsBergamotRuntimeAvailable())
+                    throw new InvalidOperationException(Localization.Text("当前发布包未包含 Mozilla Translations 本地翻译引擎。"));
+                return await _bergamotTranslationService.TranslateAsync(modelPath, text, cancellationToken);
+            }, cancellationToken);
         }
 
         var endpoint = mode == 2 ? LocalEndpointTextBox.Text.Trim() : GetProviderEndpoint(_currentProvider);
@@ -2922,9 +2951,59 @@ public sealed partial class MainWindow : Window
             systemPrompt += "\n\n补充要求：" + CustomPromptTextBox.Text.Trim();
         }
 
-        return await _translationService.TranslateAsync(
-            new TranslationRequest(endpoint, apiKey, model, systemPrompt, text),
-            cancellationToken, _settings.AiStreamingEnabled, onTextUpdated);
+        // Capture controls/settings on the UI thread; service startup, parsing and streaming run
+        // in the background. Wait for each UI update so chunks stay ordered and callback errors
+        // (for example, a changed selection) still propagate to the translation error handler.
+        var translationRequest = new TranslationRequest(endpoint, apiKey, model, systemPrompt, text);
+        var streaming = _settings.AiStreamingEnabled;
+        var progress = CreateTranslationProgressCallback(onTextUpdated, cancellationToken);
+        return await RunTranslationInBackgroundAsync(
+            () => _translationService.TranslateAsync(translationRequest, cancellationToken, streaming, progress),
+            cancellationToken);
+    }
+
+    private static Action<string>? CreateTranslationProgressCallback(
+        Action<string>? onTextUpdated, CancellationToken cancellationToken)
+    {
+        if (onTextUpdated is null) return null;
+        var context = SynchronizationContext.Current;
+        return text =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (context is null || ReferenceEquals(context, SynchronizationContext.Current))
+            {
+                onTextUpdated(text);
+                return;
+            }
+
+            var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            context.Post(_ =>
+            {
+                try
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    onTextUpdated(text);
+                    completion.SetResult();
+                }
+                catch (OperationCanceledException)
+                {
+                    completion.SetCanceled(cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    completion.SetException(ex);
+                }
+            }, null);
+            completion.Task.WaitAsync(cancellationToken).GetAwaiter().GetResult();
+        };
+    }
+
+    private static async Task<string> RunTranslationInBackgroundAsync(
+        Func<Task<string>> translate, CancellationToken cancellationToken)
+    {
+        var result = await Task.Run(translate, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        return result;
     }
 
     private string? GetTranslationConfigurationError(int mode)
@@ -3220,6 +3299,8 @@ public sealed partial class MainWindow : Window
 
     private void UpdateUiState()
     {
+        RefreshRealtimeTranslation();
+        ProgressRing.IsActive = _isTranslating || _isRealtimeTranslating;
         UpdateFavoritesState();
         ProviderApiKeyPasswordBox.IsEnabled = !_isTranslating && !_isSelectionTranslating
             && !_isImageTranslating && !_isFileTranslating && !MiniProgressRing.IsActive;
@@ -3243,6 +3324,7 @@ public sealed partial class MainWindow : Window
         _settings.MicaBackdropEnabled = MicaBackdropCheckBox.IsChecked == true;
         _settings.AlwaysOnTop = AlwaysOnTopToggleSwitch.IsOn;
         _settings.EnterToTranslate = EnterToTranslateToggleSwitch.IsOn;
+        _settings.RealtimeTranslationEnabled = RealtimeTranslationToggleSwitch.IsOn;
         _settings.TranslationHistoryLimit = NormalizeTranslationHistoryLimit(_settings.TranslationHistoryLimit);
         var sourceLanguage = SourceLanguageComboBox.SelectedItem as LanguageOption;
         var targetLanguage = TargetLanguageComboBox.SelectedItem as LanguageOption;
@@ -3270,6 +3352,7 @@ public sealed partial class MainWindow : Window
         }
 
         AppSettingsStore.Save(_settings);
+        UpdateUiState();
     }
 
     private void ApplyTheme()

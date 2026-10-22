@@ -1320,4 +1320,16 @@
     <value>The service returned an invalid model list.</value>
     <comment>服务返回了无法解析的模型列表。</comment>
   </data>
+  <data name="S8251b844088b0ecd" xml:space="preserve">
+    <value>Other features</value>
+  </data>
+  <data name="S5a31c60d655639af" xml:space="preserve">
+    <value>Realtime translation</value>
+  </data>
+  <data name="Sf1527fb8af9b9760" xml:space="preserve">
+    <value>On the home page, automatically translate after you pause typing in API or local translation mode. Automatic translations are not added to history; click Translate to record them.</value>
+  </data>
+  <data name="S4eebc47fab088ba6" xml:space="preserve">
+    <value>Realtime translation failed: {0}</value>
+  </data>
 </root>

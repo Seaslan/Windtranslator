@@ -1006,4 +1006,16 @@
   <data name="Scaac234b836ef4f7" xml:space="preserve">
     <value>服务返回了无法解析的模型列表。</value>
   </data>
+  <data name="S8251b844088b0ecd" xml:space="preserve">
+    <value>其它功能</value>
+  </data>
+  <data name="S5a31c60d655639af" xml:space="preserve">
+    <value>实时翻译</value>
+  </data>
+  <data name="Sf1527fb8af9b9760" xml:space="preserve">
+    <value>主页使用 API 翻译或本地翻译时，输入停顿后自动翻译。自动翻译不保存历史，点击翻译后才记录。</value>
+  </data>
+  <data name="S4eebc47fab088ba6" xml:space="preserve">
+    <value>实时翻译失败：{0}</value>
+  </data>
 </root>
