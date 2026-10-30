@@ -1734,80 +1734,9 @@
                     FontWeight="SemiBold"
                     VerticalAlignment="Center" />
             </Grid>
-            <Grid x:Name="MiniPageGrid" Grid.Row="1" Padding="12">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition x:Name="MiniResultRow" Height="0" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <Grid Grid.Row="0" ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Button x:Name="MiniExitButton" Width="36" Height="34" Padding="0" Click="MiniModeButton_Click" ToolTipService.ToolTip="{localization:LocalizedString Key=S9ad30df5111b0ead}">
-                        <SymbolIcon Symbol="FullScreen" />
-                    </Button>
-                    <TextBlock Grid.Column="1" Text="{localization:LocalizedString Key=S34f52662eeb52c89}" VerticalAlignment="Center" />
-                    <ComboBox x:Name="MiniTargetLanguageComboBox" Grid.Column="2" DisplayMemberPath="Display" HorizontalAlignment="Stretch" />
-                </Grid>
-                <Grid Grid.Row="1" Margin="0,8,0,4" RowSpacing="6">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <TextBlock x:Name="MiniSourceLabel" Visibility="Collapsed"
-                        Text="{localization:LocalizedString Key=Se8502c968c8ab89d}"
-                        Style="{StaticResource BodyStrongTextBlockStyle}" />
-                    <TextBox x:Name="MiniSourceTextBox" Grid.Row="1" AcceptsReturn="True"
-                        TextWrapping="Wrap" FontSize="16"
-                        PlaceholderText="{localization:LocalizedString Key=S99a6de45d0cd7780}"
-                        AutomationProperties.Name="{localization:LocalizedString Key=Se8502c968c8ab89d}"
-                        TextChanged="MiniSourceTextBox_TextChanged"
-                        KeyDown="MiniSourceTextBox_KeyDown"
-                        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                        ScrollViewer.VerticalScrollBarVisibility="Auto" />
-                </Grid>
-                <Grid x:Name="MiniResultPanel" Grid.Row="2" Margin="0,4,0,8" RowSpacing="6" Visibility="Collapsed">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Grid ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="{localization:LocalizedString Key=S80461c2decc549dc}"
-                            VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                        <Button x:Name="MiniCopyResultButton" Grid.Column="1" Width="28" Height="28"
-                            MinWidth="0" MinHeight="0" Padding="0" BorderThickness="0"
-                            Background="Transparent" IsEnabled="False" Click="MiniCopyResultButton_Click"
-                            AutomationProperties.Name="{localization:LocalizedString Key=S032eb48c7a431ec0}"
-                            ToolTipService.ToolTip="{localization:LocalizedString Key=S032eb48c7a431ec0}">
-                            <FontIcon Glyph="&#xE8C8;" FontSize="16" />
-                        </Button>
-                    </Grid>
-                    <TextBox x:Name="MiniOutputTextBox" Grid.Row="1" AcceptsReturn="True"
-                        IsReadOnly="True" TextWrapping="Wrap" FontSize="16"
-                        PlaceholderText="{localization:LocalizedString Key=Sd83fdf18df41c98d}"
-                        AutomationProperties.Name="{localization:LocalizedString Key=S80461c2decc549dc}"
-                        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                        ScrollViewer.VerticalScrollBarVisibility="Auto" />
-                </Grid>
-                <Grid Grid.Row="3" Margin="0,4,0,0" ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <Button x:Name="MiniClearButton" Width="36" Height="34" Padding="0" Click="MiniClearButton_Click" ToolTipService.ToolTip="{localization:LocalizedString Key=S8adc7488d992ff3b}"><SymbolIcon Symbol="Clear" /></Button>
-                    <ProgressRing x:Name="MiniProgressRing" Grid.Column="1" Width="22" Height="22" HorizontalAlignment="Right" VerticalAlignment="Center" IsActive="False" />
-                    <Button x:Name="MiniTranslateButton" Grid.Column="2" MinWidth="96" Height="34" Style="{StaticResource AccentButtonStyle}" Click="MiniTranslateButton_Click"><StackPanel Orientation="Horizontal" Spacing="8"><SymbolIcon Symbol="Forward" /><TextBlock Text="{localization:LocalizedString Key=Sa52a08335185f048}" /></StackPanel></Button>
-                </Grid>
-            </Grid>
+            <!-- Pilot: the mini translator body is rendered by Microsoft.UI.Reactor (MiniTranslator.cs). -->
+            <ContentControl x:Name="MiniPageHost" Grid.Row="1" Padding="12"
+                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
         </Grid>
 
         <InfoBar

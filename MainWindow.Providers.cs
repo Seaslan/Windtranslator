@@ -156,7 +156,7 @@ public sealed partial class MainWindow
             ShowInfo(Localization.Text("请等待模型列表获取完成后再修改供应商或模型。"), InfoBarSeverity.Warning);
             return false;
         }
-        if (_isTranslating || _isSelectionTranslating || _isImageTranslating || _isFileTranslating || MiniProgressRing.IsActive)
+        if (_isTranslating || _isSelectionTranslating || _isImageTranslating || _isFileTranslating || IsMiniTranslating)
         {
             ShowInfo(Localization.Text("请等待当前翻译完成后再修改供应商或模型。"), InfoBarSeverity.Warning);
             return false;

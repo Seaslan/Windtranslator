@@ -1577,7 +1577,9 @@ public sealed partial class MainWindow : Window
             }
 
             _pendingClipboardText = text;
-            ClipboardPasteTeachingTip.Target = _isMiniMode ? MiniSourceTextBox : TranslationHistoryButton;
+            ClipboardPasteTeachingTip.Target = _isMiniMode
+                ? MiniStore.SourceTextBox ?? (FrameworkElement)MiniPageHost
+                : TranslationHistoryButton;
             ClipboardPasteTeachingTip.Subtitle = BuildClipboardPreview(text);
             ClipboardPasteTeachingTip.IsOpen = true;
         }
@@ -1599,10 +1601,9 @@ public sealed partial class MainWindow : Window
 
         if (_isMiniMode)
         {
-            if (_isMiniTranslating) return;
-            SetMiniInputText(text);
-            MiniSourceTextBox.Focus(FocusState.Programmatic);
-            MiniSourceTextBox.SelectionStart = text.Length;
+            if (IsMiniTranslating) return;
+            MiniStore.SetInput(text);
+            MiniStore.RequestFocus();
             return;
         }
 
@@ -1990,85 +1991,11 @@ public sealed partial class MainWindow : Window
 
         if (mini)
         {
-            UpdateMiniLayout(
+            ShowMiniTranslator(
                 resizeWindow ? targetWidth : currentWidth,
                 resizeWindow ? targetHeight : currentHeight);
-            MiniTargetLanguageComboBox.ItemsSource = Languages.Skip(1).ToList();
-            MiniTargetLanguageComboBox.SelectedIndex = Math.Clamp(
-                _settings.TargetLanguageIndex - 1,
-                0,
-                Languages.Count - 2);
-            if (!MiniSourceTextBox.IsReadOnly)
-            {
-                MiniSourceTextBox.Focus(FocusState.Programmatic);
-            }
         }
         UpdateUiState();
-    }
-
-    private void MiniClearButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_isMiniTranslating) return;
-        SetMiniInputText(string.Empty);
-        MiniSourceTextBox.Focus(FocusState.Programmatic);
-    }
-
-    private void MiniSourceTextBox_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
-    {
-        if (e.Key == Windows.System.VirtualKey.Enter && !MiniSourceTextBox.IsReadOnly
-            && GetKeyState((int)Windows.System.VirtualKey.Shift) >= 0)
-        {
-            e.Handled = true;
-            _ = MiniTranslateButton_ClickAsync();
-        }
-    }
-
-    private void MiniTranslateButton_Click(object sender, RoutedEventArgs e) => _ = MiniTranslateButton_ClickAsync();
-
-    private async Task MiniTranslateButton_ClickAsync()
-    {
-        var text = MiniSourceTextBox.Text.Trim();
-        if (_isMiniTranslating || (!_isStackedMiniLayout && _miniHasResult)
-            || text.Length == 0 || MiniTargetLanguageComboBox.SelectedItem is not LanguageOption targetLanguage)
-        {
-            return;
-        }
-
-        try
-        {
-            _miniInputText = MiniSourceTextBox.Text;
-            _isMiniTranslating = true;
-            _miniHasResult = false;
-            _miniResultText = string.Empty;
-            UpdateMiniTextPresentation();
-            UpdateUiState();
-            var result = await TranslateTextAsync(
-                text,
-                Math.Clamp(ModeComboBox.SelectedIndex, 0, 2),
-                Languages[0],
-                targetLanguage,
-                CancellationToken.None,
-                onTextUpdated: translatedText =>
-                {
-                    _miniResultText = translatedText;
-                    UpdateMiniTextPresentation();
-                });
-            _miniResultText = result;
-            _miniHasResult = true;
-            AddTranslationHistory(text);
-        }
-        catch (Exception ex)
-        {
-            _miniHasResult = false;
-            _miniResultText = string.Empty;
-            ShowInfo(Localization.Text("翻译失败：") + ex.Message, InfoBarSeverity.Error);
-        }
-        finally
-        {
-            _isMiniTranslating = false;
-            UpdateMiniTextPresentation();
-            if (!_isWindowClosed) UpdateUiState();
-        }
     }
 
     private async void ClearImageSelectionButton_Click(object sender, RoutedEventArgs e)
@@ -3303,7 +3230,7 @@ public sealed partial class MainWindow : Window
         ProgressRing.IsActive = _isTranslating || _isRealtimeTranslating;
         UpdateFavoritesState();
         ProviderApiKeyPasswordBox.IsEnabled = !_isTranslating && !_isSelectionTranslating
-            && !_isImageTranslating && !_isFileTranslating && !MiniProgressRing.IsActive;
+            && !_isImageTranslating && !_isFileTranslating && !IsMiniTranslating;
         TranslateButton.IsEnabled = _isTranslating || (!_isSelectionTranslating && SourceTextBox.Text.Trim().Length > 0);
         MicButton.IsEnabled = !_isTranslating && !_isSelectionTranslating && !_isOpeningSystemDictation;
         SpeakButton.IsEnabled = _speechOutput.IsSpeaking || OutputTextBox.Text.Trim().Length > 0;

@@ -1,17 +1,40 @@
+using Microsoft.UI.Reactor.Hosting;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Windtranslator.Services;
 
 namespace Windtranslator;
 
 public sealed partial class MainWindow
 {
-    private bool _isStackedMiniLayout;
-    private bool _isMiniTranslating;
-    private bool _miniHasResult;
-    private bool _updatingMiniText;
-    private string _miniInputText = string.Empty;
-    private string _miniResultText = string.Empty;
+    private MiniTranslatorStore? _miniStore;
+
+    private MiniTranslatorStore MiniStore => _miniStore ??= CreateMiniStore();
+
+    private bool IsMiniTranslating => _miniStore?.State.IsTranslating == true;
+
+    private MiniTranslatorStore CreateMiniStore()
+    {
+        var store = new MiniTranslatorStore
+        {
+            Translate = () => _ = TranslateMiniAsync(),
+            ExitMiniMode = () => SetMiniMode(false, resizeWindow: true),
+            CopyResult = text => { if (!string.IsNullOrWhiteSpace(text)) SetClipboardText(text); },
+        };
+        // ReactorHostControl has no parameterless constructor, so XAML only reserves its slot.
+        var host = new ReactorHostControl
+        {
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            VerticalContentAlignment = VerticalAlignment.Stretch,
+        };
+        MiniPageHost.Content = host;
+        host.Mount(new MiniTranslatorView(store));
+        return store;
+    }
 
     private static bool ShouldUseStackedMiniLayout(double width, double height, bool isStacked)
     {
@@ -21,65 +44,52 @@ public sealed partial class MainWindow
             && (width <= (isStacked ? 624 : 600) || height >= width + (isStacked ? -24 : 0));
     }
 
-    private void UpdateMiniLayout(double width, double height)
-    {
-        var stacked = ShouldUseStackedMiniLayout(width, height, _isStackedMiniLayout);
-        if (stacked == _isStackedMiniLayout) return;
+    private void UpdateMiniLayout(double width, double height) =>
+        MiniStore.Update(s => s with { IsStacked = ShouldUseStackedMiniLayout(width, height, s.IsStacked) });
 
-        _isStackedMiniLayout = stacked;
-        MiniResultRow.Height = stacked ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
-        MiniSourceLabel.Visibility = stacked ? Visibility.Visible : Visibility.Collapsed;
-        MiniResultPanel.Visibility = stacked ? Visibility.Visible : Visibility.Collapsed;
-        UpdateMiniTextPresentation();
+    private void ShowMiniTranslator(double width, double height)
+    {
+        var store = MiniStore;
+        store.TargetLanguageNames = Languages.Skip(1).Select(language => language.Display).ToArray();
+        store.Update(s => s with
+        {
+            IsStacked = ShouldUseStackedMiniLayout(width, height, s.IsStacked),
+            TargetIndex = Math.Clamp(_settings.TargetLanguageIndex - 1, 0, Languages.Count - 2),
+        });
+        store.RequestFocus();
     }
 
-    private void SetMiniInputText(string text)
+    private async Task TranslateMiniAsync()
     {
-        _miniInputText = text;
-        _miniResultText = string.Empty;
-        _miniHasResult = false;
-        UpdateMiniTextPresentation();
-    }
+        var store = MiniStore;
+        var state = store.State;
+        var text = state.Input.Trim();
+        if (!state.CanTranslate || text.Length == 0) return;
+        var targetLanguage = Languages[Math.Clamp(state.TargetIndex + 1, 1, Languages.Count - 1)];
 
-    private void MiniSourceTextBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        // TextChanged can be delivered after a programmatic layout refresh. Restoring
-        // the same source must not clear a result that was retained during resizing.
-        if (_updatingMiniText || _isMiniTranslating || MiniSourceTextBox.IsReadOnly
-            || MiniSourceTextBox.Text == _miniInputText) return;
-        _miniInputText = MiniSourceTextBox.Text;
-        _miniResultText = string.Empty;
-        _miniHasResult = false;
-        // The lower controls may not exist yet during XAML initialization.
-        if (MiniOutputTextBox is not null) MiniOutputTextBox.Text = string.Empty;
-        if (MiniCopyResultButton is not null) MiniCopyResultButton.IsEnabled = false;
-    }
-
-    private void UpdateMiniTextPresentation()
-    {
-        _updatingMiniText = true;
         try
         {
-            var showResultInSource = !_isStackedMiniLayout
-                && (_miniHasResult || (_isMiniTranslating && _miniResultText.Length > 0));
-            var visibleText = showResultInSource ? _miniResultText : _miniInputText;
-            if (MiniSourceTextBox.Text != visibleText) MiniSourceTextBox.Text = visibleText;
-            MiniSourceTextBox.IsReadOnly = _isMiniTranslating || (!_isStackedMiniLayout && _miniHasResult);
-            if (MiniOutputTextBox.Text != _miniResultText) MiniOutputTextBox.Text = _miniResultText;
-            MiniCopyResultButton.IsEnabled = !string.IsNullOrWhiteSpace(_miniResultText);
-            MiniProgressRing.IsActive = _isMiniTranslating;
-            MiniClearButton.IsEnabled = !_isMiniTranslating;
-            MiniTargetLanguageComboBox.IsEnabled = !_isMiniTranslating;
-            MiniTranslateButton.IsEnabled = !_isMiniTranslating && (_isStackedMiniLayout || !_miniHasResult);
+            store.Update(s => s with { IsTranslating = true, HasResult = false, Result = string.Empty });
+            UpdateUiState();
+            var result = await TranslateTextAsync(
+                text,
+                Math.Clamp(ModeComboBox.SelectedIndex, 0, 2),
+                Languages[0],
+                targetLanguage,
+                CancellationToken.None,
+                onTextUpdated: translatedText => store.Update(s => s with { Result = translatedText }));
+            store.Update(s => s with { Result = result, HasResult = true });
+            AddTranslationHistory(text);
+        }
+        catch (Exception ex)
+        {
+            store.Update(s => s with { Result = string.Empty, HasResult = false });
+            ShowInfo(Localization.Text("翻译失败：") + ex.Message, InfoBarSeverity.Error);
         }
         finally
         {
-            _updatingMiniText = false;
+            store.Update(s => s with { IsTranslating = false });
+            if (!_isWindowClosed) UpdateUiState();
         }
-    }
-
-    private void MiniCopyResultButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (!string.IsNullOrWhiteSpace(_miniResultText)) SetClipboardText(_miniResultText);
     }
 }
