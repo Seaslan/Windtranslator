@@ -1,0 +1,188 @@
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using Windows.System;
+using Windtranslator.Models;
+using Windtranslator.Services;
+
+namespace Windtranslator;
+
+public sealed partial class MainWindow
+{
+    private const string TranslateSelectionCommandTag = "TranslateSelection";
+    private const string TranslateSelectionShortcutText = "Ctrl+T";
+
+    private enum SelectionTranslationOrigin
+    {
+        Source,
+        Output,
+    }
+
+    private bool CanTranslateSelection =>
+        !_isMiniMode && _currentPageTag == "Home" && !_isTranslating && !_isSelectionTranslating;
+
+    private void InstallSelectionTranslationCommands()
+    {
+        InstallSelectionTranslationCommands(SourceTextBox, SelectionTranslationOrigin.Source);
+        InstallSelectionTranslationCommands(OutputTextBox, SelectionTranslationOrigin.Output);
+    }
+
+    private void InstallSelectionTranslationCommands(TextBox textBox, SelectionTranslationOrigin origin)
+    {
+        // Give each box its own flyout so the translate command never leaks into
+        // another text box through a shared default flyout.
+        var flyout = new TextCommandBarFlyout();
+        flyout.Opening += (_, _) => AddTranslateSelectionCommand(flyout, textBox, origin);
+        textBox.ContextFlyout = flyout;
+
+        var accelerator = new KeyboardAccelerator { Key = VirtualKey.T, Modifiers = VirtualKeyModifiers.Control };
+        accelerator.Invoked += (sender, args) =>
+        {
+            args.Handled = true;
+            if (string.IsNullOrWhiteSpace(textBox.SelectedText))
+            {
+                ShowInfo(Localization.Text("请先选中要翻译的文本。"), InfoBarSeverity.Informational);
+                return;
+            }
+
+            _ = TranslateSelectionAsync(origin, textBox.SelectedText, textBox.SelectionStart, textBox.SelectionLength);
+        };
+        textBox.KeyboardAccelerators.Add(accelerator);
+        textBox.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
+    }
+
+    private void AddTranslateSelectionCommand(TextCommandBarFlyout flyout, TextBox textBox, SelectionTranslationOrigin origin)
+    {
+        for (var i = flyout.SecondaryCommands.Count - 1; i >= 0; i--)
+        {
+            if (flyout.SecondaryCommands[i] is FrameworkElement { Tag: TranslateSelectionCommandTag })
+            {
+                flyout.SecondaryCommands.RemoveAt(i);
+            }
+        }
+
+        var selectedText = textBox.SelectedText;
+        if (string.IsNullOrWhiteSpace(selectedText))
+        {
+            return;
+        }
+
+        // Capture the selection now; focus moves to the menu before the item is clicked.
+        var selectionStart = textBox.SelectionStart;
+        var selectionLength = textBox.SelectionLength;
+        var button = new AppBarButton
+        {
+            Tag = TranslateSelectionCommandTag,
+            Label = Localization.Text("翻译选中文本"),
+            Icon = new SymbolIcon(Symbol.Forward),
+            KeyboardAcceleratorTextOverride = TranslateSelectionShortcutText,
+            IsEnabled = CanTranslateSelection,
+        };
+        button.Click += (_, _) =>
+        {
+            flyout.Hide();
+            _ = TranslateSelectionAsync(origin, selectedText, selectionStart, selectionLength);
+        };
+        flyout.SecondaryCommands.Insert(0, button);
+        flyout.SecondaryCommands.Insert(1, new AppBarSeparator { Tag = TranslateSelectionCommandTag });
+    }
+
+    private async Task TranslateSelectionAsync(
+        SelectionTranslationOrigin origin,
+        string selectedText,
+        int selectionStart,
+        int selectionLength)
+    {
+        if (!CanTranslateSelection || string.IsNullOrWhiteSpace(selectedText))
+        {
+            return;
+        }
+
+        var sourceLanguage = SourceLanguageComboBox.SelectedItem as LanguageOption ?? Languages[0];
+        var targetLanguage = TargetLanguageComboBox.SelectedItem as LanguageOption ?? Languages[3];
+        if (origin == SelectionTranslationOrigin.Output)
+        {
+            if (sourceLanguage.ApiCode == "auto")
+            {
+                ShowInfo(Localization.Text("请先指定源语言，再翻译选中的译文。"), InfoBarSeverity.Warning);
+                return;
+            }
+
+            (sourceLanguage, targetLanguage) = (targetLanguage, sourceLanguage);
+        }
+
+        var originalOutput = OutputTextBox.Text;
+        if (origin == SelectionTranslationOrigin.Output
+            && (selectionStart < 0 || selectionStart > originalOutput.Length
+                || selectionLength > originalOutput.Length - selectionStart
+                || !string.Equals(originalOutput.Substring(selectionStart, selectionLength), selectedText, StringComparison.Ordinal)))
+        {
+            ShowInfo(Localization.Text("选中的译文已发生变化，请重新选择。"), InfoBarSeverity.Warning);
+            return;
+        }
+        var expectedOutput = originalOutput;
+        void UpdateSelectedTranslation(string text)
+        {
+            if (origin == SelectionTranslationOrigin.Output)
+            {
+                if (!string.Equals(OutputTextBox.Text, expectedOutput, StringComparison.Ordinal))
+                    throw new InvalidOperationException(Localization.Text("选中的译文已发生变化，请重新选择。"));
+                expectedOutput = originalOutput[..selectionStart] + text + originalOutput[(selectionStart + selectionLength)..];
+                OutputTextBox.Text = expectedOutput;
+            }
+            else
+            {
+                OutputTextBox.Text = text;
+            }
+        }
+
+        try
+        {
+            SuspendRealtimeTranslationForCurrentInput();
+            _isSelectionTranslating = true;
+            UpdateUiState();
+            var translatedText = await TranslateTextAsync(
+                selectedText,
+                Math.Clamp(ModeComboBox.SelectedIndex, 0, 2),
+                sourceLanguage,
+                targetLanguage,
+                CancellationToken.None,
+                onTextUpdated: UpdateSelectedTranslation);
+            if (origin == SelectionTranslationOrigin.Source)
+            {
+                OutputTextBox.Text = translatedText;
+                OutputTextBox.Focus(FocusState.Programmatic);
+                OutputTextBox.SelectionStart = OutputTextBox.Text.Length;
+                OutputTextBox.SelectionLength = 0;
+            }
+            else
+            {
+                UpdateSelectedTranslation(translatedText);
+                OutputTextBox.Focus(FocusState.Programmatic);
+                OutputTextBox.SelectionStart = selectionStart;
+                OutputTextBox.SelectionLength = translatedText.Length;
+            }
+
+            ShowInfo(Localization.Text("翻译完成。"), InfoBarSeverity.Success);
+        }
+        catch (OperationCanceledException)
+        {
+            ShowInfo(Localization.Text("已取消翻译。"), InfoBarSeverity.Warning);
+        }
+        catch (Exception ex)
+        {
+            if (origin == SelectionTranslationOrigin.Output && OutputTextBox.Text == expectedOutput)
+                OutputTextBox.Text = originalOutput;
+            ShowInfo(Localization.Text("选词翻译失败：{0}", ex.Message), InfoBarSeverity.Error);
+        }
+        finally
+        {
+            _isSelectionTranslating = false;
+            UpdateUiState();
+        }
+    }
+}

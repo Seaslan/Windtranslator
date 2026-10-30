@@ -25,10 +25,11 @@ public sealed partial class MainWindow
         var translatedText = OutputTextBox.Text;
         AddFavoriteButton.IsEnabled = !_isTranslating && !_isSelectionTranslating && !_isRealtimeTranslating
             && !string.IsNullOrWhiteSpace(sourceText);
-        FavoriteIcon.Glyph = _settings.Favorites.Any(item =>
-            string.Equals(item.SourceText, sourceText, StringComparison.Ordinal)
-            && string.Equals(item.TranslatedText, translatedText, StringComparison.Ordinal))
-            ? "\uE735" : "\uE734";
+        var isFavorite = FindFavorite(sourceText, translatedText) is not null;
+        FavoriteIcon.Glyph = isFavorite ? "\uE735" : "\uE734";
+        var label = isFavorite ? Localization.Text("取消收藏") : Localization.Text("收藏源文本和译文");
+        ToolTipService.SetToolTip(AddFavoriteButton, label);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(AddFavoriteButton, label);
         FavoritesListView.IsEnabled = !_isTranslating && !_isSelectionTranslating;
     }
 
@@ -37,11 +38,12 @@ public sealed partial class MainWindow
         var sourceText = SourceTextBox.Text;
         if (_isTranslating || _isSelectionTranslating || _isRealtimeTranslating || string.IsNullOrWhiteSpace(sourceText)) return;
         var translatedText = OutputTextBox.Text;
-        if (_settings.Favorites.Any(item =>
-            string.Equals(item.SourceText, sourceText, StringComparison.Ordinal)
-            && string.Equals(item.TranslatedText, translatedText, StringComparison.Ordinal)))
+        if (FindFavorite(sourceText, translatedText) is { } existing)
         {
-            ShowInfo(Localization.Text("此翻译已收藏。"), InfoBarSeverity.Informational);
+            _settings.Favorites.Remove(existing);
+            RefreshFavorites();
+            SaveSettings();
+            ShowInfo(Localization.Text("已取消收藏。"), InfoBarSeverity.Informational);
             return;
         }
         _settings.Favorites.Add(new FavoriteTranslation
@@ -55,12 +57,16 @@ public sealed partial class MainWindow
         ShowInfo(Localization.Text("已加入收藏。"), InfoBarSeverity.Success);
     }
 
+    private FavoriteTranslation? FindFavorite(string sourceText, string translatedText) =>
+        _settings.Favorites.FirstOrDefault(item =>
+            string.Equals(item.SourceText, sourceText, StringComparison.Ordinal)
+            && string.Equals(item.TranslatedText, translatedText, StringComparison.Ordinal));
+
     private void FavoritesButton_Click(object sender, RoutedEventArgs e) => NavigateTo("Favorites");
 
     private void FavoritesListView_ItemClick(object sender, ItemClickEventArgs e)
     {
         if (_isTranslating || _isSelectionTranslating || e.ClickedItem is not FavoriteTranslation favorite) return;
-        CloseSelectionTranslationTeachingTip();
         SourceTextBox.Text = favorite.SourceText;
         OutputTextBox.Text = favorite.TranslatedText;
         NavigateTo("Home");

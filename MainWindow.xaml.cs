@@ -113,12 +113,6 @@ public sealed partial class MainWindow : Window
     private bool _isWindowClosed;
     private bool _isSelectionTranslating;
     private string? _pendingClipboardText;
-    private SelectionTranslationOrigin? _selectionTranslationOrigin;
-    private string? _pendingSelectionTranslationText;
-    private CancellationTokenSource? _selectionTranslationTipCts;
-    private int _selectionTranslationStart;
-    private int _selectionTranslationLength;
-    private bool _suppressSelectionTranslationEvents;
     private uint _lastHandledClipboardSequenceNumber;
     private readonly WindowProcedure _windowProcedure;
     private nint _windowHandle;
@@ -127,6 +121,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        InstallSelectionTranslationCommands();
         _windowProcedure = WindowProcedureCallback;
 
         ExtendsContentIntoTitleBar = true;
@@ -1128,222 +1123,6 @@ public sealed partial class MainWindow : Window
         UpdateUiState();
     }
 
-    private void SourceTextBox_SelectionChanged(object sender, RoutedEventArgs e) =>
-        UpdateSelectionTranslationTeachingTip(SourceTextBox, SelectionTranslationOrigin.Source);
-
-    private void OutputTextBox_SelectionChanged(object sender, RoutedEventArgs e) =>
-        UpdateSelectionTranslationTeachingTip(OutputTextBox, SelectionTranslationOrigin.Output);
-
-    private void UpdateSelectionTranslationTeachingTip(
-        TextBox textBox,
-        SelectionTranslationOrigin origin)
-    {
-        if (_suppressSelectionTranslationEvents)
-        {
-            return;
-        }
-
-        CloseSelectionTranslationTeachingTip();
-        if (_isMiniMode
-            || _currentPageTag != "Home"
-            || _isTranslating
-            || _isSelectionTranslating
-            || textBox.SelectionLength <= 0
-            || string.IsNullOrWhiteSpace(textBox.SelectedText))
-        {
-            return;
-        }
-
-        _selectionTranslationOrigin = origin;
-        _pendingSelectionTranslationText = textBox.SelectedText;
-        _selectionTranslationStart = textBox.SelectionStart;
-        _selectionTranslationLength = textBox.SelectionLength;
-        _selectionTranslationTipCts = new CancellationTokenSource();
-        _ = ShowSelectionTranslationTeachingTipAsync(
-            textBox,
-            origin,
-            _selectionTranslationTipCts.Token);
-    }
-
-    private async Task ShowSelectionTranslationTeachingTipAsync(
-        TextBox textBox,
-        SelectionTranslationOrigin origin,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-
-        if (cancellationToken.IsCancellationRequested
-            || _selectionTranslationOrigin != origin
-            || textBox.SelectionStart != _selectionTranslationStart
-            || textBox.SelectionLength != _selectionTranslationLength
-            || !string.Equals(textBox.SelectedText, _pendingSelectionTranslationText, StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        SelectionTranslationTeachingTip.Target = textBox;
-        SelectionTranslationTeachingTip.Subtitle = Localization.Text(
-            "将选中文字翻译成{0}",
-            origin == SelectionTranslationOrigin.Source
-                ? TargetLanguageComboBox.SelectedItem is LanguageOption target ? target.Display : Localization.Text("英语")
-                : SourceLanguageComboBox.SelectedItem is LanguageOption source && source.ApiCode != "auto"
-                    ? source.Display
-                    : Localization.Text("源语言"));
-        SelectionTranslationTeachingTip.IsOpen = true;
-        // TeachingTip can take focus after opening. Restore the selection on the next UI turn.
-        _ = RestoreSelectionHighlightAsync(textBox, origin);
-    }
-
-    private async Task RestoreSelectionHighlightAsync(TextBox textBox, SelectionTranslationOrigin origin)
-    {
-        await Task.Delay(50);
-        RestoreSelectionHighlight(textBox, origin);
-    }
-
-    private void RestoreSelectionHighlight(TextBox textBox, SelectionTranslationOrigin origin)
-    {
-        if (!SelectionTranslationTeachingTip.IsOpen
-            || _selectionTranslationOrigin != origin
-            || _selectionTranslationStart < 0
-            || _selectionTranslationStart > textBox.Text.Length
-            || _selectionTranslationLength > textBox.Text.Length - _selectionTranslationStart
-            || !string.Equals(
-                textBox.Text.Substring(_selectionTranslationStart, _selectionTranslationLength),
-                _pendingSelectionTranslationText,
-                StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        _suppressSelectionTranslationEvents = true;
-        try
-        {
-            textBox.Focus(FocusState.Programmatic);
-            textBox.SelectionStart = _selectionTranslationStart;
-            textBox.SelectionLength = _selectionTranslationLength;
-        }
-        finally
-        {
-            _suppressSelectionTranslationEvents = false;
-        }
-    }
-
-    private void CloseSelectionTranslationTeachingTip()
-    {
-        _selectionTranslationTipCts?.Cancel();
-        _selectionTranslationTipCts?.Dispose();
-        _selectionTranslationTipCts = null;
-        _selectionTranslationOrigin = null;
-        _pendingSelectionTranslationText = null;
-        SelectionTranslationTeachingTip.IsOpen = false;
-    }
-
-    private async void SelectionTranslationTeachingTip_ActionButtonClick(TeachingTip sender, object args)
-    {
-        var origin = _selectionTranslationOrigin;
-        var selectedText = _pendingSelectionTranslationText;
-        CloseSelectionTranslationTeachingTip();
-        if (origin is null || string.IsNullOrWhiteSpace(selectedText) || _isTranslating)
-        {
-            return;
-        }
-
-        var sourceLanguage = SourceLanguageComboBox.SelectedItem as LanguageOption ?? Languages[0];
-        var targetLanguage = TargetLanguageComboBox.SelectedItem as LanguageOption ?? Languages[3];
-        if (origin == SelectionTranslationOrigin.Output)
-        {
-            if (sourceLanguage.ApiCode == "auto")
-            {
-                ShowInfo(Localization.Text("请先指定源语言，再翻译选中的译文。"), InfoBarSeverity.Warning);
-                return;
-            }
-
-            (sourceLanguage, targetLanguage) = (targetLanguage, sourceLanguage);
-        }
-
-        var originalOutput = OutputTextBox.Text;
-        var selectionStart = _selectionTranslationStart;
-        var selectionLength = _selectionTranslationLength;
-        if (origin == SelectionTranslationOrigin.Output
-            && (selectionStart < 0 || selectionStart > originalOutput.Length
-                || selectionLength > originalOutput.Length - selectionStart
-                || !string.Equals(originalOutput.Substring(selectionStart, selectionLength), selectedText, StringComparison.Ordinal)))
-        {
-            ShowInfo(Localization.Text("选中的译文已发生变化，请重新选择。"), InfoBarSeverity.Warning);
-            return;
-        }
-        var expectedOutput = originalOutput;
-        void UpdateSelectedTranslation(string text)
-        {
-            if (origin == SelectionTranslationOrigin.Output)
-            {
-                if (!string.Equals(OutputTextBox.Text, expectedOutput, StringComparison.Ordinal))
-                    throw new InvalidOperationException(Localization.Text("选中的译文已发生变化，请重新选择。"));
-                expectedOutput = originalOutput[..selectionStart] + text + originalOutput[(selectionStart + selectionLength)..];
-                OutputTextBox.Text = expectedOutput;
-            }
-            else
-            {
-                OutputTextBox.Text = text;
-            }
-        }
-
-        try
-        {
-            SuspendRealtimeTranslationForCurrentInput();
-            _isSelectionTranslating = true;
-            UpdateUiState();
-            var translatedText = await TranslateTextAsync(
-                selectedText,
-                Math.Clamp(ModeComboBox.SelectedIndex, 0, 2),
-                sourceLanguage,
-                targetLanguage,
-                CancellationToken.None,
-                onTextUpdated: UpdateSelectedTranslation);
-            if (origin == SelectionTranslationOrigin.Source)
-            {
-                OutputTextBox.Text = translatedText;
-                OutputTextBox.Focus(FocusState.Programmatic);
-                OutputTextBox.SelectionStart = OutputTextBox.Text.Length;
-                OutputTextBox.SelectionLength = 0;
-            }
-            else
-            {
-                UpdateSelectedTranslation(translatedText);
-                OutputTextBox.Focus(FocusState.Programmatic);
-                OutputTextBox.SelectionStart = selectionStart;
-                OutputTextBox.SelectionLength = translatedText.Length;
-            }
-
-            ShowInfo(Localization.Text("翻译完成。"), InfoBarSeverity.Success);
-        }
-        catch (OperationCanceledException)
-        {
-            ShowInfo(Localization.Text("已取消翻译。"), InfoBarSeverity.Warning);
-        }
-        catch (Exception ex)
-        {
-            if (origin == SelectionTranslationOrigin.Output && OutputTextBox.Text == expectedOutput)
-                OutputTextBox.Text = originalOutput;
-            ShowInfo(Localization.Text("选词翻译失败：{0}", ex.Message), InfoBarSeverity.Error);
-        }
-        finally
-        {
-            _isSelectionTranslating = false;
-            UpdateUiState();
-        }
-    }
-
-    private void SelectionTranslationTeachingTip_CloseButtonClick(TeachingTip sender, object args) =>
-        CloseSelectionTranslationTeachingTip();
-
     private void ImageOutputTextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         UpdateUiState();
@@ -1716,7 +1495,6 @@ public sealed partial class MainWindow : Window
         {
             _pendingClipboardText = null;
             ClipboardPasteTeachingTip.IsOpen = false;
-            CloseSelectionTranslationTeachingTip();
         }
 
         var pageTitle = tag switch
@@ -1965,7 +1743,6 @@ public sealed partial class MainWindow : Window
         _isMiniMode = mini;
         _pendingClipboardText = null;
         ClipboardPasteTeachingTip.IsOpen = false;
-        CloseSelectionTranslationTeachingTip();
         ClearNavigationHistory();
         SidebarNavigationView.Visibility = mini ? Visibility.Collapsed : Visibility.Visible;
         MiniWindowGrid.Visibility = mini ? Visibility.Visible : Visibility.Collapsed;
@@ -3141,12 +2918,6 @@ public sealed partial class MainWindow : Window
             ".gif" => "image/gif",
             _ => "application/octet-stream",
         };
-    }
-
-    private enum SelectionTranslationOrigin
-    {
-        Source,
-        Output,
     }
 
     private void UpdateCounts()

@@ -1080,14 +1080,6 @@
     <value>Enable AI translation</value>
     <comment>启用 AI 翻译</comment>
   </data>
-  <data name="S4847e29e6f5144bd" xml:space="preserve">
-    <value>Selection translation</value>
-    <comment>选词翻译</comment>
-  </data>
-  <data name="S84059a3833523ae7" xml:space="preserve">
-    <value>Translate the selected text into {0}</value>
-    <comment>将选中文字翻译成{0}</comment>
-  </data>
   <data name="Sa6d2d858c91584cd" xml:space="preserve">
     <value>Choose a source language before translating selected text.</value>
     <comment>请先指定源语言，再翻译选中的译文。</comment>
@@ -1224,10 +1216,6 @@
     <value>Added to favorites.</value>
     <comment>已加入收藏。</comment>
   </data>
-  <data name="S0ce587c79cbf51dc" xml:space="preserve">
-    <value>This translation is already in favorites.</value>
-    <comment>此翻译已收藏。</comment>
-  </data>
   <data name="S9a27790c41c14ecc" xml:space="preserve">
     <value>Remove favorite</value>
     <comment>删除收藏</comment>
@@ -1331,5 +1319,21 @@
   </data>
   <data name="S4eebc47fab088ba6" xml:space="preserve">
     <value>Realtime translation failed: {0}</value>
+  </data>
+  <data name="S3bdb827c9c041bd1" xml:space="preserve">
+    <value>Translate selection</value>
+    <comment>翻译选中文本</comment>
+  </data>
+  <data name="S332d98ced91b2855" xml:space="preserve">
+    <value>Select the text you want to translate first.</value>
+    <comment>请先选中要翻译的文本。</comment>
+  </data>
+  <data name="Sdca60869e7d26839" xml:space="preserve">
+    <value>Remove from favorites</value>
+    <comment>取消收藏</comment>
+  </data>
+  <data name="S5abb3406155b1520" xml:space="preserve">
+    <value>Removed from favorites.</value>
+    <comment>已取消收藏。</comment>
   </data>
 </root>

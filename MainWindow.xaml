@@ -291,7 +291,6 @@
                             FontSize="16"
                             PlaceholderText="{localization:LocalizedString Key=Sd7c905a34a658bb7}"
                             TextChanged="SourceTextBox_TextChanged"
-                            SelectionChanged="SourceTextBox_SelectionChanged"
                             KeyDown="SourceTextBox_KeyDown"
                             TextWrapping="Wrap"
                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -403,7 +402,6 @@
                             IsReadOnly="True"
                             PlaceholderText="{localization:LocalizedString Key=Sd83fdf18df41c98d}"
                             TextChanged="OutputTextBox_TextChanged"
-                            SelectionChanged="OutputTextBox_SelectionChanged"
                             TextWrapping="Wrap"
                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                             ScrollViewer.VerticalScrollBarVisibility="Auto" />
@@ -1168,6 +1166,14 @@
                                     <TextBlock Text="{localization:LocalizedString Key=S656f978003f64dfe}" VerticalAlignment="Center" />
                                     <TextBlock Grid.Column="1" Text="Shift+Enter" FontFamily="Consolas" VerticalAlignment="Center" />
                                 </Grid>
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{localization:LocalizedString Key=S3bdb827c9c041bd1}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="Ctrl+T" FontFamily="Consolas" VerticalAlignment="Center" />
+                                </Grid>
                             </StackPanel>
                         </Expander>
                     </Border>
@@ -1761,16 +1767,5 @@
             ActionButtonClick="ClipboardPasteTeachingTip_ActionButtonClick"
             CloseButtonClick="ClipboardPasteTeachingTip_CloseButtonClick" />
 
-        <TeachingTip
-            x:Name="SelectionTranslationTeachingTip"
-            Title="{localization:LocalizedString Key=S4847e29e6f5144bd}"
-            ActionButtonContent="{localization:LocalizedString Key=Sa52a08335185f048}"
-            CloseButtonContent="{localization:LocalizedString Key=S6e90ac940752ebf1}"
-            IsLightDismissEnabled="True"
-            PlacementMargin="8"
-            PreferredPlacement="Bottom"
-            Target="{Binding ElementName=SourceTextBox}"
-            ActionButtonClick="SelectionTranslationTeachingTip_ActionButtonClick"
-            CloseButtonClick="SelectionTranslationTeachingTip_CloseButtonClick" />
     </Grid>
 </Window>

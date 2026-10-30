@@ -813,12 +813,6 @@
   <data name="S8d5dd50781ddc74b" xml:space="preserve">
     <value>启用 AI 翻译</value>
   </data>
-  <data name="S4847e29e6f5144bd" xml:space="preserve">
-    <value>选词翻译</value>
-  </data>
-  <data name="S84059a3833523ae7" xml:space="preserve">
-    <value>将选中文字翻译成{0}</value>
-  </data>
   <data name="Sa6d2d858c91584cd" xml:space="preserve">
     <value>请先指定源语言，再翻译选中的译文。</value>
   </data>
@@ -932,10 +926,6 @@
     <value>已加入收藏。</value>
     <comment>已加入收藏。</comment>
   </data>
-  <data name="S0ce587c79cbf51dc" xml:space="preserve">
-    <value>此翻译已收藏。</value>
-    <comment>此源文本已收藏。</comment>
-  </data>
   <data name="S9a27790c41c14ecc" xml:space="preserve">
     <value>删除收藏</value>
     <comment>删除收藏</comment>
@@ -1017,5 +1007,17 @@
   </data>
   <data name="S4eebc47fab088ba6" xml:space="preserve">
     <value>实时翻译失败：{0}</value>
+  </data>
+  <data name="S3bdb827c9c041bd1" xml:space="preserve">
+    <value>翻译选中文本</value>
+  </data>
+  <data name="S332d98ced91b2855" xml:space="preserve">
+    <value>请先选中要翻译的文本。</value>
+  </data>
+  <data name="Sdca60869e7d26839" xml:space="preserve">
+    <value>取消收藏</value>
+  </data>
+  <data name="S5abb3406155b1520" xml:space="preserve">
+    <value>已取消收藏。</value>
   </data>
 </root>

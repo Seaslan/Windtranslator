@@ -17,14 +17,18 @@
 - 本地翻译：支持 OpenAI 兼容接口，也支持 Mozilla Translations（Bergamot）模型
 - 语音输入：Windows 语音识别
 - 语音输出：Windows 文本转语音
+- 选中翻译：在源文本或译文中选中文字后，右键选择“翻译选中文本”，或按 `Ctrl+T`；选中译文时会反向翻译并只替换选中部分
+- 收藏：点击主页的星形按钮收藏当前源文本和译文，再次点击取消收藏
+- 迷你窗口：窗口变窄时自动切换，高度足够时上下显示源文本和译文
 - 设置自动保存到 `%LOCALAPPDATA%\Windtranslator\settings.json`
 
 ### 系统要求
 
 - Windows 10 版本 1809（Build 17763）或更高版本
-- .NET 8 SDK
+- .NET 10 SDK
 - Windows App SDK 2.3.1
-- Visual Studio 2022（使用 Visual Studio 构建时）
+- Microsoft.UI.Reactor 0.1.0-preview.16（迷你窗口界面使用，实验性预览版，由 NuGet 自动还原）
+- 支持 .NET 10 的 Visual Studio（使用 Visual Studio 构建时）
 
 ### 构建应用
 
@@ -34,7 +38,7 @@
 dotnet build Windtranslator.slnx -p:Platform=x64
 ```
 
-也可以在 Visual Studio 中打开 `Windtranslator.slnx`，选择 `Windtranslator (Unpackaged)` 配置运行。
+也可以在 Visual Studio 中打开 `Windtranslator.slnx`，选择 `Windtranslator (Package)` 配置运行。
 
 项目提供 `x86`、`x64` 和 `ARM64` 配置。Mozilla Translations 本地引擎仅支持 `x64` 和 `ARM64`，因此使用本地模型时应选择对应的平台。
 
@@ -85,7 +89,8 @@ vcpkg install openblas:arm64-windows-static
 1. 选择翻译模式、源语言和目标语言。
 2. 在设置中选择服务商，输入 API Key，并确认模型和接口地址。
 3. 点击“翻译”，然后复制译文或使用语音输出。
-4. 本地翻译可以使用 `http://localhost:11434/v1` 等 OpenAI 兼容接口，也可以切换到 Mozilla Translations 模型目录。
+4. 只需翻译部分内容时，选中文字后右键选择“翻译选中文本”，或按 `Ctrl+T`。
+5. 本地翻译可以使用 `http://localhost:11434/v1` 等 OpenAI 兼容接口，也可以切换到 Mozilla Translations 模型目录。
 
 ## English
 
@@ -102,14 +107,18 @@ Windtanslator (风译 in Chinese) is a WinUI 3 desktop translation tool for Wind
 - Local translation through an OpenAI-compatible endpoint or Mozilla Translations (Bergamot) models
 - Windows speech recognition for voice input
 - Windows text-to-speech for voice output
+- Selection translation: select text in the source or translation box, then right-click and choose “Translate selection”, or press `Ctrl+T`. A selection in the translation is translated back and only that part is replaced
+- Favorites: click the star button on the home page to save the current source and translation; click it again to remove it
+- Mini window: switches on automatically when the window gets narrow, and shows source and translation stacked when it is tall enough
 - Settings are saved automatically to `%LOCALAPPDATA%\Windtranslator\settings.json`
 
 ### Requirements
 
 - Windows 10 version 1809 (Build 17763) or later
-- .NET 8 SDK
+- .NET 10 SDK
 - Windows App SDK 2.3.1
-- Visual Studio 2022 when building from Visual Studio
+- Microsoft.UI.Reactor 0.1.0-preview.16 (used by the mini window; an experimental preview restored automatically from NuGet)
+- A Visual Studio version that supports .NET 10 when building from Visual Studio
 
 ### Build the application
 
@@ -119,7 +128,7 @@ Run this command from the repository root:
 dotnet build Windtranslator.slnx -p:Platform=x64
 ```
 
-Alternatively, open `Windtranslator.slnx` in Visual Studio and run the `Windtranslator (Unpackaged)` configuration.
+Alternatively, open `Windtranslator.slnx` in Visual Studio and run the `Windtranslator (Package)` configuration.
 
 The project provides `x86`, `x64`, and `ARM64` configurations. The Mozilla Translations runtime supports only `x64` and `ARM64`, so use the matching platform when local model translation is required.
 
@@ -170,4 +179,5 @@ When the network is available, open “Settings > Offline language models” to 
 1. Select a translation mode, source language, and target language.
 2. Choose a provider in Settings, enter the API key, and confirm the model and endpoint.
 3. Click “Translate”, then copy the result or use text-to-speech.
-4. Local translation can use an OpenAI-compatible endpoint such as `http://localhost:11434/v1`, or a Mozilla Translations model directory.
+4. To translate only part of the text, select it and right-click “Translate selection”, or press `Ctrl+T`.
+5. Local translation can use an OpenAI-compatible endpoint such as `http://localhost:11434/v1`, or a Mozilla Translations model directory.
