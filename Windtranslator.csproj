@@ -99,4 +99,7 @@
   <ItemGroup>
     <PRIResource Remove="AppPackages\Windtranslator_0.5.1.0_x64_Test\**" />
   </ItemGroup>
+  <ItemGroup>
+    <None Remove="settings.VisualStudio.json" />
+  </ItemGroup>
 </Project>

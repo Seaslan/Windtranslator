@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.System;
@@ -22,6 +23,9 @@ public sealed partial class MainWindow
         Output,
     }
 
+    private readonly Dictionary<TextBox, SelectionTranslationOrigin> _selectionTranslationTargets = new();
+    private readonly HashSet<FlyoutBase> _hookedSelectionFlyouts = new();
+
     private bool CanTranslateSelection =>
         !_isMiniMode && _currentPageTag == "Home" && !_isTranslating && !_isSelectionTranslating;
 
@@ -33,11 +37,30 @@ public sealed partial class MainWindow
 
     private void InstallSelectionTranslationCommands(TextBox textBox, SelectionTranslationOrigin origin)
     {
-        // Give each box its own flyout so the translate command never leaks into
-        // another text box through a shared default flyout.
-        var flyout = new TextCommandBarFlyout();
-        flyout.Opening += (_, _) => AddTranslateSelectionCommand(flyout, textBox, origin);
-        textBox.ContextFlyout = flyout;
+        // Extend the built-in text menu rather than replacing it: the TextBox places
+        // its own flyout at the pointer, while a replacement is placed by the control edge.
+        // The default flyout may be shared, so resolve the box from the flyout's target.
+        if (textBox.ContextFlyout is not TextCommandBarFlyout flyout)
+        {
+            flyout = new TextCommandBarFlyout();
+            textBox.ContextFlyout = flyout;
+        }
+
+        _selectionTranslationTargets[textBox] = origin;
+        if (_hookedSelectionFlyouts.Add(flyout))
+        {
+            flyout.Opening += (_, _) =>
+            {
+                if (flyout.Target is TextBox target && _selectionTranslationTargets.TryGetValue(target, out var targetOrigin))
+                {
+                    AddTranslateSelectionCommand(flyout, target, targetOrigin);
+                }
+                else
+                {
+                    RemoveTranslateSelectionCommand(flyout);
+                }
+            };
+        }
 
         var accelerator = new KeyboardAccelerator { Key = VirtualKey.T, Modifiers = VirtualKeyModifiers.Control };
         accelerator.Invoked += (sender, args) =>
@@ -55,7 +78,7 @@ public sealed partial class MainWindow
         textBox.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
     }
 
-    private void AddTranslateSelectionCommand(TextCommandBarFlyout flyout, TextBox textBox, SelectionTranslationOrigin origin)
+    private static void RemoveTranslateSelectionCommand(TextCommandBarFlyout flyout)
     {
         for (var i = flyout.SecondaryCommands.Count - 1; i >= 0; i--)
         {
@@ -64,7 +87,11 @@ public sealed partial class MainWindow
                 flyout.SecondaryCommands.RemoveAt(i);
             }
         }
+    }
 
+    private void AddTranslateSelectionCommand(TextCommandBarFlyout flyout, TextBox textBox, SelectionTranslationOrigin origin)
+    {
+        RemoveTranslateSelectionCommand(flyout);
         var selectedText = textBox.SelectedText;
         if (string.IsNullOrWhiteSpace(selectedText))
         {
