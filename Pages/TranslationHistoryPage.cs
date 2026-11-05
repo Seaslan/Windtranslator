@@ -51,6 +51,7 @@ public sealed class TranslationHistoryPageView : Component
     public override Element Render()
     {
         var state = UseExternalStore(_store.Subscribe, () => _store.State);
+        var containerStyle = UseMemo(SavedTextItems.CreateContainerStyle);
         var entries = state.Items
             .Select((text, index) => new HistoryEntry(index, text))
             .ToArray();
@@ -73,36 +74,40 @@ public sealed class TranslationHistoryPageView : Component
         var list = ListView(
                 entries,
                 entry => $"{entry.Index}:{entry.Text}",
-                (entry, _) => HistoryItem(entry.Text))
-            .Set(listView => listView.IsItemClickEnabled = true)
+                (entry, _) => HistoryItem(entry.Text).WithKey($"{entry.Index}:{entry.Text}"))
             .ItemClick(entry => _store.ItemClicked(entry.Text))
-            .Set(listView => listView.SelectionMode = ListViewSelectionMode.None)
-            .Grid(row: 0)
+            .Set(listView => listView.ItemContainerStyle = containerStyle)
+            with { SelectionMode = ListViewSelectionMode.None };
+
+        list = list
             .HAlign(HorizontalAlignment.Stretch)
             .VAlign(VerticalAlignment.Stretch);
 
         var empty = TextBlock(Localization.Get("S6ea15464fb844e0c"))
             .IsVisible(!state.HasItems)
             .IsHitTestVisible(false)
+            .Foreground(Theme.SecondaryText)
             .HAlign(HorizontalAlignment.Center)
             .VAlign(VerticalAlignment.Center)
             .Grid(row: 0);
 
         return Grid(
                 [GridSize.Star()],
-                [GridSize.Star()],
-                [list, empty])
-            .Margin(0, 24, 0, 0)
-            .Grid(row: 1);
+                [GridSize.Auto, GridSize.Star()],
+                [
+                    header,
+                    Grid(
+                            [GridSize.Star()],
+                            [GridSize.Star()],
+                            [list, empty])
+                        .Margin(0, 24, 0, 0)
+                        .Grid(row: 1),
+                ])
+            .Margin(36, 24, 36, 16);
     }
 
     private static Element HistoryItem(string text) =>
-        Border(TextBlock(text).TextWrapping())
-            .Margin(0, 0, 0, 8)
-            .Padding(12)
-            .Background(Theme.Ref("WindCardBackgroundBrush"))
-            .WithBorder(Theme.Ref("WindCardStrokeBrush"), 1)
-            .CornerRadius(8);
+        SavedTextItems.Card(TextBlock(text).TextWrapping());
 
     private sealed record HistoryEntry(int Index, string Text);
 }
