@@ -31,12 +31,20 @@ for key in re.findall(r'localization:LocalizedString Key=(\w+)', xaml):
     assert key in english, f'Missing XAML resource: {key}'
 assert not re.search(r'="[^"{}]*[\u4e00-\u9fff][^"{}]*"', xaml), 'Unlocalized XAML attribute'
 
-for path in [*ROOT.glob('MainWindow*.cs'), *(ROOT / 'Services').glob('*.cs')]:
+code_paths = [
+    *ROOT.glob('MainWindow*.cs'),
+    ROOT / 'MiniTranslator.cs',
+    *(ROOT / 'Pages').glob('*.cs'),
+    *(ROOT / 'Services').glob('*.cs'),
+]
+for path in code_paths:
     source = path.read_text(encoding='utf-8')
     for literal in re.findall(r'Localization.Text\("((?:\\.|[^"\\])*)"', source):
         value = literal.replace('\\\\', '\\').replace('\\n', '\n').replace('\\"', '"')
         key = 'S' + hashlib.sha256(value.encode()).hexdigest()[:16]
         assert key in english, f'Missing code resource in {path.name}: {value}'
+    for key in re.findall(r'Localization\.Get\("(S\w+)"\)', source):
+        assert key in english, f'Missing direct code resource in {path.name}: {key}'
 
 for language, name in [('zh-CN', '风译'), ('en-US', 'Windtranslator')]:
     resources = read_resources(ROOT / f'Strings/{language}/Resources.resw')

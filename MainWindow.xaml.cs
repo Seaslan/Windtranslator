@@ -121,6 +121,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        CreateAboutStore();
         InstallSelectionTranslationCommands();
         _windowProcedure = WindowProcedureCallback;
 
@@ -238,7 +239,6 @@ public sealed partial class MainWindow : Window
         ApplyTheme();
         ApplyMicaBackdrop();
         ApplyAlwaysOnTop();
-        AboutVersionTextBlock.Text = Localization.Text("版本 ") + GetApplicationVersion();
         SidebarNavigationView.SelectedItem = HomeNavigationItem;
         NavigateTo("Home", addBackEntry: false);
         InitializeProviderSettings();
@@ -1518,7 +1518,7 @@ public sealed partial class MainWindow : Window
         SettingsPageScrollViewer.Visibility = tag == "Settings" ? Visibility.Visible : Visibility.Collapsed;
         ImagePageGrid.Visibility = tag == "Image" ? Visibility.Visible : Visibility.Collapsed;
         FilePageGrid.Visibility = tag == "File" ? Visibility.Visible : Visibility.Collapsed;
-        AboutPagePanel.Visibility = tag == "About" ? Visibility.Visible : Visibility.Collapsed;
+        AboutPageHost.Visibility = tag == "About" ? Visibility.Visible : Visibility.Collapsed;
 
         // The online catalog is only needed when the user opens model settings.
         if (tag == "Settings" && HasInternetAccess() && _onlineOfflineModels.Count == 0 && !_isLoadingOfflineModels)
