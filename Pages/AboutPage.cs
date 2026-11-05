@@ -101,7 +101,8 @@ public sealed class AboutPageView : Component
                             Link("Bergamot Translator", "https://github.com/browsermt/bergamot-translator", compact: true))
                             .Padding(12, 0, 12, 12),
                         isExpanded: false)
-                    .HorizontalContentAlignment(HorizontalAlignment.Stretch))
+                    .HorizontalContentAlignment(HorizontalAlignment.Stretch)
+                    .HAlign(HorizontalAlignment.Stretch))
             .VAlign(VerticalAlignment.Top)
             .Background(Theme.Ref("WindCardBackgroundBrush"))
             .WithBorder(Theme.Ref("WindCardStrokeBrush"), 1)
