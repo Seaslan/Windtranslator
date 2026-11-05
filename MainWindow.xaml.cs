@@ -122,6 +122,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         CreateAboutStore();
+        CreateTranslationHistoryStore();
         InstallSelectionTranslationCommands();
         _windowProcedure = WindowProcedureCallback;
 
@@ -1276,27 +1277,6 @@ public sealed partial class MainWindow : Window
         NavigateTo("History");
     }
 
-    private void ClearTranslationHistoryButton_Click(object sender, RoutedEventArgs e)
-    {
-        _settings.TranslationHistory.Clear();
-        RefreshTranslationHistory();
-        SaveSettings();
-        ShowInfo(Localization.Text("已清除翻译历史。"), InfoBarSeverity.Success);
-    }
-
-    private void TranslationHistoryListView_ItemClick(object sender, ItemClickEventArgs e)
-    {
-        if (e.ClickedItem is not string sourceText)
-        {
-            return;
-        }
-
-        SourceTextBox.Text = sourceText;
-        NavigateTo("Home");
-        SourceTextBox.Focus(FocusState.Programmatic);
-        TranslateButton_Click(TranslateButton, new RoutedEventArgs());
-    }
-
     private void CopyButton_Click(object sender, RoutedEventArgs e)
     {
         var text = OutputTextBox.Text;
@@ -1513,7 +1493,7 @@ public sealed partial class MainWindow : Window
 
         TranslationToolbar.Visibility = tag == "Home" ? Visibility.Visible : Visibility.Collapsed;
         HomePageGrid.Visibility = tag == "Home" ? Visibility.Visible : Visibility.Collapsed;
-        TranslationHistoryPageGrid.Visibility = tag == "History" ? Visibility.Visible : Visibility.Collapsed;
+        TranslationHistoryPageHost.Visibility = tag == "History" ? Visibility.Visible : Visibility.Collapsed;
         FavoritesPageGrid.Visibility = tag == "Favorites" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPageScrollViewer.Visibility = tag == "Settings" ? Visibility.Visible : Visibility.Collapsed;
         ImagePageGrid.Visibility = tag == "Image" ? Visibility.Visible : Visibility.Collapsed;
@@ -2973,10 +2953,8 @@ public sealed partial class MainWindow : Window
         var history = _settings.TranslationHistory
             .AsEnumerable()
             .Reverse()
-            .ToList();
-        TranslationHistoryListView.ItemsSource = history;
-        TranslationHistoryEmptyText.Visibility = history.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        ClearTranslationHistoryButton.IsEnabled = history.Count > 0;
+            .ToArray();
+        _translationHistoryStore?.Update(state => state with { Items = history });
     }
 
     private static int NormalizeTranslationHistoryLimit(int limit) =>
