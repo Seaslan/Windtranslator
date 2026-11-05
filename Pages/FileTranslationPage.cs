@@ -190,7 +190,7 @@ public sealed class FileTranslationPageView : Component
 
     // Reactor preview.16 exposes no per-item enabled/visibility properties for
     // ComboBox. Keep its native containers and keyboard selection behavior.
-    private sealed class FileModeStyleSelector : StyleSelector
+    internal sealed class FileModeStyleSelector : StyleSelector
     {
         private readonly IReadOnlyList<FileTranslationModeOption> _modes;
         private readonly Style[] _styles;

@@ -122,7 +122,7 @@ public sealed partial class MainWindow : Window
         CreateFavoritesStore();
         CreateFileTranslationStore();
         CreateImageTranslationStore();
-        InstallSelectionTranslationCommands();
+        CreateHomeStore();
         _windowProcedure = WindowProcedureCallback;
 
         ExtendsContentIntoTitleBar = true;
@@ -174,24 +174,18 @@ public sealed partial class MainWindow : Window
         AiTranslationToggleSwitch.IsOn = _settings.AiTranslationEnabled;
         UpdateTranslationToggleStateText();
         var initialModeIndex = Math.Clamp(_settings.ModeIndex, 0, 2);
-        ModeComboBox.SelectedIndex = IsTranslationModeEnabled(initialModeIndex) ? initialModeIndex : 2;
+        SetHomeMode(IsTranslationModeEnabled(initialModeIndex) ? initialModeIndex : 2);
         LocalTranslationSourceComboBox.ItemsSource = new[] { Localization.Text("本地接口"), Localization.Text("Mozilla Translations 模型") };
         LocalTranslationSourceComboBox.SelectedIndex = Math.Clamp(_settings.LocalTranslationSourceIndex, 0, 1);
 
-        SourceLanguageComboBox.ItemsSource = Languages;
         InitializeImageModelSettings();
-        SourceLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
-        TargetLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
 
         var sourceIndex = Math.Clamp(_settings.SourceLanguageIndex, 0, Languages.Count - 1);
         var targetIndex = Math.Clamp(_settings.TargetLanguageIndex, 0, Languages.Count - 1);
-        SourceLanguageComboBox.SelectedIndex = sourceIndex;
+        _homeStore!.Update(state => state with { Sources = Languages.Select(language => language.Display).ToArray(), SourceIndex = sourceIndex });
         InitializeImageTranslationLanguages(sourceIndex, Languages[targetIndex]);
         InitializeFileTranslationLanguages(sourceIndex, Languages[targetIndex]);
-        RefreshTargetLanguageOptions(
-            TargetLanguageComboBox,
-            Languages[sourceIndex],
-            Languages[targetIndex]);
+        RefreshHomeTargetLanguages(Languages[targetIndex]);
 
         CustomPromptTextBox.Text = _settings.CustomPrompt;
         AiPromptStyleComboBox.ItemsSource = new[] { Localization.Text("标准"), Localization.Text("正式"), Localization.Text("自然"), Localization.Text("简洁") };
@@ -228,21 +222,10 @@ public sealed partial class MainWindow : Window
         SidebarNavigationView.SelectedItem = HomeNavigationItem;
         NavigateTo("Home", addBackEntry: false);
         InitializeProviderSettings();
-        _fileTranslationStore!.Update(state => state with { ModeIndex = ModeComboBox.SelectedIndex });
+        _fileTranslationStore!.Update(state => state with { ModeIndex = HomeState.ModeIndex });
         UpdateTranslationModeVisibility();
         UpdateFileModeAvailability();
-        UpdateCounts();
         UpdateUiState();
-    }
-
-    private void ModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
-
-        SaveSettings();
     }
 
     private void UiLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -320,7 +303,7 @@ public sealed partial class MainWindow : Window
         // Prevent TextBox's built-in AcceptsReturn handling from inserting a newline
         // before SourceTextBox_KeyDown can dispatch the translation command. Shift+Enter
         // is inserted explicitly by the handler while this mode is enabled.
-        SourceTextBox.AcceptsReturn = !_settings.EnterToTranslate;
+        _homeStore?.Update(state => state with { EnterToTranslate = _settings.EnterToTranslate });
     }
 
     private void TranslationHistoryLimitComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -489,7 +472,7 @@ public sealed partial class MainWindow : Window
 
         if (!isEnabled)
         {
-            var isHomeModeSelected = ModeComboBox.SelectedIndex == modeIndex;
+            var isHomeModeSelected = HomeState.ModeIndex == modeIndex;
             var isFileModeSelected = FileTranslationState.ModeIndex == modeIndex;
 
             if (isHomeModeSelected && _isTranslating)
@@ -504,7 +487,7 @@ public sealed partial class MainWindow : Window
 
             if (isHomeModeSelected)
             {
-                ModeComboBox.SelectedIndex = 2;
+                SetHomeMode(2);
             }
 
             if (isFileModeSelected)
@@ -530,23 +513,6 @@ public sealed partial class MainWindow : Window
         1 => AiTranslationToggleSwitch.IsOn,
         _ => true,
     };
-
-    private void UpdateTranslationModeVisibility()
-    {
-        UpdateModeItems(ModeComboBox);
-        UpdateFileModeAvailability();
-
-        void UpdateModeItems(ComboBox comboBox)
-        {
-            var items = comboBox.Items.OfType<ComboBoxItem>().ToList();
-            for (var index = 0; index < items.Count; index++)
-            {
-                var isEnabled = IsTranslationModeEnabled(index);
-                items[index].Visibility = isEnabled ? Visibility.Visible : Visibility.Collapsed;
-                items[index].IsEnabled = isEnabled;
-            }
-        }
-    }
 
     private static string GetModelCredentialKey(string provider, string model) =>
         $"{provider}:Model:{model}";
@@ -843,7 +809,7 @@ public sealed partial class MainWindow : Window
         }
 
         _suppressEvents = true;
-        ModeComboBox.SelectedIndex = 2;
+        SetHomeMode(2);
         LocalTranslationSourceComboBox.SelectedIndex = 1;
         _selectedOfflineModelPath = model.LocalDirectory;
         SelectModelLanguages(model);
@@ -865,8 +831,8 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        SourceLanguageComboBox.SelectedItem = source;
-        RefreshTargetLanguageOptions(TargetLanguageComboBox, source, target);
+        _homeStore!.Update(state => state with { SourceIndex = Languages.IndexOf(source) });
+        RefreshHomeTargetLanguages(target);
     }
 
     private void RefreshOfflineModelList()
@@ -1097,43 +1063,6 @@ public sealed partial class MainWindow : Window
         SaveSettings();
     }
 
-    private void SourceTextBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        UpdateCounts();
-        UpdateUiState();
-    }
-
-    private void OutputTextBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        UpdateCounts();
-        UpdateUiState();
-    }
-
-
-    private void SourceLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
-
-        RefreshTargetLanguageOptions();
-        SaveSettings();
-    }
-
-    private void TargetLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
-
-        RefreshTargetLanguageOptions();
-        SaveSettings();
-    }
-
-
-
     private void ImageModelsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressEvents)
@@ -1197,16 +1126,15 @@ public sealed partial class MainWindow : Window
     private string GetProviderEndpoint(string provider) =>
         ProviderCatalog.GetEndpoint(_settings, provider);
 
-
     private void SwapLanguageButton_Click(object sender, RoutedEventArgs e)
     {
-        var newSource = TargetLanguageComboBox.SelectedItem as LanguageOption ?? Languages[3];
+        var newSource = HomeTargetLanguage ?? Languages[3];
         _suppressEvents = true;
-        SourceLanguageComboBox.SelectedItem = newSource;
+        _homeStore!.Update(state => state with { SourceIndex = Languages.IndexOf(newSource) });
         _imageTranslationStore!.Update(state => state with { SourceIndex = Languages.IndexOf(newSource) });
         _suppressEvents = false;
 
-        RefreshTargetLanguageOptions();
+        RefreshHomeTargetLanguages();
         RefreshImageTargetLanguageOptions();
         SaveSettings();
     }
@@ -1216,10 +1144,10 @@ public sealed partial class MainWindow : Window
         CancelRealtimeTranslation();
         _cts?.Cancel();
         _selectionTranslationCts?.Cancel();
-        SourceTextBox.Text = string.Empty;
-        OutputTextBox.Text = string.Empty;
+        SetHomeSource(string.Empty);
+        SetHomeOutput(string.Empty);
         SuspendRealtimeTranslationForCurrentInput();
-        SourceTextBox.Focus(FocusState.Programmatic);
+        RequestHomeFocus();
     }
 
     private void TranslationHistoryButton_Click(object sender, RoutedEventArgs e)
@@ -1229,7 +1157,7 @@ public sealed partial class MainWindow : Window
 
     private void CopyButton_Click(object sender, RoutedEventArgs e)
     {
-        var text = OutputTextBox.Text;
+        var text = HomeState.Output;
         if (string.IsNullOrEmpty(text))
         {
             return;
@@ -1286,11 +1214,7 @@ public sealed partial class MainWindow : Window
             }
 
             _pendingClipboardText = text;
-            ClipboardPasteTeachingTip.Target = _isMiniMode
-                ? MiniStore.SourceTextBox ?? (FrameworkElement)MiniPageHost
-                : TranslationHistoryButton;
-            ClipboardPasteTeachingTip.Subtitle = BuildClipboardPreview(text);
-            ClipboardPasteTeachingTip.IsOpen = true;
+            _homeStore!.Update(state => state with { IsMiniMode = _isMiniMode, ClipboardPreview = BuildClipboardPreview(text), IsClipboardTipOpen = true });
         }
         catch (Exception)
         {
@@ -1298,11 +1222,11 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void ClipboardPasteTeachingTip_ActionButtonClick(TeachingTip sender, object args)
+    private void PastePendingClipboard()
     {
         var text = _pendingClipboardText;
         _pendingClipboardText = null;
-        sender.IsOpen = false;
+        _homeStore!.Update(state => state with { IsClipboardTipOpen = false });
         if (string.IsNullOrEmpty(text) || (!_isMiniMode && _currentPageTag != "Home"))
         {
             return;
@@ -1316,15 +1240,15 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        SourceTextBox.Text = text;
-        SourceTextBox.Focus(FocusState.Programmatic);
-        SourceTextBox.SelectionStart = SourceTextBox.Text.Length;
+        SetHomeSource(text);
+        RequestHomeFocus();
+
     }
 
-    private void ClipboardPasteTeachingTip_CloseButtonClick(TeachingTip sender, object args)
+    private void CloseClipboardTip()
     {
         _pendingClipboardText = null;
-        sender.IsOpen = false;
+        _homeStore!.Update(state => state with { IsClipboardTipOpen = false });
     }
 
     private static string BuildClipboardPreview(string text)
@@ -1409,7 +1333,7 @@ public sealed partial class MainWindow : Window
         if (tag != "Home" && !_isMiniMode)
         {
             _pendingClipboardText = null;
-            ClipboardPasteTeachingTip.IsOpen = false;
+            _homeStore!.Update(state => state with { IsClipboardTipOpen = false });
         }
 
         var pageTitle = tag switch
@@ -1426,8 +1350,8 @@ public sealed partial class MainWindow : Window
         PageTitleTextBlock.Text = pageTitle;
         Title = tag == "Home" ? Localization.AppName : $"{pageTitle} — {Localization.AppName}";
 
-        TranslationToolbar.Visibility = tag == "Home" ? Visibility.Visible : Visibility.Collapsed;
-        HomePageGrid.Visibility = tag == "Home" ? Visibility.Visible : Visibility.Collapsed;
+        HomeToolbarHost.Visibility = tag == "Home" ? Visibility.Visible : Visibility.Collapsed;
+        HomePageHost.Visibility = tag == "Home" ? Visibility.Visible : Visibility.Collapsed;
         TranslationHistoryPageHost.Visibility = tag == "History" ? Visibility.Visible : Visibility.Collapsed;
         FavoritesPageHost.Visibility = tag == "Favorites" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPageScrollViewer.Visibility = tag == "Settings" ? Visibility.Visible : Visibility.Collapsed;
@@ -1545,7 +1469,6 @@ public sealed partial class MainWindow : Window
     [DllImport("user32.dll")]
     private static extern void keybd_event(byte virtualKey, byte scanCode, uint flags, nuint extraInfo);
 
-
     private void MiniModeButton_Click(object sender, RoutedEventArgs e)
     {
         var mini = !_isMiniMode;
@@ -1615,14 +1538,15 @@ public sealed partial class MainWindow : Window
         }
 
         _isMiniMode = mini;
+        _homeStore!.Update(state => state with { IsMiniMode = mini });
         _pendingClipboardText = null;
-        ClipboardPasteTeachingTip.IsOpen = false;
+        _homeStore!.Update(state => state with { IsClipboardTipOpen = false });
         ClearNavigationHistory();
         SidebarNavigationView.Visibility = mini ? Visibility.Collapsed : Visibility.Visible;
         MiniWindowGrid.Visibility = mini ? Visibility.Visible : Visibility.Collapsed;
         SetTitleBar(mini ? MiniTitleBarDragRegion : TitleBarDragRegion);
-        TranslationToolbar.Visibility = mini ? Visibility.Collapsed : (_currentPageTag == "Home" ? Visibility.Visible : Visibility.Collapsed);
-        HomePageGrid.Visibility = mini ? Visibility.Collapsed : (_currentPageTag == "Home" ? Visibility.Visible : Visibility.Collapsed);
+        HomeToolbarHost.Visibility = mini ? Visibility.Collapsed : (_currentPageTag == "Home" ? Visibility.Visible : Visibility.Collapsed);
+        HomePageHost.Visibility = mini ? Visibility.Collapsed : (_currentPageTag == "Home" ? Visibility.Visible : Visibility.Collapsed);
         if (mini)
         {
             PageTitleTextBlock.Text = Localization.AppName;
@@ -1648,8 +1572,6 @@ public sealed partial class MainWindow : Window
         }
         UpdateUiState();
     }
-
-
 
     private async Task<string> TranslateFileChunkWithRetryAsync(
         string chunk,
@@ -1850,18 +1772,18 @@ public sealed partial class MainWindow : Window
 
         if (shiftDown)
         {
-            var start = SourceTextBox.SelectionStart;
-            var length = SourceTextBox.SelectionLength;
-            SourceTextBox.Text = SourceTextBox.Text.Remove(start, length)
-                .Insert(start, Environment.NewLine);
-            SourceTextBox.SelectionStart = start + Environment.NewLine.Length;
-            SourceTextBox.SelectionLength = 0;
+            var start = (_homeStore!.SourceRef.Current as TextBox)!.SelectionStart;
+            var length = (_homeStore!.SourceRef.Current as TextBox)!.SelectionLength;
+            SetHomeSource(HomeState.Source.Remove(start, length)
+                .Insert(start, Environment.NewLine));
+            RequestHomeFocus(start: start + Environment.NewLine.Length);
+
             return;
         }
 
-        if (!_isTranslating && !string.IsNullOrWhiteSpace(SourceTextBox.Text))
+        if (!_isTranslating && !string.IsNullOrWhiteSpace(HomeState.Source))
         {
-            TranslateButton_Click(TranslateButton, new RoutedEventArgs());
+            _ = TranslateHomeAsync();
         }
     }
 
@@ -1885,7 +1807,7 @@ public sealed partial class MainWindow : Window
             (int)Math.Round(height * scale)));
     }
 
-    private async void TranslateButton_Click(object sender, RoutedEventArgs e)
+    private async Task TranslateHomeAsync()
     {
         if (_isTranslating)
         {
@@ -1899,20 +1821,20 @@ public sealed partial class MainWindow : Window
         }
 
         SuspendRealtimeTranslationForCurrentInput();
-        var sourceText = SourceTextBox.Text.Trim();
+        var sourceText = HomeState.Source.Trim();
         if (string.IsNullOrWhiteSpace(sourceText))
         {
             ShowInfo(Localization.Text("请输入需要翻译的内容。"), InfoBarSeverity.Warning);
             return;
         }
 
-        if (ModeComboBox.SelectedIndex == 0)
+        if (HomeState.ModeIndex == 0)
         {
             await TranslateWithMachineTranslationAsync(sourceText);
             return;
         }
 
-        var isLocalMode = ModeComboBox.SelectedIndex == 2;
+        var isLocalMode = HomeState.ModeIndex == 2;
         var useLocalModel = isLocalMode && LocalTranslationSourceComboBox.SelectedIndex == 1;
         var endpoint = isLocalMode
             ? LocalEndpointTextBox.Text.Trim()
@@ -1964,13 +1886,11 @@ public sealed partial class MainWindow : Window
             SaveSettings();
         }
 
-        var sourceLanguage = SourceLanguageComboBox.SelectedItem as LanguageOption ?? Languages[0];
-        var targetLanguage = TargetLanguageComboBox.SelectedItem as LanguageOption ?? Languages[3];
+        var sourceLanguage = HomeSourceLanguage ?? Languages[0];
+        var targetLanguage = HomeTargetLanguage ?? Languages[3];
         _cts = new CancellationTokenSource();
         var translationToken = _cts.Token;
         _isTranslating = true;
-        TranslateButtonText.Text = Localization.Text("取消");
-        ProgressRing.IsActive = true;
         UpdateUiState();
         ShowInfo(useLocalModel ? Localization.Text("正在使用本地模型翻译...") : Localization.Text("正在翻译..."), InfoBarSeverity.Informational);
 
@@ -1978,17 +1898,16 @@ public sealed partial class MainWindow : Window
         {
             var result = await TranslateTextAsync(
                 sourceText,
-                ModeComboBox.SelectedIndex,
+                HomeState.ModeIndex,
                 sourceLanguage,
                 targetLanguage,
                 translationToken,
                 onTextUpdated: text =>
                 {
-                    if (!translationToken.IsCancellationRequested) OutputTextBox.Text = text;
+                    if (!translationToken.IsCancellationRequested) SetHomeOutput(text);
                 });
             translationToken.ThrowIfCancellationRequested();
-            OutputTextBox.Text = result;
-            UpdateCounts();
+            SetHomeOutput(result);
             AddTranslationHistory(sourceText);
             ShowInfo(Localization.Text("翻译完成。"), InfoBarSeverity.Success);
         }
@@ -2005,16 +1924,14 @@ public sealed partial class MainWindow : Window
             _isTranslating = false;
             _cts.Dispose();
             _cts = null;
-            TranslateButtonText.Text = Localization.Text("翻译");
-            ProgressRing.IsActive = false;
             UpdateUiState();
         }
     }
 
     private async Task TranslateWithMachineTranslationAsync(string sourceText)
     {
-        var sourceLanguage = SourceLanguageComboBox.SelectedItem as LanguageOption;
-        var targetLanguage = TargetLanguageComboBox.SelectedItem as LanguageOption;
+        var sourceLanguage = HomeSourceLanguage;
+        var targetLanguage = HomeTargetLanguage;
         if (sourceLanguage is null
             || targetLanguage is null
             || string.IsNullOrEmpty(targetLanguage.ApiCode))
@@ -2038,8 +1955,6 @@ public sealed partial class MainWindow : Window
         _cts = new CancellationTokenSource();
         var translationToken = _cts.Token;
         _isTranslating = true;
-        TranslateButtonText.Text = Localization.Text("取消");
-        ProgressRing.IsActive = true;
         UpdateUiState();
         ShowInfo(Localization.Text("正在调用机器翻译..."), InfoBarSeverity.Informational);
 
@@ -2052,8 +1967,7 @@ public sealed partial class MainWindow : Window
                 targetLanguage,
                 translationToken);
             translationToken.ThrowIfCancellationRequested();
-            OutputTextBox.Text = result;
-            UpdateCounts();
+            SetHomeOutput(result);
             AddTranslationHistory(sourceText);
             ShowInfo(Localization.Text("翻译完成。"), InfoBarSeverity.Success);
         }
@@ -2070,8 +1984,6 @@ public sealed partial class MainWindow : Window
             _isTranslating = false;
             _cts.Dispose();
             _cts = null;
-            TranslateButtonText.Text = Localization.Text("翻译");
-            ProgressRing.IsActive = false;
             UpdateUiState();
         }
     }
@@ -2087,9 +1999,8 @@ public sealed partial class MainWindow : Window
         {
             _isOpeningSystemDictation = true;
             UpdateUiState();
-            SourceTextBox.Focus(FocusState.Programmatic);
-            SourceTextBox.SelectionStart = SourceTextBox.Text.Length;
-            SourceTextBox.SelectionLength = 0;
+            RequestHomeFocus();
+
             await Task.Delay(100);
 
             keybd_event(VkLeftWindows, 0, 0, 0);
@@ -2280,14 +2191,14 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var text = OutputTextBox.Text.Trim();
+        var text = HomeState.Output.Trim();
         if (string.IsNullOrEmpty(text))
         {
             return;
         }
 
-        var languageTag = (TargetLanguageComboBox.SelectedItem as LanguageOption)?.SpeechTag;
-        SpeakButton.IsEnabled = false;
+        var languageTag = (HomeTargetLanguage)?.SpeechTag;
+        _homeStore!.Update(state => state with { IsSynthesizing = true });
 
         try
         {
@@ -2305,7 +2216,7 @@ public sealed partial class MainWindow : Window
 
     private void SetSpeakingState(bool speaking)
     {
-        SpeakIcon.Symbol = speaking ? Symbol.Stop : Symbol.Audio;
+        _homeStore!.Update(state => state with { IsSpeaking = speaking, IsSynthesizing = false });
         UpdateUiState();
     }
 
@@ -2350,40 +2261,6 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void RefreshTargetLanguageOptions()
-    {
-        var sourceLanguage = SourceLanguageComboBox.SelectedItem as LanguageOption ?? Languages[0];
-        RefreshTargetLanguageOptions(
-            TargetLanguageComboBox,
-            sourceLanguage,
-            TargetLanguageComboBox.SelectedItem as LanguageOption);
-    }
-
-
-    private void RefreshTargetLanguageOptions(
-        ComboBox targetComboBox,
-        LanguageOption sourceLanguage,
-        LanguageOption? preferredTarget)
-    {
-        var allowedTargets = Languages
-            .Where(language => language.PromptName != "自动检测"
-                && (sourceLanguage.ApiCode == "auto"
-                    || language.PromptName != sourceLanguage.PromptName))
-            .ToList();
-
-        var target = allowedTargets.FirstOrDefault(
-                language => preferredTarget is not null
-                    && language.PromptName == preferredTarget.PromptName)
-            ?? allowedTargets.FirstOrDefault(language => language.PromptName == "英语")
-            ?? allowedTargets.FirstOrDefault();
-
-        var previousSuppress = _suppressEvents;
-        _suppressEvents = true;
-        targetComboBox.ItemsSource = allowedTargets;
-        targetComboBox.SelectedItem = target;
-        _suppressEvents = previousSuppress;
-    }
-
     private static string GetMimeType(string path)
     {
         return Path.GetExtension(path).ToLowerInvariant() switch
@@ -2395,12 +2272,6 @@ public sealed partial class MainWindow : Window
             ".gif" => "image/gif",
             _ => "application/octet-stream",
         };
-    }
-
-    private void UpdateCounts()
-    {
-        SourceCountText.Text = Localization.Text("{0} 字", SourceTextBox.Text.Length);
-        OutputCountText.Text = Localization.Text("{0} 字", OutputTextBox.Text.Length);
     }
 
     private void AddTranslationHistory(string sourceText)
@@ -2473,20 +2344,18 @@ public sealed partial class MainWindow : Window
     private void UpdateUiState()
     {
         RefreshRealtimeTranslation();
-        ProgressRing.IsActive = _isTranslating || _isRealtimeTranslating;
+        _homeStore?.Update(state => state with { IsTranslating = _isTranslating, IsBusy = _isTranslating || _isRealtimeTranslating,
+            IsSelectionTranslating = _isSelectionTranslating, IsOpeningDictation = _isOpeningSystemDictation });
         UpdateFavoritesState();
         ProviderApiKeyPasswordBox.IsEnabled = !_isTranslating && !_isSelectionTranslating
             && !_isImageTranslating && !_isFileTranslating && !IsMiniTranslating;
-        TranslateButton.IsEnabled = _isTranslating || (!_isSelectionTranslating && SourceTextBox.Text.Trim().Length > 0);
-        MicButton.IsEnabled = !_isTranslating && !_isSelectionTranslating && !_isOpeningSystemDictation;
-        SpeakButton.IsEnabled = _speechOutput.IsSpeaking || OutputTextBox.Text.Trim().Length > 0;
         _imageTranslationStore?.Update(state => state with { IsTranslating = _isImageTranslating });
         UpdateFileModeAvailability();
     }
 
     private void SaveSettings()
     {
-        _settings.ModeIndex = Math.Max(0, ModeComboBox.SelectedIndex);
+        _settings.ModeIndex = Math.Max(0, HomeState.ModeIndex);
         _settings.ApiTranslationEnabled = ApiTranslationToggleSwitch.IsOn;
         _settings.AiTranslationEnabled = AiTranslationToggleSwitch.IsOn;
         _settings.ProviderName = _currentProvider;
@@ -2496,8 +2365,8 @@ public sealed partial class MainWindow : Window
         _settings.EnterToTranslate = EnterToTranslateToggleSwitch.IsOn;
         _settings.RealtimeTranslationEnabled = RealtimeTranslationToggleSwitch.IsOn;
         _settings.TranslationHistoryLimit = NormalizeTranslationHistoryLimit(_settings.TranslationHistoryLimit);
-        var sourceLanguage = SourceLanguageComboBox.SelectedItem as LanguageOption;
-        var targetLanguage = TargetLanguageComboBox.SelectedItem as LanguageOption;
+        var sourceLanguage = HomeSourceLanguage;
+        var targetLanguage = HomeTargetLanguage;
         _settings.SourceLanguageIndex = sourceLanguage is null ? 0 : Languages.IndexOf(sourceLanguage);
         _settings.TargetLanguageIndex = targetLanguage is null ? 3 : Languages.IndexOf(targetLanguage);
         _settings.CustomPrompt = CustomPromptTextBox.Text;

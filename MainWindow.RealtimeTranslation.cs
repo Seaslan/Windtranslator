@@ -41,12 +41,12 @@ public sealed partial class MainWindow
             || !_settings.RealtimeTranslationEnabled || _isMiniMode || _currentPageTag != "Home")
             return null;
 
-        var mode = ModeComboBox.SelectedIndex;
+        var mode = HomeState.ModeIndex;
         if (mode != 0 && mode != 2) return null;
-        var text = SourceTextBox.Text.Trim();
+        var text = HomeState.Source.Trim();
         if ((!includeEmptyText && text.Length == 0)
-            || SourceLanguageComboBox.SelectedItem is not LanguageOption source
-            || TargetLanguageComboBox.SelectedItem is not LanguageOption target
+            || HomeSourceLanguage is not { } source
+            || HomeTargetLanguage is not { } target
             || GetTranslationConfigurationError(mode) is not null)
             return null;
 
@@ -123,9 +123,9 @@ public sealed partial class MainWindow
             var result = await TranslateTextAsync(input.Text, input.Mode, input.Source, input.Target,
                 cts.Token, onTextUpdated: text =>
                 {
-                    if (IsCurrentRealtimeTranslation(input, operation)) OutputTextBox.Text = text;
+                    if (IsCurrentRealtimeTranslation(input, operation)) SetHomeOutput(text);
                 });
-            if (IsCurrentRealtimeTranslation(input, operation)) OutputTextBox.Text = result;
+            if (IsCurrentRealtimeTranslation(input, operation)) SetHomeOutput(result);
             // Only the manual translation flow adds history.
         }
         catch (OperationCanceledException) { }

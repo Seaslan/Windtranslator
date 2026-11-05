@@ -73,7 +73,7 @@ public sealed partial class MainWindow
             UpdateUiState();
             var result = await TranslateTextAsync(
                 text,
-                Math.Clamp(ModeComboBox.SelectedIndex, 0, 2),
+                Math.Clamp(HomeState.ModeIndex, 0, 2),
                 Languages[0],
                 targetLanguage,
                 CancellationToken.None,

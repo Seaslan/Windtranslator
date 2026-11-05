@@ -30,14 +30,9 @@ public sealed partial class MainWindow
     private bool CanTranslateSelection =>
         !_isMiniMode && _currentPageTag == "Home" && !_isTranslating && !_isSelectionTranslating;
 
-    private void InstallSelectionTranslationCommands()
-    {
-        InstallSelectionTranslationCommands(SourceTextBox, SelectionTranslationOrigin.Source);
-        InstallSelectionTranslationCommands(OutputTextBox, SelectionTranslationOrigin.Output);
-    }
-
     private void InstallSelectionTranslationCommands(TextBox textBox, SelectionTranslationOrigin origin)
     {
+        if (_selectionTranslationTargets.ContainsKey(textBox)) return;
         // Extend the built-in text menu rather than replacing it: the TextBox places
         // its own flyout at the pointer, while a replacement is placed by the control edge.
         // The default flyout may be shared, so resolve the box from the flyout's target.
@@ -130,8 +125,8 @@ public sealed partial class MainWindow
             return;
         }
 
-        var sourceLanguage = SourceLanguageComboBox.SelectedItem as LanguageOption ?? Languages[0];
-        var targetLanguage = TargetLanguageComboBox.SelectedItem as LanguageOption ?? Languages[3];
+        var sourceLanguage = HomeSourceLanguage ?? Languages[0];
+        var targetLanguage = HomeTargetLanguage ?? Languages[3];
         if (origin == SelectionTranslationOrigin.Output)
         {
             if (sourceLanguage.ApiCode == "auto")
@@ -143,7 +138,7 @@ public sealed partial class MainWindow
             (sourceLanguage, targetLanguage) = (targetLanguage, sourceLanguage);
         }
 
-        var originalOutput = OutputTextBox.Text;
+        var originalOutput = HomeState.Output;
         if (origin == SelectionTranslationOrigin.Output
             && (selectionStart < 0 || selectionStart > originalOutput.Length
                 || selectionLength > originalOutput.Length - selectionStart
@@ -161,14 +156,14 @@ public sealed partial class MainWindow
             selectionToken.ThrowIfCancellationRequested();
             if (origin == SelectionTranslationOrigin.Output)
             {
-                if (!string.Equals(OutputTextBox.Text, expectedOutput, StringComparison.Ordinal))
+                if (!string.Equals(HomeState.Output, expectedOutput, StringComparison.Ordinal))
                     throw new InvalidOperationException(Localization.Text("选中的译文已发生变化，请重新选择。"));
                 expectedOutput = originalOutput[..selectionStart] + text + originalOutput[(selectionStart + selectionLength)..];
-                OutputTextBox.Text = expectedOutput;
+                SetHomeOutput(expectedOutput);
             }
             else
             {
-                OutputTextBox.Text = text;
+                SetHomeOutput(text);
             }
         }
 
@@ -179,7 +174,7 @@ public sealed partial class MainWindow
             UpdateUiState();
             var translatedText = await TranslateTextAsync(
                 selectedText,
-                Math.Clamp(ModeComboBox.SelectedIndex, 0, 2),
+                Math.Clamp(HomeState.ModeIndex, 0, 2),
                 sourceLanguage,
                 targetLanguage,
                 selectionToken,
@@ -187,17 +182,14 @@ public sealed partial class MainWindow
             selectionToken.ThrowIfCancellationRequested();
             if (origin == SelectionTranslationOrigin.Source)
             {
-                OutputTextBox.Text = translatedText;
-                OutputTextBox.Focus(FocusState.Programmatic);
-                OutputTextBox.SelectionStart = OutputTextBox.Text.Length;
-                OutputTextBox.SelectionLength = 0;
+                SetHomeOutput(translatedText);
+                RequestHomeFocus(output: true);
+
             }
             else
             {
                 UpdateSelectedTranslation(translatedText);
-                OutputTextBox.Focus(FocusState.Programmatic);
-                OutputTextBox.SelectionStart = selectionStart;
-                OutputTextBox.SelectionLength = translatedText.Length;
+                RequestHomeFocus(output: true, start: selectionStart, length: translatedText.Length);
             }
 
             ShowInfo(Localization.Text("翻译完成。"), InfoBarSeverity.Success);
@@ -209,8 +201,8 @@ public sealed partial class MainWindow
         catch (Exception ex)
         {
             if (!cancellation.IsCancellationRequested
-                && origin == SelectionTranslationOrigin.Output && OutputTextBox.Text == expectedOutput)
-                OutputTextBox.Text = originalOutput;
+                && origin == SelectionTranslationOrigin.Output && HomeState.Output == expectedOutput)
+                SetHomeOutput(originalOutput);
             ShowInfo(Localization.Text("选词翻译失败：{0}", ex.Message), InfoBarSeverity.Error);
         }
         finally

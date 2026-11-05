@@ -1,6 +1,7 @@
 using Microsoft.UI.Input;
 using Microsoft.UI.Reactor;
 using Microsoft.UI.Reactor.Core;
+using Microsoft.UI.Reactor.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -46,6 +47,8 @@ public sealed class MiniTranslatorStore
     public Action ExitMiniMode { get; init; } = () => { };
 
     public Action<string> CopyResult { get; init; } = _ => { };
+
+    public ElementRef ClipboardSourceRef { get; } = new();
 
     public TextBox? SourceTextBox { get; internal set; }
 
@@ -135,6 +138,7 @@ public sealed class MiniTranslatorView : Component
                     .IsReadOnly(state.IsSourceReadOnly)
                     .PlaceholderText(Localization.Get("S99a6de45d0cd7780"))
                     .AutomationName(Localization.Get("Se8502c968c8ab89d"))
+                    .Ref(_store.ClipboardSourceRef)
                     .OnMount(element => _store.SourceTextBox = element as TextBox)
                     .OnKeyDown(OnSourceKeyDown)
                     .Grid(row: 1),

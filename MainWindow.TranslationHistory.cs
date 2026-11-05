@@ -37,9 +37,9 @@ public sealed partial class MainWindow
 
     private void TranslationHistoryItemClicked(string sourceText)
     {
-        SourceTextBox.Text = sourceText;
+        SetHomeSource(sourceText);
         NavigateTo("Home");
-        SourceTextBox.Focus(FocusState.Programmatic);
-        TranslateButton_Click(TranslateButton, new RoutedEventArgs());
+        RequestHomeFocus();
+        _ = TranslateHomeAsync();
     }
 }

@@ -51,15 +51,12 @@ public sealed partial class MainWindow
     private void UpdateFavoritesState()
     {
         if (_settings is null) return;
-        var sourceText = SourceTextBox.Text;
-        var translatedText = OutputTextBox.Text;
-        AddFavoriteButton.IsEnabled = !_isTranslating && !_isSelectionTranslating && !_isRealtimeTranslating
+        var sourceText = HomeState.Source;
+        var translatedText = HomeState.Output;
+        var canFavorite = !_isTranslating && !_isSelectionTranslating && !_isRealtimeTranslating
             && !string.IsNullOrWhiteSpace(sourceText);
         var isFavorite = FindFavorite(sourceText, translatedText) is not null;
-        FavoriteIcon.Glyph = isFavorite ? "\uE735" : "\uE734";
-        var label = isFavorite ? Localization.Text("取消收藏") : Localization.Text("收藏源文本和译文");
-        ToolTipService.SetToolTip(AddFavoriteButton, label);
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(AddFavoriteButton, label);
+        _homeStore?.Update(state => state with { CanFavorite = canFavorite, IsFavorite = isFavorite });
         _favoritesStore?.Update(state => state with
         {
             IsInteractive = !_isTranslating && !_isSelectionTranslating,
@@ -68,9 +65,9 @@ public sealed partial class MainWindow
 
     private void AddFavoriteButton_Click(object sender, RoutedEventArgs e)
     {
-        var sourceText = SourceTextBox.Text;
+        var sourceText = HomeState.Source;
         if (_isTranslating || _isSelectionTranslating || _isRealtimeTranslating || string.IsNullOrWhiteSpace(sourceText)) return;
-        var translatedText = OutputTextBox.Text;
+        var translatedText = HomeState.Output;
         if (FindFavorite(sourceText, translatedText) is { } existing)
         {
             _settings.Favorites.Remove(existing);
@@ -83,7 +80,7 @@ public sealed partial class MainWindow
         {
             SourceText = sourceText,
             TranslatedText = translatedText,
-            SourceSpeechTag = (SourceLanguageComboBox.SelectedItem as LanguageOption)?.SpeechTag,
+            SourceSpeechTag = (HomeSourceLanguage)?.SpeechTag,
         });
         RefreshFavorites();
         SaveSettings();
@@ -100,13 +97,12 @@ public sealed partial class MainWindow
     private void FavoriteItemClicked(FavoriteTranslation favorite)
     {
         if (_isTranslating || _isSelectionTranslating) return;
-        SourceTextBox.Text = favorite.SourceText;
-        OutputTextBox.Text = favorite.TranslatedText;
+        SetHomeSource(favorite.SourceText);
+        SetHomeOutput(favorite.TranslatedText);
         NavigateTo("Home");
         SuspendRealtimeTranslationForCurrentInput();
-        SourceTextBox.Focus(FocusState.Programmatic);
-        SourceTextBox.SelectionStart = favorite.SourceText.Length;
-        SourceTextBox.SelectionLength = 0;
+        RequestHomeFocus();
+
     }
 
     private void RemoveFavorite(FavoriteTranslation favorite)
