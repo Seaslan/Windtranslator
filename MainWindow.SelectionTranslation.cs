@@ -25,6 +25,7 @@ public sealed partial class MainWindow
 
     private readonly Dictionary<TextBox, SelectionTranslationOrigin> _selectionTranslationTargets = new();
     private readonly HashSet<FlyoutBase> _hookedSelectionFlyouts = new();
+    private CancellationTokenSource? _selectionTranslationCts;
 
     private bool CanTranslateSelection =>
         !_isMiniMode && _currentPageTag == "Home" && !_isTranslating && !_isSelectionTranslating;
@@ -152,8 +153,12 @@ public sealed partial class MainWindow
             return;
         }
         var expectedOutput = originalOutput;
+        using var cancellation = new CancellationTokenSource();
+        var selectionToken = cancellation.Token;
+        _selectionTranslationCts = cancellation;
         void UpdateSelectedTranslation(string text)
         {
+            selectionToken.ThrowIfCancellationRequested();
             if (origin == SelectionTranslationOrigin.Output)
             {
                 if (!string.Equals(OutputTextBox.Text, expectedOutput, StringComparison.Ordinal))
@@ -177,8 +182,9 @@ public sealed partial class MainWindow
                 Math.Clamp(ModeComboBox.SelectedIndex, 0, 2),
                 sourceLanguage,
                 targetLanguage,
-                CancellationToken.None,
+                selectionToken,
                 onTextUpdated: UpdateSelectedTranslation);
+            selectionToken.ThrowIfCancellationRequested();
             if (origin == SelectionTranslationOrigin.Source)
             {
                 OutputTextBox.Text = translatedText;
@@ -202,12 +208,14 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
-            if (origin == SelectionTranslationOrigin.Output && OutputTextBox.Text == expectedOutput)
+            if (!cancellation.IsCancellationRequested
+                && origin == SelectionTranslationOrigin.Output && OutputTextBox.Text == expectedOutput)
                 OutputTextBox.Text = originalOutput;
             ShowInfo(Localization.Text("选词翻译失败：{0}", ex.Message), InfoBarSeverity.Error);
         }
         finally
         {
+            _selectionTranslationCts = null;
             _isSelectionTranslating = false;
             UpdateUiState();
         }

@@ -93,9 +93,10 @@ public sealed class AboutPageView : Component
                         Localization.Get("S2c04cdb9edaabc83"),
                         VStack(
                             4,
-                            Link(".NET 8", "https://aka.ms/net", compact: true),
-                            Link("Windows App SDK", "https://aka.ms/windowsappsdk", compact: true),
+                            Link(".NET 10", "https://aka.ms/net", compact: true),
+                            Link("Windows App SDK 2.3.1", "https://aka.ms/windowsappsdk", compact: true),
                             Link("WinUI 3", "https://aka.ms/winui3", compact: true),
+                            Link("Microsoft.UI.Reactor", "https://github.com/microsoft/microsoft-ui-reactor", compact: true),
                             Link("Mozilla Translations", "https://github.com/mozilla/translations", compact: true),
                             Link("Bergamot Translator", "https://github.com/browsermt/bergamot-translator", compact: true))
                             .Padding(12, 0, 12, 12),
@@ -129,7 +130,6 @@ public sealed class AboutPageView : Component
     private static HyperlinkButtonElement Link(string content, string uri, bool compact = false)
     {
         var link = HyperlinkButton(content, new Uri(uri))
-            .TextLink()
             .Padding(0)
             .HAlign(HorizontalAlignment.Left);
 

@@ -1268,7 +1268,12 @@ public sealed partial class MainWindow : Window
 
     private void ClearSourceButton_Click(object sender, RoutedEventArgs e)
     {
+        CancelRealtimeTranslation();
+        _cts?.Cancel();
+        _selectionTranslationCts?.Cancel();
         SourceTextBox.Text = string.Empty;
+        OutputTextBox.Text = string.Empty;
+        SuspendRealtimeTranslationForCurrentInput();
         SourceTextBox.Focus(FocusState.Programmatic);
     }
 
@@ -2432,6 +2437,7 @@ public sealed partial class MainWindow : Window
         var sourceLanguage = SourceLanguageComboBox.SelectedItem as LanguageOption ?? Languages[0];
         var targetLanguage = TargetLanguageComboBox.SelectedItem as LanguageOption ?? Languages[3];
         _cts = new CancellationTokenSource();
+        var translationToken = _cts.Token;
         _isTranslating = true;
         TranslateButtonText.Text = Localization.Text("取消");
         ProgressRing.IsActive = true;
@@ -2445,8 +2451,12 @@ public sealed partial class MainWindow : Window
                 ModeComboBox.SelectedIndex,
                 sourceLanguage,
                 targetLanguage,
-                _cts.Token,
-                onTextUpdated: text => OutputTextBox.Text = text);
+                translationToken,
+                onTextUpdated: text =>
+                {
+                    if (!translationToken.IsCancellationRequested) OutputTextBox.Text = text;
+                });
+            translationToken.ThrowIfCancellationRequested();
             OutputTextBox.Text = result;
             UpdateCounts();
             AddTranslationHistory(sourceText);
@@ -2496,6 +2506,7 @@ public sealed partial class MainWindow : Window
         }
 
         _cts = new CancellationTokenSource();
+        var translationToken = _cts.Token;
         _isTranslating = true;
         TranslateButtonText.Text = Localization.Text("取消");
         ProgressRing.IsActive = true;
@@ -2509,7 +2520,8 @@ public sealed partial class MainWindow : Window
                 0,
                 sourceLanguage,
                 targetLanguage,
-                _cts.Token);
+                translationToken);
+            translationToken.ThrowIfCancellationRequested();
             OutputTextBox.Text = result;
             UpdateCounts();
             AddTranslationHistory(sourceText);
