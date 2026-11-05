@@ -13,11 +13,7 @@ public sealed partial class MainWindow
 
     private void CreateSettingsStore()
     {
-        var legacy = SettingsCardsPanel;
-        foreach (var entry in SettingsPageScrollViewer.Resources)
-            legacy.Resources[entry.Key] = entry.Value;
-        SettingsPageScrollViewer.Content = null;
-        _settingsStore = new SettingsPageStore { LegacySections = legacy, Edited = GeneralSettingsEdited,
+        _settingsStore = new SettingsPageStore { Edited = GeneralSettingsEdited,
             ReadAliyunKey = secret => secret ? _aliyunAccessKeySecret : _aliyunAccessKeyId,
             AliyunKeyChanged = AliyunKeyChanged,
             ReadProviderKey = () => _settings is null ? string.Empty : GetProviderApiKey(ManagedProvider),
@@ -26,7 +22,10 @@ public sealed partial class MainWindow
             ProviderAction = HandleProviderAction,
             DeleteModel = DeleteProviderModel,
             DialogClosed = CloseProviderDialog,
-            RefreshLocalModels = () => RefreshLocalModelsButton_Click(this, new RoutedEventArgs()) };
+            RefreshLocalModels = () => RefreshLocalModelsButton_Click(this, new RoutedEventArgs()),
+            RefreshOfflineModels = async () => await RefreshOfflineModelsAsync(showError: true),
+            UseOrDownloadOfflineModel = async id => { if (_offlineModelItems.TryGetValue(id, out var model)) await UseOrDownloadOfflineModelAsync(model); },
+            DeleteOfflineModel = id => { if (_offlineModelItems.TryGetValue(id, out var model)) DeleteOfflineModel(model); } };
         var host = CreateReactorHost();
         SettingsPageHost.Content = host;
         host.Mount(new SettingsPageView(_settingsStore));

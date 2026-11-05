@@ -100,6 +100,7 @@ public sealed partial class MainWindow : Window
     private double _offlineModelDownloadProgress;
     private string? _downloadingOfflineModelId;
     private List<OfflineTranslationModel> _onlineOfflineModels = new();
+    private Dictionary<string, OfflineTranslationModel> _offlineModelItems = new(StringComparer.OrdinalIgnoreCase);
     private string _currentPageTag = "Home";
     private readonly Stack<string> _backStack = new();
     private CancellationTokenSource? _cts;
@@ -479,11 +480,6 @@ public sealed partial class MainWindow : Window
         });
     }
 
-    private async void RefreshOfflineModelsButton_Click(object sender, RoutedEventArgs e)
-    {
-        await RefreshOfflineModelsAsync(showError: true);
-    }
-
     private async Task RefreshOfflineModelsAsync(bool showError)
     {
         if (!HasInternetAccess())
@@ -504,12 +500,12 @@ public sealed partial class MainWindow : Window
             _onlineOfflineModels = (await _offlineModelService.GetAvailableModelsAsync(CancellationToken.None))
                 .Where(IsOfflineModelSupportedOnHomePage)
                 .ToList();
-            OfflineModelsStatusTextBlock.Text = Localization.Text("已获取 {0} 个可下载模型", _onlineOfflineModels.Count);
+            SetOfflineStatus(Localization.Text("已获取 {0} 个可下载模型", _onlineOfflineModels.Count));
             RefreshOfflineModelList();
         }
         catch (Exception ex)
         {
-            OfflineModelsStatusTextBlock.Text = Localization.Text("无法获取可下载模型");
+            SetOfflineStatus(Localization.Text("无法获取可下载模型"));
             if (showError)
             {
                 ShowInfo(Localization.Text("获取离线模型失败：") + ex.Message, InfoBarSeverity.Error);
@@ -522,18 +518,15 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private async void OfflineModelPrimaryButton_Click(object sender, RoutedEventArgs e)
+    private async Task UseOrDownloadOfflineModelAsync(OfflineTranslationModel model)
     {
-        if (sender is not Button { DataContext: OfflineTranslationModel model })
-        {
-            return;
-        }
-
         if (model.IsInstalled)
         {
             UseOfflineModel(model);
             return;
         }
+
+        if (_isLoadingOfflineModels || _isDownloadingOfflineModel) return;
 
         if (!HasInternetAccess())
         {
@@ -544,7 +537,7 @@ public sealed partial class MainWindow : Window
         _isDownloadingOfflineModel = true;
         _downloadingOfflineModelId = model.Id;
         _offlineModelDownloadProgress = 0;
-        RefreshOfflineModelList();
+        UpdateOfflineModelDownloadAvailability();
         try
         {
             var lastReportedPercent = -1;
@@ -557,8 +550,12 @@ public sealed partial class MainWindow : Window
                 }
 
                 lastReportedPercent = percent;
-                _offlineModelDownloadProgress = value;
-                RefreshOfflineModelList();
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (_isWindowClosed || !_isDownloadingOfflineModel || _downloadingOfflineModelId != model.Id) return;
+                    _offlineModelDownloadProgress = value;
+                    RefreshOfflineModelList();
+                });
             });
             await _offlineModelService.DownloadAsync(model, progress, CancellationToken.None);
             RefreshOfflineModelList();
@@ -580,16 +577,13 @@ public sealed partial class MainWindow : Window
             _isDownloadingOfflineModel = false;
             _downloadingOfflineModelId = null;
             _offlineModelDownloadProgress = 0;
-            RefreshOfflineModelList();
+            UpdateOfflineModelDownloadAvailability();
         }
     }
 
-    private void DeleteOfflineModelButton_Click(object sender, RoutedEventArgs e)
+    private void DeleteOfflineModel(OfflineTranslationModel model)
     {
-        if (sender is not Button { DataContext: OfflineTranslationModel model } || !model.IsInstalled)
-        {
-            return;
-        }
+        if (!model.IsInstalled) return;
 
         if (_isTranslating && PathsEqual(_selectedOfflineModelPath, model.LocalDirectory))
         {
@@ -668,11 +662,15 @@ public sealed partial class MainWindow : Window
         models.AddRange(installed.Values
             .Where(model => _onlineOfflineModels.All(online => !online.Id.Equals(model.Id, StringComparison.OrdinalIgnoreCase)))
             .Select(CreateOfflineModelListItem));
-        OfflineModelsHeaderTextBlock.Text = Localization.Text("离线语言模型（已下载 {0} 个）", installed.Count);
-        OfflineModelsListView.ItemsSource = models
-            .OrderByDescending(model => model.IsInstalled)
+        _offlineModelItems = models.ToDictionary(model => model.Id, StringComparer.OrdinalIgnoreCase);
+        var rows = models.OrderByDescending(model => model.IsInstalled)
             .ThenBy(model => model.Title, StringComparer.CurrentCulture)
-            .ToList();
+            .Select(model => new OfflineModelRow(model.Id, model.Title, model.Details, model.IsInstalled, model.CanDownload))
+            .ToArray();
+        _settingsStore!.Update(state => state with
+        {
+            OfflineHeader = Localization.Text("离线语言模型（已下载 {0} 个）", installed.Count), OfflineModels = rows,
+        });
     }
 
     private OfflineTranslationModel CreateOfflineModelListItem(OfflineTranslationModel model)
@@ -695,22 +693,24 @@ public sealed partial class MainWindow : Window
     private void UpdateOfflineModelDownloadAvailability()
     {
         var online = HasInternetAccess();
-        RefreshOfflineModelsButton.IsEnabled = online && !_isLoadingOfflineModels && !_isDownloadingOfflineModel;
+        _settingsStore!.Update(state => state with { CanRefreshOfflineModels = online && !_isLoadingOfflineModels && !_isDownloadingOfflineModel });
         if (!online)
         {
-            OfflineModelsStatusTextBlock.Text = Localization.Text("网络不可用，已下载 {0} 个模型仍可使用", GetSupportedInstalledOfflineModels().Count);
+            SetOfflineStatus(Localization.Text("网络不可用，已下载 {0} 个模型仍可使用", GetSupportedInstalledOfflineModels().Count));
         }
         else if (_isLoadingOfflineModels)
         {
-            OfflineModelsStatusTextBlock.Text = Localization.Text("正在获取可下载模型...");
+            SetOfflineStatus(Localization.Text("正在获取可下载模型..."));
         }
         else if (!IsBergamotRuntimeAvailable())
         {
-            OfflineModelsStatusTextBlock.Text = Localization.Text("已可下载模型；本地翻译引擎尚未随当前应用发布");
+            SetOfflineStatus(Localization.Text("已可下载模型；本地翻译引擎尚未随当前应用发布"));
         }
 
         RefreshOfflineModelList();
     }
+
+    private void SetOfflineStatus(string status) => _settingsStore!.Update(state => state with { OfflineStatus = status });
 
     private static bool HasInternetAccess() => NetworkInformation.GetInternetConnectionProfile()?
         .GetNetworkConnectivityLevel() == NetworkConnectivityLevel.InternetAccess;

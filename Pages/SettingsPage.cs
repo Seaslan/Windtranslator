@@ -10,6 +10,8 @@ using static Microsoft.UI.Reactor.Factories;
 
 namespace Windtranslator;
 
+public sealed record OfflineModelRow(string Id, string Title, string Details, bool IsInstalled, bool CanDownload);
+
 public sealed record SettingsPageState
 {
     public bool ApiEnabled { get; init; }
@@ -45,6 +47,10 @@ public sealed record SettingsPageState
     public string LocalEndpoint { get; init; } = string.Empty;
     public string LocalModel { get; init; } = string.Empty;
     public bool IsRefreshingLocalModels { get; init; }
+    public IReadOnlyList<OfflineModelRow> OfflineModels { get; init; } = Array.Empty<OfflineModelRow>();
+    public string OfflineHeader { get; init; } = Localization.Get("Sb385619812be9a22");
+    public string OfflineStatus { get; init; } = string.Empty;
+    public bool CanRefreshOfflineModels { get; init; }
     public int UiLanguageIndex { get; init; }
     public int ThemeIndex { get; init; }
     public bool Mica { get; init; }
@@ -60,8 +66,6 @@ public sealed class SettingsPageStore
 {
     private event Action? Changed;
     public SettingsPageState State { get; private set; } = new();
-    // Temporary host for the XAML sections migrated in steps 7b–7e.
-    public FrameworkElement? LegacySections { get; init; }
     public Action<SettingsPageState, SettingsPageState> Edited { get; init; } = (_, _) => { };
     public Func<bool, string> ReadAliyunKey { get; init; } = _ => string.Empty;
     public Action<string, bool> AliyunKeyChanged { get; init; } = (_, _) => { };
@@ -72,6 +76,9 @@ public sealed class SettingsPageStore
     public Action<string> DeleteModel { get; init; } = _ => { };
     public Action<ContentDialogResult> DialogClosed { get; init; } = _ => { };
     public Action RefreshLocalModels { get; init; } = () => { };
+    public Action RefreshOfflineModels { get; init; } = () => { };
+    public Action<string> UseOrDownloadOfflineModel { get; init; } = _ => { };
+    public Action<string> DeleteOfflineModel { get; init; } = _ => { };
     public Action Subscribe(Action callback) { Changed += callback; return () => Changed -= callback; }
     public void Update(Func<SettingsPageState, SettingsPageState> update)
     {
@@ -105,8 +112,7 @@ public sealed class SettingsPageView(SettingsPageStore store) : Component
                 MachineTranslation(state),
                 ProviderSettingsUi.Catalog(store, state),
                 ProviderSettingsUi.Ai(store, state),
-                ImageSettings(state), LocalSettings(state),
-                Border(Empty()).Set(border => border.Child = store.LegacySections).WithKey("legacy-settings"),
+                ImageSettings(state), LocalSettings(state), OfflineSettings(state),
                 SettingsUi.Section("Sa1a42cd9b16e2162").Margin(4, 16, 4, 0),
                 General(state), Input(state), History(state), Realtime(state),
                 ProviderSettingsUi.Dialog(store, state))
@@ -171,6 +177,37 @@ public sealed class SettingsPageView(SettingsPageStore store) : Component
                     Button(Localization.Get("S10bf64e5aab41b1b"), store.RefreshLocalModels)
                         .AutomationName(Localization.Get("S10bf64e5aab41b1b")).IsEnabled(!state.IsRefreshingLocalModels))
                     .IsVisible(state.LocalSourceIndex == 0)));
+
+    private Element OfflineSettings(SettingsPageState state)
+    {
+        var header = Grid([GridSize.Px(24), GridSize.Star()], [GridSize.Auto],
+            Icon("Download").Size(20, 20).VAlign(VerticalAlignment.Center),
+            VStack(2, BodyStrong(state.OfflineHeader).TextWrapping(), SettingsUi.Description("Sce3334d85570c680"))
+                .VAlign(VerticalAlignment.Center).Grid(column: 1))
+            .MinHeight(64).Padding(4, 6, 8, 6).Set(grid => grid.ColumnSpacing = 12);
+        var rows = state.OfflineModels.Select(model =>
+            Grid([GridSize.Star(), GridSize.Auto, GridSize.Auto], [GridSize.Auto],
+                VStack(4, BodyStrong(model.Title).TextWrapping(),
+                    Caption(model.Details).TextWrapping().Foreground(Theme.SecondaryText)),
+                Button(Localization.Text(model.IsInstalled ? "使用" : "下载"), () => store.UseOrDownloadOfflineModel(model.Id))
+                    .AutomationName(Localization.Text(model.IsInstalled ? "使用" : "下载")).IsEnabled(model.CanDownload).MinWidth(64).Grid(column: 1),
+                Button(Localization.Get("S2f9daa828907b93f"), () => store.DeleteOfflineModel(model.Id))
+                    .AutomationName(Localization.Get("S2f9daa828907b93f")).IsEnabled(model.IsInstalled).MinWidth(64).Grid(column: 2))
+                .Padding(4, 6, 4, 6).Set(grid => grid.ColumnSpacing = 12).WithKey(model.Id)).ToArray();
+        return Border(
+            (Expander(state.OfflineHeader,
+                VStack(8,
+                    Grid([GridSize.Auto, GridSize.Star()], [GridSize.Auto],
+                        Button(Localization.Get("S6338f8924dee7084"), store.RefreshOfflineModels)
+                            .AutomationName(Localization.Get("S6338f8924dee7084")).IsEnabled(state.CanRefreshOfflineModels),
+                        TextBlock(state.OfflineStatus).TextWrapping().Foreground(Theme.SecondaryText)
+                            .VAlign(VerticalAlignment.Center).Grid(column: 1)).Set(grid => grid.ColumnSpacing = 8),
+                    VStack(4, rows)).Margin(16, 0, 16, 16),
+                state.Expanded.Contains("offline"), value => store.Expand("offline", value)) with { HeaderTemplate = header })
+                .HorizontalContentAlignment(HorizontalAlignment.Stretch).HAlign(HorizontalAlignment.Stretch))
+            .Background(Theme.Ref("WindCardBackgroundBrush")).WithBorder(Theme.Ref("WindCardStrokeBrush"), 1)
+            .CornerRadius(8).HAlign(HorizontalAlignment.Stretch).WithKey("offline");
+    }
 
     private Element General(SettingsPageState state) =>
         SettingsUi.Card(store, state, "appearance", "S86a63f23a076b11e", "Sf57e6726727fd3b5", Icon("Highlight"),
