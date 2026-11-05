@@ -25,12 +25,6 @@ for key in english:
     assert placeholders(english[key]) == placeholders(chinese[key]), f'Format mismatch: {key}'
     assert english[key] and chinese[key], f'Empty translation: {key}'
 
-xaml = (ROOT / 'MainWindow.xaml').read_text(encoding='utf-8')
-ET.fromstring(xaml)
-for key in re.findall(r'localization:LocalizedString Key=(\w+)', xaml):
-    assert key in english, f'Missing XAML resource: {key}'
-assert not re.search(r'="[^"{}]*[\u4e00-\u9fff][^"{}]*"', xaml), 'Unlocalized XAML attribute'
-
 code_paths = [
     *ROOT.glob('MainWindow*.cs'),
     ROOT / 'MiniTranslator.cs',

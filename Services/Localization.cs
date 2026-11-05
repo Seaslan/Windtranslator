@@ -1,5 +1,3 @@
-using Microsoft.UI.Xaml.Data;
-using Microsoft.UI.Xaml.Markup;
 using System;
 using System.Globalization;
 using System.Resources;
@@ -43,23 +41,4 @@ public static class Localization
         var value = Get(key);
         return arguments.Length == 0 ? value : string.Format(Culture, value, arguments);
     }
-}
-
-[MarkupExtensionReturnType(ReturnType = typeof(string))]
-public sealed class LocalizedStringExtension : MarkupExtension
-{
-    public string Key { get; set; } = string.Empty;
-
-    protected override object ProvideValue() => Localization.Get(Key);
-}
-
-public sealed class LocalizedProviderConverter : IValueConverter
-{
-    public object Convert(object value, Type targetType, object parameter, string language) =>
-        value is string name
-            ? Localization.ProviderName(name)
-            : value;
-
-    public object ConvertBack(object value, Type targetType, object parameter, string language) =>
-        throw new NotSupportedException();
 }

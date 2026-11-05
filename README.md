@@ -27,7 +27,7 @@
 - Windows 10 版本 1809（Build 17763）或更高版本
 - .NET 10 SDK
 - Windows App SDK 2.3.1
-- Microsoft.UI.Reactor 0.1.0-preview.16（迷你窗口界面使用，实验性预览版，由 NuGet 自动还原）
+- Microsoft.UI.Reactor 0.1.0-preview.16（界面使用，实验性预览版，由 NuGet 自动还原）
 - 支持 .NET 10 的 Visual Studio（使用 Visual Studio 构建时）
 
 ### 构建应用
@@ -117,7 +117,7 @@ Windtanslator (风译 in Chinese) is a WinUI 3 desktop translation tool for Wind
 - Windows 10 version 1809 (Build 17763) or later
 - .NET 10 SDK
 - Windows App SDK 2.3.1
-- Microsoft.UI.Reactor 0.1.0-preview.16 (used by the mini window; an experimental preview restored automatically from NuGet)
+- Microsoft.UI.Reactor 0.1.0-preview.16 (used by the UI; an experimental preview restored automatically from NuGet)
 - A Visual Studio version that supports .NET 10 when building from Visual Studio
 
 ### Build the application

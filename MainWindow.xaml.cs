@@ -117,7 +117,7 @@ public sealed partial class MainWindow : Window
 
     public MainWindow()
     {
-        InitializeComponent();
+        BuildNativeShell();
         CreateAboutStore();
         CreateTranslationHistoryStore();
         CreateFavoritesStore();
