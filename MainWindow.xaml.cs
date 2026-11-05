@@ -104,7 +104,6 @@ public sealed partial class MainWindow : Window
     private readonly Stack<string> _backStack = new();
     private CancellationTokenSource? _cts;
     private DispatcherQueueTimer? _infoBarTimer;
-    private readonly List<StorageFile> _selectedImageFiles = new();
     private bool _isMiniMode;
     private bool _windowLayoutUpdateQueued;
     private bool _isWindowClosed;
@@ -122,6 +121,7 @@ public sealed partial class MainWindow : Window
         CreateTranslationHistoryStore();
         CreateFavoritesStore();
         CreateFileTranslationStore();
+        CreateImageTranslationStore();
         InstallSelectionTranslationCommands();
         _windowProcedure = WindowProcedureCallback;
 
@@ -179,24 +179,17 @@ public sealed partial class MainWindow : Window
         LocalTranslationSourceComboBox.SelectedIndex = Math.Clamp(_settings.LocalTranslationSourceIndex, 0, 1);
 
         SourceLanguageComboBox.ItemsSource = Languages;
-        ImageSourceLanguageComboBox.ItemsSource = Languages;
         InitializeImageModelSettings();
         SourceLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
-        ImageSourceLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
         TargetLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
-        ImageTargetLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
 
         var sourceIndex = Math.Clamp(_settings.SourceLanguageIndex, 0, Languages.Count - 1);
         var targetIndex = Math.Clamp(_settings.TargetLanguageIndex, 0, Languages.Count - 1);
         SourceLanguageComboBox.SelectedIndex = sourceIndex;
-        ImageSourceLanguageComboBox.SelectedIndex = sourceIndex;
+        InitializeImageTranslationLanguages(sourceIndex, Languages[targetIndex]);
         InitializeFileTranslationLanguages(sourceIndex, Languages[targetIndex]);
         RefreshTargetLanguageOptions(
             TargetLanguageComboBox,
-            Languages[sourceIndex],
-            Languages[targetIndex]);
-        RefreshTargetLanguageOptions(
-            ImageTargetLanguageComboBox,
             Languages[sourceIndex],
             Languages[targetIndex]);
 
@@ -1116,10 +1109,6 @@ public sealed partial class MainWindow : Window
         UpdateUiState();
     }
 
-    private void ImageOutputTextBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        UpdateUiState();
-    }
 
     private void SourceLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -1143,33 +1132,7 @@ public sealed partial class MainWindow : Window
         SaveSettings();
     }
 
-    private void ImageSourceLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
 
-        RefreshImageTargetLanguageOptions();
-    }
-
-    private void ImageModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
-
-        if (ImageModelComboBox.SelectedItem is string model)
-        {
-            _settings.ImageModel = model;
-            _settings.ImageSelectedModels[GetImageProvider()] = model;
-            _suppressEvents = true;
-            ImageModelsListView.SelectedItem = model;
-            _suppressEvents = false;
-            SaveSettings();
-        }
-    }
 
     private void ImageModelsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -1183,7 +1146,7 @@ public sealed partial class MainWindow : Window
             _settings.ImageModel = model;
             _settings.ImageSelectedModels[GetImageProvider()] = model;
             _suppressEvents = true;
-            ImageModelComboBox.SelectedItem = model;
+            SetImageModelSelection(model);
             _suppressEvents = false;
             SaveSettings();
         }
@@ -1219,12 +1182,11 @@ public sealed partial class MainWindow : Window
         var provider = GetImageProvider();
         var models = GetAvailableAiModels(GetProviderProfile(provider));
         ImageModelsListView.ItemsSource = models.ToList();
-        ImageModelComboBox.ItemsSource = models.ToList();
         var selectedModel = models.FirstOrDefault(model =>
             string.Equals(model, preferredModel, StringComparison.OrdinalIgnoreCase))
             ?? models.FirstOrDefault();
         ImageModelsListView.SelectedItem = selectedModel;
-        ImageModelComboBox.SelectedItem = selectedModel;
+        _imageTranslationStore!.Update(state => state with { Models = models.ToArray(), ModelIndex = models.IndexOf(selectedModel!) });
         _settings.ImageModel = selectedModel ?? string.Empty;
         _settings.ImageSelectedModels[provider] = _settings.ImageModel;
     }
@@ -1235,22 +1197,13 @@ public sealed partial class MainWindow : Window
     private string GetProviderEndpoint(string provider) =>
         ProviderCatalog.GetEndpoint(_settings, provider);
 
-    private void ImageTargetLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
-
-        RefreshImageTargetLanguageOptions();
-    }
 
     private void SwapLanguageButton_Click(object sender, RoutedEventArgs e)
     {
         var newSource = TargetLanguageComboBox.SelectedItem as LanguageOption ?? Languages[3];
         _suppressEvents = true;
         SourceLanguageComboBox.SelectedItem = newSource;
-        ImageSourceLanguageComboBox.SelectedItem = newSource;
+        _imageTranslationStore!.Update(state => state with { SourceIndex = Languages.IndexOf(newSource) });
         _suppressEvents = false;
 
         RefreshTargetLanguageOptions();
@@ -1478,7 +1431,7 @@ public sealed partial class MainWindow : Window
         TranslationHistoryPageHost.Visibility = tag == "History" ? Visibility.Visible : Visibility.Collapsed;
         FavoritesPageHost.Visibility = tag == "Favorites" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPageScrollViewer.Visibility = tag == "Settings" ? Visibility.Visible : Visibility.Collapsed;
-        ImagePageGrid.Visibility = tag == "Image" ? Visibility.Visible : Visibility.Collapsed;
+        ImagePageHost.Visibility = tag == "Image" ? Visibility.Visible : Visibility.Collapsed;
         FilePageHost.Visibility = tag == "File" ? Visibility.Visible : Visibility.Collapsed;
         AboutPageHost.Visibility = tag == "About" ? Visibility.Visible : Visibility.Collapsed;
 
@@ -1592,47 +1545,6 @@ public sealed partial class MainWindow : Window
     [DllImport("user32.dll")]
     private static extern void keybd_event(byte virtualKey, byte scanCode, uint flags, nuint extraInfo);
 
-    private async void PickImageButton_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new FileOpenPicker
-        {
-            ViewMode = PickerViewMode.Thumbnail,
-            SuggestedStartLocation = PickerLocationId.PicturesLibrary,
-        };
-        picker.FileTypeFilter.Add(".png");
-        picker.FileTypeFilter.Add(".jpg");
-        picker.FileTypeFilter.Add(".jpeg");
-        picker.FileTypeFilter.Add(".bmp");
-        picker.FileTypeFilter.Add(".webp");
-
-        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
-        var files = await picker.PickMultipleFilesAsync();
-        if (files.Count == 0)
-        {
-            return;
-        }
-
-        var existingPaths = _selectedImageFiles
-            .Select(file => file.Path)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        _selectedImageFiles.AddRange(files.Where(file => existingPaths.Add(file.Path)));
-        _selectedImageFiles.Sort((left, right) =>
-            StringComparer.CurrentCultureIgnoreCase.Compare(left.Name, right.Name));
-        SelectedImagesListView.ItemsSource = _selectedImageFiles.Select(file => file.Name).ToList();
-        ImageSelectionSummaryText.Text = _selectedImageFiles.Count == 1
-            ? Localization.Text("已选择 1 张图片")
-            : Localization.Text("已选择 {0} 张图片（将按文件名排序）", _selectedImageFiles.Count);
-        ImageOutputTextBox.Text = string.Empty;
-        ImageTranslationProgressText.Text = string.Empty;
-
-        var stream = await _selectedImageFiles[0].OpenReadAsync();
-        var bitmap = new BitmapImage();
-        await bitmap.SetSourceAsync(stream);
-        ImagePreview.Source = bitmap;
-        ImagePreview.Visibility = Visibility.Visible;
-        ImagePreviewPlaceholderText.Visibility = Visibility.Collapsed;
-        UpdateUiState();
-    }
 
     private void MiniModeButton_Click(object sender, RoutedEventArgs e)
     {
@@ -1737,175 +1649,7 @@ public sealed partial class MainWindow : Window
         UpdateUiState();
     }
 
-    private async void ClearImageSelectionButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_isImageTranslating || _selectedImageFiles.Count == 0)
-        {
-            return;
-        }
 
-        if (!await ConfirmClearSelectionAsync(Localization.Text("清除已选图片"), Localization.Text("将清除已选图片、预览和当前译文。")))
-        {
-            return;
-        }
-
-        _selectedImageFiles.Clear();
-        SelectedImagesListView.ItemsSource = null;
-        ImageSelectionSummaryText.Text = Localization.Text("未选择图片");
-        ImagePreview.Source = null;
-        ImagePreview.Visibility = Visibility.Collapsed;
-        ImagePreviewPlaceholderText.Visibility = Visibility.Visible;
-        ImageOutputTextBox.Text = string.Empty;
-        ImageTranslationProgressText.Text = string.Empty;
-        UpdateUiState();
-        ShowInfo(Localization.Text("已清除选择的图片。"), InfoBarSeverity.Success);
-    }
-
-    private async void TranslateImageButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_selectedImageFiles.Count == 0 || _isImageTranslating)
-        {
-            return;
-        }
-
-        var sourceLanguage = ImageSourceLanguageComboBox.SelectedItem as LanguageOption ?? Languages[0];
-        var targetLanguage = ImageTargetLanguageComboBox.SelectedItem as LanguageOption ?? Languages[3];
-        var systemPrompt = BuildDefaultPrompt(
-            sourceLanguage,
-            targetLanguage,
-            AiPromptStyleComboBox.SelectedIndex,
-            AiIncludeLanguageDetailsCheckBox.IsChecked == true);
-        if (!string.IsNullOrWhiteSpace(CustomPromptTextBox.Text))
-        {
-            systemPrompt += "\n\n补充要求：" + CustomPromptTextBox.Text.Trim();
-        }
-
-        var providerKey = GetImageProvider();
-        var endpoint = GetProviderEndpoint(providerKey);
-        var model = ImageModelComboBox.SelectedItem?.ToString()?.Trim() ?? string.Empty;
-        var apiKey = GetProviderApiKey(providerKey);
-
-        if (string.IsNullOrWhiteSpace(endpoint))
-        {
-            ShowInfo(Localization.Text("请填写图片翻译接口地址。"), InfoBarSeverity.Warning);
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(model))
-        {
-            ShowInfo(Localization.Text("请填写支持图片的模型名称。"), InfoBarSeverity.Warning);
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            ShowInfo(Localization.Text("图片翻译使用{0} API，请先在供应商卡片中设置 API Key。", Localization.ProviderName(providerKey)), InfoBarSeverity.Warning);
-            return;
-        }
-
-        _isImageTranslating = true;
-        ImageOutputTextBox.Text = string.Empty;
-        ShowInfo(Localization.Text("正在翻译 {0} 张图片...", _selectedImageFiles.Count), InfoBarSeverity.Informational);
-        UpdateUiState();
-
-        try
-        {
-            var results = new List<string>();
-            for (var index = 0; index < _selectedImageFiles.Count; index++)
-            {
-                var file = _selectedImageFiles[index];
-                ImageTranslationProgressText.Text = $"{index + 1} / {_selectedImageFiles.Count}";
-
-                try
-                {
-                    var completedImages = string.Join(
-                        Environment.NewLine + Environment.NewLine + "--------------------" + Environment.NewLine + Environment.NewLine, results);
-                    var prefix = results.Count == 0 ? string.Empty : completedImages
-                        + Environment.NewLine + Environment.NewLine + "--------------------" + Environment.NewLine + Environment.NewLine;
-                    var result = await TranslateImageFileAsync(
-                        file,
-                        endpoint,
-                        apiKey,
-                        model,
-                        systemPrompt,
-                        text => ImageOutputTextBox.Text = prefix + text);
-                    results.Add(result);
-                }
-                catch (Exception ex)
-                {
-                    results.Add(Localization.Text("翻译失败：{0}", ex.Message));
-                }
-                ImageOutputTextBox.Text = string.Join(
-                    Environment.NewLine + Environment.NewLine + "--------------------" + Environment.NewLine + Environment.NewLine, results);
-            }
-
-            ImageOutputTextBox.Text = string.Join(
-                Environment.NewLine + Environment.NewLine + "--------------------" + Environment.NewLine + Environment.NewLine,
-                results);
-            ImageTranslationProgressText.Text = Localization.Text("已完成 {0} 张", _selectedImageFiles.Count);
-            ShowInfo(Localization.Text("图片翻译完成。"), InfoBarSeverity.Success);
-        }
-        finally
-        {
-            _isImageTranslating = false;
-            UpdateUiState();
-        }
-    }
-
-    private async Task<string> TranslateImageFileAsync(
-        StorageFile file,
-        string endpoint,
-        string apiKey,
-        string model,
-        string systemPrompt,
-        Action<string>? onTextUpdated = null)
-    {
-        byte[] imageBytes;
-        using (var imageStream = await file.OpenStreamForReadAsync())
-        using (var memoryStream = new MemoryStream())
-        {
-            await imageStream.CopyToAsync(memoryStream);
-            imageBytes = memoryStream.ToArray();
-        }
-
-        var imageDataUrl = $"data:{GetMimeType(file.Path)};base64,{Convert.ToBase64String(imageBytes)}";
-        var request = new ImageTranslationRequest(
-            endpoint,
-            apiKey,
-            model,
-            systemPrompt,
-            "请识别图片中的文字，并翻译成目标语言。",
-            imageDataUrl);
-
-        return await _translationService.TranslateImageAsync(
-            request, CancellationToken.None, _settings.AiStreamingEnabled, onTextUpdated);
-    }
-
-    private void CopyImageOutputButton_Click(object sender, RoutedEventArgs e)
-    {
-        var text = ImageOutputTextBox.Text;
-        if (string.IsNullOrEmpty(text))
-        {
-            return;
-        }
-
-        SetClipboardText(text);
-        ShowInfo(Localization.Text("图片译文已复制到剪贴板。"), InfoBarSeverity.Success);
-    }
-
-    private async Task<bool> ConfirmClearSelectionAsync(string title, string message)
-    {
-        var dialog = new ContentDialog
-        {
-            XamlRoot = WindowRoot.XamlRoot,
-            Title = title,
-            Content = message,
-            PrimaryButtonText = Localization.Text("清除"),
-            CloseButtonText = Localization.Text("取消"),
-            DefaultButton = ContentDialogButton.Close,
-        };
-        return await dialog.ShowAsync() == ContentDialogResult.Primary;
-    }
 
     private async Task<string> TranslateFileChunkWithRetryAsync(
         string chunk,
@@ -2615,14 +2359,6 @@ public sealed partial class MainWindow : Window
             TargetLanguageComboBox.SelectedItem as LanguageOption);
     }
 
-    private void RefreshImageTargetLanguageOptions()
-    {
-        var sourceLanguage = ImageSourceLanguageComboBox.SelectedItem as LanguageOption ?? Languages[0];
-        RefreshTargetLanguageOptions(
-            ImageTargetLanguageComboBox,
-            sourceLanguage,
-            ImageTargetLanguageComboBox.SelectedItem as LanguageOption);
-    }
 
     private void RefreshTargetLanguageOptions(
         ComboBox targetComboBox,
@@ -2744,10 +2480,7 @@ public sealed partial class MainWindow : Window
         TranslateButton.IsEnabled = _isTranslating || (!_isSelectionTranslating && SourceTextBox.Text.Trim().Length > 0);
         MicButton.IsEnabled = !_isTranslating && !_isSelectionTranslating && !_isOpeningSystemDictation;
         SpeakButton.IsEnabled = _speechOutput.IsSpeaking || OutputTextBox.Text.Trim().Length > 0;
-        PickImageButton.IsEnabled = !_isImageTranslating;
-        TranslateImageButton.IsEnabled = !_isImageTranslating && _selectedImageFiles.Count > 0;
-        ClearImageSelectionButton.IsEnabled = !_isImageTranslating && _selectedImageFiles.Count > 0;
-        CopyImageOutputButton.IsEnabled = ImageOutputTextBox.Text.Trim().Length > 0;
+        _imageTranslationStore?.Update(state => state with { IsTranslating = _isImageTranslating });
         UpdateFileModeAvailability();
     }
 
@@ -2774,7 +2507,7 @@ public sealed partial class MainWindow : Window
         _settings.ImageEndpoint = GetProviderEndpoint(GetImageProvider());
         _settings.ImageProviderName = GetImageProvider();
         _settings.ImageEndpoints[_settings.ImageProviderName] = _settings.ImageEndpoint;
-        _settings.ImageModel = ImageModelComboBox.SelectedItem?.ToString() ?? string.Empty;
+        _settings.ImageModel = ImageTranslationState.Models.ElementAtOrDefault(ImageTranslationState.ModelIndex) ?? string.Empty;
         _settings.ImageSelectedModels[_settings.ImageProviderName] = _settings.ImageModel;
         _settings.RememberImageKeys = AiRememberKeyCheckBox.IsChecked == true;
         _settings.RememberKeys = AiRememberKeyCheckBox.IsChecked == true;

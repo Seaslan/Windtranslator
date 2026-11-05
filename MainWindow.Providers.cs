@@ -105,7 +105,7 @@ public sealed partial class MainWindow
         {
             var imageProvider = resetSelections ? _settings.ImageProviderName : GetImageProvider();
             var aiModel = resetSelections ? _settings.Models.GetValueOrDefault(_currentProvider) : GetSelectedAiModel();
-            var imageModel = resetSelections ? _settings.ImageModel : ImageModelComboBox.SelectedItem as string;
+            var imageModel = resetSelections ? _settings.ImageModel : ImageTranslationState.Models.ElementAtOrDefault(ImageTranslationState.ModelIndex);
             AiProviderComboBox.ItemsSource = AiProviders.ToList();
             _currentProvider = AiProviders.FirstOrDefault(provider =>
                 string.Equals(provider, _currentProvider, StringComparison.OrdinalIgnoreCase)) ?? AiProviders[0];
