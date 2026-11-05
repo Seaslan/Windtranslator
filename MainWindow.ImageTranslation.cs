@@ -169,11 +169,11 @@ public sealed partial class MainWindow
         var systemPrompt = BuildDefaultPrompt(
             sourceLanguage,
             targetLanguage,
-            AiPromptStyleComboBox.SelectedIndex,
-            AiIncludeLanguageDetailsCheckBox.IsChecked == true);
-        if (!string.IsNullOrWhiteSpace(CustomPromptTextBox.Text))
+            SettingsState.PromptStyle,
+            SettingsState.LanguageDetails);
+        if (!string.IsNullOrWhiteSpace(SettingsState.CustomPrompt))
         {
-            systemPrompt += "\n\n补充要求：" + CustomPromptTextBox.Text.Trim();
+            systemPrompt += "\n\n补充要求：" + SettingsState.CustomPrompt.Trim();
         }
 
         var providerKey = GetImageProvider();

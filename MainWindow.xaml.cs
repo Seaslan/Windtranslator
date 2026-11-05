@@ -170,8 +170,6 @@ public sealed partial class MainWindow : Window
         _suppressEvents = true;
         InitializeGeneralSettings();
 
-        AiTranslationToggleSwitch.IsOn = _settings.AiTranslationEnabled;
-        UpdateTranslationToggleStateText();
         var initialModeIndex = Math.Clamp(_settings.ModeIndex, 0, 2);
         SetHomeMode(IsTranslationModeEnabled(initialModeIndex) ? initialModeIndex : 2);
         LocalTranslationSourceComboBox.ItemsSource = new[] { Localization.Text("本地接口"), Localization.Text("Mozilla Translations 模型") };
@@ -186,13 +184,6 @@ public sealed partial class MainWindow : Window
         InitializeFileTranslationLanguages(sourceIndex, Languages[targetIndex]);
         RefreshHomeTargetLanguages(Languages[targetIndex]);
 
-        CustomPromptTextBox.Text = _settings.CustomPrompt;
-        AiPromptStyleComboBox.ItemsSource = new[] { Localization.Text("标准"), Localization.Text("正式"), Localization.Text("自然"), Localization.Text("简洁") };
-        AiPromptStyleComboBox.SelectedIndex = Math.Clamp(_settings.AiPromptStyleIndex, 0, 3);
-        UpdateAiPromptStyleDescription();
-        AiIncludeLanguageDetailsCheckBox.IsChecked = _settings.AiIncludeLanguageDetails;
-        AiStreamingToggleSwitch.IsOn = _settings.AiStreamingEnabled;
-        AiRememberKeyCheckBox.IsChecked = _settings.RememberKeys;
         ApplyEnterToTranslateInputMode();
         TrimTranslationHistory();
         RefreshTranslationHistory();
@@ -233,11 +224,11 @@ public sealed partial class MainWindow : Window
     {
         _suppressEvents = true;
 
-        AiProviderComboBox.ItemsSource = AiProviders.ToList();
+        _settingsStore!.Update(state => state with { Providers = AiProviders.ToArray() });
         _currentProvider = AiProviders.FirstOrDefault(provider =>
             string.Equals(provider, _settings.ProviderName, StringComparison.OrdinalIgnoreCase))
             ?? AiProviders[0];
-        AiProviderComboBox.SelectedItem = _currentProvider;
+        _settingsStore!.Update(state => state with { AiProviderIndex = AiProviders.IndexOf(_currentProvider) });
 
         var profile = GetProviderProfile(_currentProvider);
 
@@ -287,9 +278,11 @@ public sealed partial class MainWindow : Window
         SaveSettings();
     }
 
-    private void AiProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+
+
+    private void SelectAiProvider(string provider)
     {
-        if (_suppressEvents || AiProviderComboBox.SelectedItem is not string provider)
+        if (_suppressEvents || !AiProviders.Contains(provider))
         {
             return;
         }
@@ -304,7 +297,7 @@ public sealed partial class MainWindow : Window
             : null;
         RefreshAiModelOptions(profile, savedModel);
 
-        if (AiRememberKeyCheckBox.IsChecked == true)
+        if (SettingsState.RememberKeys)
         {
             var legacyKey = LoadKeyFromVault(provider);
             if (!string.IsNullOrEmpty(legacyKey))
@@ -317,24 +310,8 @@ public sealed partial class MainWindow : Window
         SaveSettings();
     }
 
-    private void AiModelsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressEvents || string.IsNullOrEmpty(_currentProvider))
-        {
-            return;
-        }
-
-        if (AiModelsListView.SelectedItem is string model)
-        {
-            _settings.Models[_currentProvider] = model;
-            SaveSettings();
-        }
-    }
-
-    private string GetSelectedAiModel()
-    {
-        return AiModelsListView.SelectedItem?.ToString()?.Trim() ?? string.Empty;
-    }
+    private string GetSelectedAiModel() =>
+        SettingsState.AiModels.ElementAtOrDefault(SettingsState.AiModelIndex)?.Trim() ?? string.Empty;
 
     private List<string> GetAvailableAiModels(ProviderProfile profile) =>
         ProviderCatalog.GetModels(_settings, profile.Name);
@@ -342,26 +319,14 @@ public sealed partial class MainWindow : Window
     private void RefreshAiModelOptions(ProviderProfile profile, string? preferredModel)
     {
         var models = GetAvailableAiModels(profile);
-        AiModelsListView.ItemsSource = models.ToList();
-        AiModelsListView.SelectedItem = models.FirstOrDefault(model =>
-            string.Equals(model, preferredModel, StringComparison.OrdinalIgnoreCase))
+        var selected = models.FirstOrDefault(model => string.Equals(model, preferredModel, StringComparison.OrdinalIgnoreCase))
             ?? models.FirstOrDefault();
+        _settingsStore!.Update(state => state with { AiModels = models.ToArray(), AiModelIndex = models.IndexOf(selected!) });
     }
 
-
-    private void AiTranslationToggleSwitch_Toggled(object sender, RoutedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
-
-        SetTranslationModeEnabled(1, AiTranslationToggleSwitch.IsOn);
-    }
 
     private void SetTranslationModeEnabled(int modeIndex, bool isEnabled)
     {
-        UpdateTranslationToggleStateText();
 
         if (!isEnabled)
         {
@@ -394,15 +359,11 @@ public sealed partial class MainWindow : Window
         SaveSettings();
     }
 
-    private void UpdateTranslationToggleStateText()
-    {
-        AiTranslationStateText.Text = AiTranslationToggleSwitch.IsOn ? Localization.Text("开") : Localization.Text("关");
-    }
 
     private bool IsTranslationModeEnabled(int modeIndex) => modeIndex switch
     {
         0 => SettingsState.ApiEnabled,
-        1 => AiTranslationToggleSwitch.IsOn,
+        1 => SettingsState.AiEnabled,
         _ => true,
     };
 
@@ -454,7 +415,7 @@ public sealed partial class MainWindow : Window
         {
             _ = GetProviderApiKey(provider);
         }
-        _settings.RememberKeys = AiRememberKeyCheckBox.IsChecked == true;
+        _settings.RememberKeys = SettingsState.RememberKeys;
         _settings.RememberImageKeys = _settings.RememberKeys;
         foreach (var provider in AiProviders)
         {
@@ -875,57 +836,10 @@ public sealed partial class MainWindow : Window
 
 
 
-    private void CustomPromptTextBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
 
-        _settings.CustomPrompt = CustomPromptTextBox.Text;
-        SaveSettings();
-    }
 
-    private void AiPromptStyleComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
 
-        _settings.AiPromptStyleIndex = Math.Clamp(AiPromptStyleComboBox.SelectedIndex, 0, 3);
-        UpdateAiPromptStyleDescription();
-        SaveSettings();
-    }
 
-    private void UpdateAiPromptStyleDescription()
-    {
-        AiPromptStyleDescriptionText.Text = AiPromptStyleComboBox.SelectedIndex switch
-        {
-            1 => Localization.Text("适合商务与公文，使用严谨、完整的书面表达。"),
-            2 => Localization.Text("适合日常交流，使用地道口语，可灵活调整句式。"),
-            3 => Localization.Text("删减客套和重复表达，用更少的文字保留关键信息。"),
-            _ => Localization.Text("忠实保留原文语气、句式和信息，不额外润色。"),
-        };
-    }
-
-    private void AiIncludeLanguageDetailsCheckBox_Changed(object sender, RoutedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
-
-        _settings.AiIncludeLanguageDetails = AiIncludeLanguageDetailsCheckBox.IsChecked == true;
-        SaveSettings();
-    }
-
-    private void AiStreamingToggleSwitch_Toggled(object sender, RoutedEventArgs e)
-    {
-        if (_suppressEvents || _settings is null) return;
-        _settings.AiStreamingEnabled = AiStreamingToggleSwitch.IsOn;
-        SaveSettings();
-    }
 
     private void ImageModelsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -1941,11 +1855,11 @@ public sealed partial class MainWindow : Window
         var systemPrompt = BuildDefaultPrompt(
             sourceLanguage,
             targetLanguage,
-            AiPromptStyleComboBox.SelectedIndex,
-            AiIncludeLanguageDetailsCheckBox.IsChecked == true);
-        if (mode != 0 && !string.IsNullOrWhiteSpace(CustomPromptTextBox.Text))
+            SettingsState.PromptStyle,
+            SettingsState.LanguageDetails);
+        if (mode != 0 && !string.IsNullOrWhiteSpace(SettingsState.CustomPrompt))
         {
-            systemPrompt += "\n\n补充要求：" + CustomPromptTextBox.Text.Trim();
+            systemPrompt += "\n\n补充要求：" + SettingsState.CustomPrompt.Trim();
         }
 
         // Capture controls/settings on the UI thread; service startup, parsing and streaming run
@@ -2207,8 +2121,8 @@ public sealed partial class MainWindow : Window
         _homeStore?.Update(state => state with { IsTranslating = _isTranslating, IsBusy = _isTranslating || _isRealtimeTranslating,
             IsSelectionTranslating = _isSelectionTranslating, IsOpeningDictation = _isOpeningSystemDictation });
         UpdateFavoritesState();
-        ProviderApiKeyPasswordBox.IsEnabled = !_isTranslating && !_isSelectionTranslating
-            && !_isImageTranslating && !_isFileTranslating && !IsMiniTranslating;
+        _settingsStore?.Update(state => state with { CanEditProviderKey = !_isTranslating && !_isSelectionTranslating
+            && !_isImageTranslating && !_isFileTranslating && !IsMiniTranslating });
         _imageTranslationStore?.Update(state => state with { IsTranslating = _isImageTranslating });
         UpdateFileModeAvailability();
     }
@@ -2217,7 +2131,7 @@ public sealed partial class MainWindow : Window
     {
         _settings.ModeIndex = Math.Max(0, HomeState.ModeIndex);
         _settings.ApiTranslationEnabled = SettingsState.ApiEnabled;
-        _settings.AiTranslationEnabled = AiTranslationToggleSwitch.IsOn;
+        _settings.AiTranslationEnabled = SettingsState.AiEnabled;
         _settings.ProviderName = _currentProvider;
         _settings.ThemeIndex = Math.Max(0, SettingsState.ThemeIndex);
         _settings.MicaBackdropEnabled = SettingsState.Mica;
@@ -2229,17 +2143,17 @@ public sealed partial class MainWindow : Window
         var targetLanguage = HomeTargetLanguage;
         _settings.SourceLanguageIndex = sourceLanguage is null ? 0 : Languages.IndexOf(sourceLanguage);
         _settings.TargetLanguageIndex = targetLanguage is null ? 3 : Languages.IndexOf(targetLanguage);
-        _settings.CustomPrompt = CustomPromptTextBox.Text;
-        _settings.AiPromptStyleIndex = Math.Clamp(AiPromptStyleComboBox.SelectedIndex, 0, 3);
-        _settings.AiIncludeLanguageDetails = AiIncludeLanguageDetailsCheckBox.IsChecked == true;
-        _settings.AiStreamingEnabled = AiStreamingToggleSwitch.IsOn;
+        _settings.CustomPrompt = SettingsState.CustomPrompt;
+        _settings.AiPromptStyleIndex = Math.Clamp(SettingsState.PromptStyle, 0, 3);
+        _settings.AiIncludeLanguageDetails = SettingsState.LanguageDetails;
+        _settings.AiStreamingEnabled = SettingsState.Streaming;
         _settings.ImageEndpoint = GetProviderEndpoint(GetImageProvider());
         _settings.ImageProviderName = GetImageProvider();
         _settings.ImageEndpoints[_settings.ImageProviderName] = _settings.ImageEndpoint;
         _settings.ImageModel = ImageTranslationState.Models.ElementAtOrDefault(ImageTranslationState.ModelIndex) ?? string.Empty;
         _settings.ImageSelectedModels[_settings.ImageProviderName] = _settings.ImageModel;
-        _settings.RememberImageKeys = AiRememberKeyCheckBox.IsChecked == true;
-        _settings.RememberKeys = AiRememberKeyCheckBox.IsChecked == true;
+        _settings.RememberImageKeys = SettingsState.RememberKeys;
+        _settings.RememberKeys = SettingsState.RememberKeys;
         _settings.RememberAliyunKeys = SettingsState.RememberAliyun;
         _settings.LocalTranslationSourceIndex = Math.Clamp(LocalTranslationSourceComboBox.SelectedIndex, 0, 1);
         _settings.LocalModelPath = _selectedOfflineModelPath;

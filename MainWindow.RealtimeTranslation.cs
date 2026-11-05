@@ -51,9 +51,9 @@ public sealed partial class MainWindow
             local ? _selectedOfflineModelPath : string.Empty,
             local ? string.Empty : _aliyunAccessKeyId,
             local ? string.Empty : _aliyunAccessKeySecret,
-            local ? AiPromptStyleComboBox.SelectedIndex : 0,
-            local && AiIncludeLanguageDetailsCheckBox.IsChecked == true,
-            local ? CustomPromptTextBox.Text : string.Empty,
+            local ? SettingsState.PromptStyle : 0,
+            local && SettingsState.LanguageDetails,
+            local ? SettingsState.CustomPrompt : string.Empty,
             local && _settings.AiStreamingEnabled);
     }
 

@@ -14,6 +14,29 @@ public sealed record SettingsPageState
     public bool ApiEnabled { get; init; }
     public bool RememberAliyun { get; init; }
     public int CredentialRevision { get; init; }
+    public bool AiEnabled { get; init; }
+    public bool RememberKeys { get; init; }
+    public bool Streaming { get; init; }
+    public bool LanguageDetails { get; init; }
+    public int PromptStyle { get; init; }
+    public string CustomPrompt { get; init; } = string.Empty;
+    public IReadOnlyList<string> Providers { get; init; } = Array.Empty<string>();
+    public int ManagedProviderIndex { get; init; } = -1;
+    public int AiProviderIndex { get; init; } = -1;
+    public IReadOnlyList<string> ManagedModels { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<string> AiModels { get; init; } = Array.Empty<string>();
+    public int AiModelIndex { get; init; } = -1;
+    public string ProviderEndpoint { get; init; } = string.Empty;
+    public string ProviderEndpointPlaceholder { get; init; } = string.Empty;
+    public bool IsFetchingModels { get; init; }
+    public bool CanEditProviderKey { get; init; } = true;
+    public string ProviderDialog { get; init; } = string.Empty;
+    public string DialogProvider { get; init; } = string.Empty;
+    public string DialogName { get; init; } = string.Empty;
+    public string DialogEndpoint { get; init; } = string.Empty;
+    public string DialogModel { get; init; } = string.Empty;
+    public IReadOnlyList<string> FetchedModels { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<string> SelectedFetchedModels { get; init; } = Array.Empty<string>();
     public int UiLanguageIndex { get; init; }
     public int ThemeIndex { get; init; }
     public bool Mica { get; init; }
@@ -34,6 +57,12 @@ public sealed class SettingsPageStore
     public Action<SettingsPageState, SettingsPageState> Edited { get; init; } = (_, _) => { };
     public Func<bool, string> ReadAliyunKey { get; init; } = _ => string.Empty;
     public Action<string, bool> AliyunKeyChanged { get; init; } = (_, _) => { };
+    public Func<string> ReadProviderKey { get; init; } = () => string.Empty;
+    public Action<string> ProviderKeyChanged { get; init; } = _ => { };
+    public Action<string> DraftKeyChanged { get; init; } = _ => { };
+    public Action<string> ProviderAction { get; init; } = _ => { };
+    public Action<string> DeleteModel { get; init; } = _ => { };
+    public Action<ContentDialogResult> DialogClosed { get; init; } = _ => { };
     public Action Subscribe(Action callback) { Changed += callback; return () => Changed -= callback; }
     public void Update(Func<SettingsPageState, SettingsPageState> update)
     {
@@ -65,9 +94,12 @@ public sealed class SettingsPageView(SettingsPageStore store) : Component
             VStack(12,
                 SettingsUi.Section("S83095a6428e8d956"),
                 MachineTranslation(state),
+                ProviderSettingsUi.Catalog(store, state),
+                ProviderSettingsUi.Ai(store, state),
                 Border(Empty()).Set(border => border.Child = store.LegacySections).WithKey("legacy-settings"),
                 SettingsUi.Section("Sa1a42cd9b16e2162").Margin(4, 16, 4, 0),
-                General(state), Input(state), History(state), Realtime(state))
+                General(state), Input(state), History(state), Realtime(state),
+                ProviderSettingsUi.Dialog(store, state))
                 .Width(state.PanelWidth).MaxWidth(760).HAlign(HorizontalAlignment.Center)
                 .Padding(36, 36, 36, 16))
             .HorizontalContentAlignment(HorizontalAlignment.Stretch)

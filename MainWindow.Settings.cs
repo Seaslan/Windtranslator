@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using System;
+using System.Linq;
 using Windtranslator.Services;
 
 namespace Windtranslator;
@@ -17,7 +18,13 @@ public sealed partial class MainWindow
         SettingsPageScrollViewer.Content = null;
         _settingsStore = new SettingsPageStore { LegacySections = legacy, Edited = GeneralSettingsEdited,
             ReadAliyunKey = secret => secret ? _aliyunAccessKeySecret : _aliyunAccessKeyId,
-            AliyunKeyChanged = AliyunKeyChanged };
+            AliyunKeyChanged = AliyunKeyChanged,
+            ReadProviderKey = () => _settings is null ? string.Empty : GetProviderApiKey(ManagedProvider),
+            ProviderKeyChanged = ProviderKeyChanged,
+            DraftKeyChanged = value => _providerDraftKey = value,
+            ProviderAction = HandleProviderAction,
+            DeleteModel = DeleteProviderModel,
+            DialogClosed = CloseProviderDialog };
         var host = CreateReactorHost();
         SettingsPageHost.Content = host;
         host.Mount(new SettingsPageView(_settingsStore));
@@ -28,6 +35,10 @@ public sealed partial class MainWindow
         _settings.TranslationHistoryLimit = NormalizeTranslationHistoryLimit(_settings.TranslationHistoryLimit);
         _settingsStore!.Update(state => state with
         {
+            AiEnabled = _settings.AiTranslationEnabled, RememberKeys = _settings.RememberKeys,
+            Streaming = _settings.AiStreamingEnabled, PromptStyle = Math.Clamp(_settings.AiPromptStyleIndex, 0, 3),
+            LanguageDetails = _settings.AiIncludeLanguageDetails, CustomPrompt = _settings.CustomPrompt,
+            Providers = AiProviders.ToArray(),
             ApiEnabled = _settings.ApiTranslationEnabled, RememberAliyun = _settings.RememberAliyunKeys,
             UiLanguageIndex = _settings.UiLanguage switch { "zh-CN" => 1, "en-US" => 2, _ => 0 },
             ThemeIndex = Math.Clamp(_settings.ThemeIndex, 0, 2),
@@ -58,6 +69,13 @@ public sealed partial class MainWindow
             TrimTranslationHistory();
             RefreshTranslationHistory();
         }
+        if (before.ManagedProviderIndex != after.ManagedProviderIndex) RefreshManagedProvider();
+        if (before.ProviderEndpoint != after.ProviderEndpoint)
+            _settings.Endpoints[ManagedProvider] = SettingsState.ProviderEndpoint.Trim();
+        if (before.AiProviderIndex != after.AiProviderIndex && after.AiProviderIndex >= 0 && after.AiProviderIndex < after.Providers.Count)
+            SelectAiProvider(after.Providers[after.AiProviderIndex]);
+        if (before.RememberKeys != after.RememberKeys) AiRememberKeyCheckBox_Changed(this, new RoutedEventArgs());
+        if (before.AiEnabled != after.AiEnabled) SetTranslationModeEnabled(1, after.AiEnabled);
         if (before.ApiEnabled != after.ApiEnabled) SetTranslationModeEnabled(0, after.ApiEnabled);
         if (before.RememberAliyun != after.RememberAliyun) AliyunRememberKeyCheckBox_Changed(this, new RoutedEventArgs());
         SaveSettings();
