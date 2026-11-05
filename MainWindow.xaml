@@ -115,12 +115,13 @@
                 VerticalContentAlignment="Stretch"
                 Visibility="Collapsed" />
 
+            <ContentControl x:Name="SettingsPageHost" Grid.Row="2" Visibility="Collapsed"
+                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
             <ScrollViewer
                 x:Name="SettingsPageScrollViewer"
                 Grid.Row="2"
                 HorizontalContentAlignment="Stretch"
                 HorizontalScrollBarVisibility="Disabled"
-                SizeChanged="SettingsPageScrollViewer_SizeChanged"
                 VerticalScrollBarVisibility="Auto"
                 Visibility="Collapsed">
                 <ScrollViewer.Resources>
@@ -175,10 +176,6 @@
                 </ScrollViewer.Resources>
                 <StackPanel
                     x:Name="SettingsCardsPanel"
-                    Width="760"
-                    MaxWidth="760"
-                    HorizontalAlignment="Center"
-                    Padding="36,36,36,16"
                     Spacing="12">
 
                     <TextBlock
@@ -634,186 +631,6 @@
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                         </ListView>
-                            </StackPanel>
-                        </Expander>
-                    </Border>
-
-                    <TextBlock
-                        Margin="4,16,4,0"
-                        Text="{localization:LocalizedString Key=Sa1a42cd9b16e2162}"
-                        Style="{StaticResource SettingsSectionTitleStyle}" />
-
-                    <Border Style="{StaticResource SettingsCardStyle}">
-                        <Expander Style="{StaticResource SettingsExpanderStyle}">
-                            <Expander.Header>
-                                <Grid Style="{StaticResource SettingsHeaderGridStyle}">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="24" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <SymbolIcon
-                                        Width="20"
-                                        Height="20"
-                                        VerticalAlignment="Center"
-                                        Symbol="Highlight" />
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                        <TextBlock Text="{localization:LocalizedString Key=S86a63f23a076b11e}" Style="{StaticResource SettingsHeaderTitleStyle}" />
-                                        <TextBlock Text="{localization:LocalizedString Key=Sf57e6726727fd3b5}" Style="{StaticResource SettingsHeaderDescriptionStyle}" />
-                                    </StackPanel>
-                                </Grid>
-                            </Expander.Header>
-                            <StackPanel Padding="16,0,16,16" Spacing="8">
-                        <ComboBox
-                            x:Name="UiLanguageComboBox"
-                            Header="{localization:LocalizedString Key=S3d13868593ae4eeb}"
-                            Width="180"
-                            HorizontalAlignment="Left"
-                            SelectionChanged="UiLanguageComboBox_SelectionChanged" />
-                        <TextBlock
-                            Text="{localization:LocalizedString Key=S68ab31f0f5faf650}"
-                            TextWrapping="Wrap"
-                            Style="{StaticResource SettingsHeaderDescriptionStyle}" />
-                        <ComboBox
-                            x:Name="ThemeComboBox"
-                            Width="180"
-                            HorizontalAlignment="Left"
-                            Header="{localization:LocalizedString Key=S0e61f173997cf413}"
-                            SelectionChanged="ThemeComboBox_SelectionChanged" />
-                        <CheckBox
-                            x:Name="MicaBackdropCheckBox"
-                            Content="{localization:LocalizedString Key=Sa750b72486c0d855}"
-                            Checked="MicaBackdropCheckBox_Changed"
-                            Unchecked="MicaBackdropCheckBox_Changed" />
-                        <Grid ColumnSpacing="16">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel VerticalAlignment="Center" Spacing="2">
-                                <TextBlock
-                                    Text="{localization:LocalizedString Key=Sa63886dd9f495cd7}"
-                                    Style="{StaticResource SettingsHeaderTitleStyle}" />
-                                <TextBlock
-                                    Text="{localization:LocalizedString Key=Sc6755fea10868a8d}"
-                                    Style="{StaticResource SettingsHeaderDescriptionStyle}" />
-                            </StackPanel>
-                            <ToggleSwitch
-                                x:Name="AlwaysOnTopToggleSwitch"
-                                Grid.Column="1"
-                                MinWidth="0"
-                                VerticalAlignment="Center"
-                                AutomationProperties.Name="{localization:LocalizedString Key=Sa63886dd9f495cd7}"
-                                OffContent=""
-                                OnContent=""
-                                Toggled="AlwaysOnTopToggleSwitch_Toggled" />
-                        </Grid>
-                            </StackPanel>
-                        </Expander>
-                    </Border>
-
-                    <Border Style="{StaticResource SettingsCardStyle}">
-                        <Expander Style="{StaticResource SettingsExpanderStyle}">
-                            <Expander.Header>
-                                <Grid Style="{StaticResource SettingsHeaderGridStyle}">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="24" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <FontIcon Glyph="&#xE765;" FontSize="20" VerticalAlignment="Center" />
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                        <TextBlock Text="{localization:LocalizedString Key=See2638183d3ea860}" Style="{StaticResource SettingsHeaderTitleStyle}" />
-                                        <TextBlock Text="{localization:LocalizedString Key=S3e0d676d2d85073d}" Style="{StaticResource SettingsHeaderDescriptionStyle}" />
-                                    </StackPanel>
-                                </Grid>
-                            </Expander.Header>
-                            <StackPanel Padding="16,0,16,16" Spacing="12">
-                                <ToggleSwitch
-                                    x:Name="EnterToTranslateToggleSwitch"
-                                    MinWidth="0"
-                                    Header="{localization:LocalizedString Key=Sde8c617ef05a23d7}"
-                                    OffContent=""
-                                    OnContent=""
-                                    Toggled="EnterToTranslateToggleSwitch_Toggled" />
-                                <Grid ColumnSpacing="16">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="EnterShortcutActionText" Text="{localization:LocalizedString Key=S656f978003f64dfe}" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1" Text="Enter" FontFamily="Consolas" VerticalAlignment="Center" />
-                                </Grid>
-                                <Grid x:Name="ShiftEnterShortcutRow" ColumnSpacing="16" Visibility="Collapsed">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{localization:LocalizedString Key=S656f978003f64dfe}" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1" Text="Shift+Enter" FontFamily="Consolas" VerticalAlignment="Center" />
-                                </Grid>
-                                <Grid ColumnSpacing="16">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{localization:LocalizedString Key=S3bdb827c9c041bd1}" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1" Text="Ctrl+T" FontFamily="Consolas" VerticalAlignment="Center" />
-                                </Grid>
-                            </StackPanel>
-                        </Expander>
-                    </Border>
-
-                    <Border Style="{StaticResource SettingsCardStyle}">
-                        <Expander Style="{StaticResource SettingsExpanderStyle}">
-                            <Expander.Header>
-                                <Grid Style="{StaticResource SettingsHeaderGridStyle}">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="24" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <SymbolIcon
-                                        Width="20"
-                                        Height="20"
-                                        VerticalAlignment="Center"
-                                        Symbol="Clock" />
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                        <TextBlock Text="{localization:LocalizedString Key=S25a4303fc7712d0a}" Style="{StaticResource SettingsHeaderTitleStyle}" />
-                                        <TextBlock Text="{localization:LocalizedString Key=Sfd3e65ef362dee63}" Style="{StaticResource SettingsHeaderDescriptionStyle}" />
-                                    </StackPanel>
-                                </Grid>
-                            </Expander.Header>
-                            <StackPanel Padding="16,0,16,16" Spacing="8">
-                        <ComboBox
-                            x:Name="TranslationHistoryLimitComboBox"
-                            MinWidth="180"
-                            SelectionChanged="TranslationHistoryLimitComboBox_SelectionChanged" />
-                            </StackPanel>
-                        </Expander>
-                    </Border>
-
-                    <Border Style="{StaticResource SettingsCardStyle}">
-                        <Expander Style="{StaticResource SettingsExpanderStyle}">
-                            <Expander.Header>
-                                <Grid Style="{StaticResource SettingsHeaderGridStyle}">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="24" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <FontIcon Glyph="&#xE713;" FontSize="20" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1" VerticalAlignment="Center"
-                                        Text="{localization:LocalizedString Key=S8251b844088b0ecd}"
-                                        Style="{StaticResource SettingsHeaderTitleStyle}" />
-                                </Grid>
-                            </Expander.Header>
-                            <StackPanel Padding="16,0,16,16" Spacing="8">
-                                <ToggleSwitch
-                                    x:Name="RealtimeTranslationToggleSwitch"
-                                    MinWidth="0"
-                                    Header="{localization:LocalizedString Key=S5a31c60d655639af}"
-                                    OffContent=""
-                                    OnContent=""
-                                    Toggled="RealtimeTranslationToggleSwitch_Toggled" />
-                                <TextBlock Text="{localization:LocalizedString Key=Sf1527fb8af9b9760}"
-                                    Style="{StaticResource SettingsHeaderDescriptionStyle}" />
                             </StackPanel>
                         </Expander>
                     </Border>

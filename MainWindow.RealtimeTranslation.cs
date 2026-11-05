@@ -28,13 +28,6 @@ public sealed partial class MainWindow
         string AccessKeyId, string AccessKeySecret, int PromptStyle,
         bool LanguageDetails, string CustomPrompt, bool Streaming);
 
-    private void RealtimeTranslationToggleSwitch_Toggled(object sender, RoutedEventArgs e)
-    {
-        if (_suppressEvents || _settings is null) return;
-        _settings.RealtimeTranslationEnabled = RealtimeTranslationToggleSwitch.IsOn;
-        SaveSettings();
-    }
-
     private RealtimeTranslationInput? CaptureRealtimeInput(bool includeEmptyText = false)
     {
         if (_settings is null || _suppressEvents || _isWindowClosed

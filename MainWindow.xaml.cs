@@ -123,6 +123,7 @@ public sealed partial class MainWindow : Window
         CreateFileTranslationStore();
         CreateImageTranslationStore();
         CreateHomeStore();
+        CreateSettingsStore();
         _windowProcedure = WindowProcedureCallback;
 
         ExtendsContentIntoTitleBar = true;
@@ -167,8 +168,7 @@ public sealed partial class MainWindow : Window
     private void InitializeUi()
     {
         _suppressEvents = true;
-        UiLanguageComboBox.ItemsSource = new[] { Localization.Text("跟随系统"), "简体中文", "English" };
-        UiLanguageComboBox.SelectedIndex = _settings.UiLanguage switch { "zh-CN" => 1, "en-US" => 2, _ => 0 };
+        InitializeGeneralSettings();
 
         ApiTranslationToggleSwitch.IsOn = _settings.ApiTranslationEnabled;
         AiTranslationToggleSwitch.IsOn = _settings.AiTranslationEnabled;
@@ -195,19 +195,7 @@ public sealed partial class MainWindow : Window
         AiStreamingToggleSwitch.IsOn = _settings.AiStreamingEnabled;
         AiRememberKeyCheckBox.IsChecked = _settings.RememberKeys;
         AliyunRememberKeyCheckBox.IsChecked = _settings.RememberAliyunKeys;
-        ThemeComboBox.ItemsSource = new[] { Localization.Text("跟随系统"), Localization.Text("浅色"), Localization.Text("深色") };
-        ThemeComboBox.SelectedIndex = Math.Clamp(_settings.ThemeIndex, 0, 2);
-        MicaBackdropCheckBox.IsChecked = _settings.MicaBackdropEnabled;
-        AlwaysOnTopToggleSwitch.IsOn = _settings.AlwaysOnTop;
-        EnterToTranslateToggleSwitch.IsOn = _settings.EnterToTranslate;
-        RealtimeTranslationToggleSwitch.IsOn = _settings.RealtimeTranslationEnabled;
         ApplyEnterToTranslateInputMode();
-        UpdateEnterShortcutLabels();
-        TranslationHistoryLimitComboBox.ItemsSource = new[] { Localization.Text("不保存翻译历史"), Localization.Text("5 条"), Localization.Text("20 条"), Localization.Text("无上限") };
-        _settings.TranslationHistoryLimit = NormalizeTranslationHistoryLimit(_settings.TranslationHistoryLimit);
-        TranslationHistoryLimitComboBox.SelectedIndex = Array.IndexOf(
-            TranslationHistoryLimits,
-            _settings.TranslationHistoryLimit);
         TrimTranslationHistory();
         RefreshTranslationHistory();
         RefreshOfflineModelList();
@@ -228,75 +216,11 @@ public sealed partial class MainWindow : Window
         UpdateUiState();
     }
 
-    private void UiLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressEvents) return;
-        _settings.UiLanguage = UiLanguageComboBox.SelectedIndex switch { 1 => "zh-CN", 2 => "en-US", _ => "system" };
-        SaveSettings();
-        ShowInfo(Localization.Text("语言设置已保存，请重新启动应用以应用更改。"), InfoBarSeverity.Informational);
-    }
 
-    private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
 
-        _settings.ThemeIndex = Math.Max(0, ThemeComboBox.SelectedIndex);
-        SaveSettings();
-        ApplyTheme();
-    }
 
-    private void MicaBackdropCheckBox_Changed(object sender, RoutedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
 
-        _settings.MicaBackdropEnabled = MicaBackdropCheckBox.IsChecked == true;
-        ApplyMicaBackdrop();
-        SaveSettings();
-    }
 
-    private void AlwaysOnTopToggleSwitch_Toggled(object sender, RoutedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
-
-        _settings.AlwaysOnTop = AlwaysOnTopToggleSwitch.IsOn;
-        ApplyAlwaysOnTop();
-        SaveSettings();
-    }
-
-    private void EnterToTranslateToggleSwitch_Toggled(object sender, RoutedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
-
-        _settings.EnterToTranslate = EnterToTranslateToggleSwitch.IsOn;
-        ApplyEnterToTranslateInputMode();
-        UpdateEnterShortcutLabels();
-        SaveSettings();
-        if (_settings.EnterToTranslate)
-        {
-            ShowInfo(Localization.Text("已开启回车键翻译，按 Shift+Enter 换行。"), InfoBarSeverity.Informational);
-        }
-    }
-
-    private void UpdateEnterShortcutLabels()
-    {
-        EnterShortcutActionText.Text = Localization.Text(
-            EnterToTranslateToggleSwitch.IsOn ? "翻译文本" : "插入换行");
-        ShiftEnterShortcutRow.Visibility = EnterToTranslateToggleSwitch.IsOn
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-    }
 
     private void ApplyEnterToTranslateInputMode()
     {
@@ -306,25 +230,6 @@ public sealed partial class MainWindow : Window
         _homeStore?.Update(state => state with { EnterToTranslate = _settings.EnterToTranslate });
     }
 
-    private void TranslationHistoryLimitComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
-
-        _settings.TranslationHistoryLimit = TranslationHistoryLimitComboBox.SelectedIndex switch
-        {
-            0 => 0,
-            1 => 5,
-            2 => 20,
-            3 => -1,
-            _ => 20,
-        };
-        TrimTranslationHistory();
-        RefreshTranslationHistory();
-        SaveSettings();
-    }
 
     private void InitializeProviderSettings()
     {
@@ -1292,10 +1197,6 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void SettingsPageScrollViewer_SizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        SettingsCardsPanel.Width = Math.Min(SettingsPanelMaxWidth, Math.Max(0d, e.NewSize.Width));
-    }
 
     private void NavigateTo(string? tag, bool addBackEntry = true)
     {
@@ -1354,7 +1255,7 @@ public sealed partial class MainWindow : Window
         HomePageHost.Visibility = tag == "Home" ? Visibility.Visible : Visibility.Collapsed;
         TranslationHistoryPageHost.Visibility = tag == "History" ? Visibility.Visible : Visibility.Collapsed;
         FavoritesPageHost.Visibility = tag == "Favorites" ? Visibility.Visible : Visibility.Collapsed;
-        SettingsPageScrollViewer.Visibility = tag == "Settings" ? Visibility.Visible : Visibility.Collapsed;
+        SettingsPageHost.Visibility = tag == "Settings" ? Visibility.Visible : Visibility.Collapsed;
         ImagePageHost.Visibility = tag == "Image" ? Visibility.Visible : Visibility.Collapsed;
         FilePageHost.Visibility = tag == "File" ? Visibility.Visible : Visibility.Collapsed;
         AboutPageHost.Visibility = tag == "About" ? Visibility.Visible : Visibility.Collapsed;
@@ -2359,11 +2260,11 @@ public sealed partial class MainWindow : Window
         _settings.ApiTranslationEnabled = ApiTranslationToggleSwitch.IsOn;
         _settings.AiTranslationEnabled = AiTranslationToggleSwitch.IsOn;
         _settings.ProviderName = _currentProvider;
-        _settings.ThemeIndex = Math.Max(0, ThemeComboBox.SelectedIndex);
-        _settings.MicaBackdropEnabled = MicaBackdropCheckBox.IsChecked == true;
-        _settings.AlwaysOnTop = AlwaysOnTopToggleSwitch.IsOn;
-        _settings.EnterToTranslate = EnterToTranslateToggleSwitch.IsOn;
-        _settings.RealtimeTranslationEnabled = RealtimeTranslationToggleSwitch.IsOn;
+        _settings.ThemeIndex = Math.Max(0, SettingsState.ThemeIndex);
+        _settings.MicaBackdropEnabled = SettingsState.Mica;
+        _settings.AlwaysOnTop = SettingsState.AlwaysOnTop;
+        _settings.EnterToTranslate = SettingsState.EnterToTranslate;
+        _settings.RealtimeTranslationEnabled = SettingsState.Realtime;
         _settings.TranslationHistoryLimit = NormalizeTranslationHistoryLimit(_settings.TranslationHistoryLimit);
         var sourceLanguage = HomeSourceLanguage;
         var targetLanguage = HomeTargetLanguage;
@@ -2396,7 +2297,7 @@ public sealed partial class MainWindow : Window
 
     private void ApplyTheme()
     {
-        var theme = ThemeComboBox.SelectedIndex switch
+        var theme = SettingsState.ThemeIndex switch
         {
             1 => ElementTheme.Light,
             2 => ElementTheme.Dark,
@@ -2413,7 +2314,7 @@ public sealed partial class MainWindow : Window
 
     private void ApplyMicaBackdrop()
     {
-        if (MicaBackdropCheckBox.IsChecked != true)
+        if (!SettingsState.Mica)
         {
             SystemBackdrop = null;
             AcrylicFallbackLayer.Visibility = Visibility.Collapsed;
@@ -2430,7 +2331,7 @@ public sealed partial class MainWindow : Window
     {
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
-            presenter.IsAlwaysOnTop = AlwaysOnTopToggleSwitch.IsOn;
+            presenter.IsAlwaysOnTop = SettingsState.AlwaysOnTop;
         }
     }
 
