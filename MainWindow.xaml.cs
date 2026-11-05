@@ -105,9 +105,6 @@ public sealed partial class MainWindow : Window
     private CancellationTokenSource? _cts;
     private DispatcherQueueTimer? _infoBarTimer;
     private readonly List<StorageFile> _selectedImageFiles = new();
-    private StorageFile? _selectedTextFile;
-    private CancellationTokenSource? _fileTranslationCts;
-    private bool _isFileTranslating;
     private bool _isMiniMode;
     private bool _windowLayoutUpdateQueued;
     private bool _isWindowClosed;
@@ -124,6 +121,7 @@ public sealed partial class MainWindow : Window
         CreateAboutStore();
         CreateTranslationHistoryStore();
         CreateFavoritesStore();
+        CreateFileTranslationStore();
         InstallSelectionTranslationCommands();
         _windowProcedure = WindowProcedureCallback;
 
@@ -182,9 +180,6 @@ public sealed partial class MainWindow : Window
 
         SourceLanguageComboBox.ItemsSource = Languages;
         ImageSourceLanguageComboBox.ItemsSource = Languages;
-        FileSourceLanguageComboBox.ItemsSource = Languages;
-        FileTargetLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
-        FileSourceLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
         InitializeImageModelSettings();
         SourceLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
         ImageSourceLanguageComboBox.DisplayMemberPath = nameof(LanguageOption.Display);
@@ -195,17 +190,13 @@ public sealed partial class MainWindow : Window
         var targetIndex = Math.Clamp(_settings.TargetLanguageIndex, 0, Languages.Count - 1);
         SourceLanguageComboBox.SelectedIndex = sourceIndex;
         ImageSourceLanguageComboBox.SelectedIndex = sourceIndex;
-        FileSourceLanguageComboBox.SelectedIndex = sourceIndex;
+        InitializeFileTranslationLanguages(sourceIndex, Languages[targetIndex]);
         RefreshTargetLanguageOptions(
             TargetLanguageComboBox,
             Languages[sourceIndex],
             Languages[targetIndex]);
         RefreshTargetLanguageOptions(
             ImageTargetLanguageComboBox,
-            Languages[sourceIndex],
-            Languages[targetIndex]);
-        RefreshTargetLanguageOptions(
-            FileTargetLanguageComboBox,
             Languages[sourceIndex],
             Languages[targetIndex]);
 
@@ -244,7 +235,7 @@ public sealed partial class MainWindow : Window
         SidebarNavigationView.SelectedItem = HomeNavigationItem;
         NavigateTo("Home", addBackEntry: false);
         InitializeProviderSettings();
-        FileModeComboBox.SelectedIndex = ModeComboBox.SelectedIndex;
+        _fileTranslationStore!.Update(state => state with { ModeIndex = ModeComboBox.SelectedIndex });
         UpdateTranslationModeVisibility();
         UpdateFileModeAvailability();
         UpdateCounts();
@@ -506,7 +497,7 @@ public sealed partial class MainWindow : Window
         if (!isEnabled)
         {
             var isHomeModeSelected = ModeComboBox.SelectedIndex == modeIndex;
-            var isFileModeSelected = FileModeComboBox.SelectedIndex == modeIndex;
+            var isFileModeSelected = FileTranslationState.ModeIndex == modeIndex;
 
             if (isHomeModeSelected && _isTranslating)
             {
@@ -525,7 +516,7 @@ public sealed partial class MainWindow : Window
 
             if (isFileModeSelected)
             {
-                FileModeComboBox.SelectedIndex = 2;
+                _fileTranslationStore!.Update(state => state with { ModeIndex = 2 });
             }
         }
 
@@ -550,7 +541,7 @@ public sealed partial class MainWindow : Window
     private void UpdateTranslationModeVisibility()
     {
         UpdateModeItems(ModeComboBox);
-        UpdateModeItems(FileModeComboBox);
+        UpdateFileModeAvailability();
 
         void UpdateModeItems(ComboBox comboBox)
         {
@@ -1412,21 +1403,6 @@ public sealed partial class MainWindow : Window
         NavigateTo(selectedItem.Tag?.ToString());
     }
 
-    private void FileSourceLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
-
-        var source = FileSourceLanguageComboBox.SelectedItem as LanguageOption ?? Languages[0];
-        RefreshTargetLanguageOptions(FileTargetLanguageComboBox, source, FileTargetLanguageComboBox.SelectedItem as LanguageOption);
-    }
-
-    private void FileTargetLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateFileModeAvailability();
-
-    private void FileModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateFileModeAvailability();
-
     private void SidebarNavigationView_BackRequested(NavigationView sender, NavigationViewBackRequestedEventArgs args) =>
         GoBack();
 
@@ -1503,7 +1479,7 @@ public sealed partial class MainWindow : Window
         FavoritesPageHost.Visibility = tag == "Favorites" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPageScrollViewer.Visibility = tag == "Settings" ? Visibility.Visible : Visibility.Collapsed;
         ImagePageGrid.Visibility = tag == "Image" ? Visibility.Visible : Visibility.Collapsed;
-        FilePageGrid.Visibility = tag == "File" ? Visibility.Visible : Visibility.Collapsed;
+        FilePageHost.Visibility = tag == "File" ? Visibility.Visible : Visibility.Collapsed;
         AboutPageHost.Visibility = tag == "About" ? Visibility.Visible : Visibility.Collapsed;
 
         // The online catalog is only needed when the user opens model settings.
@@ -1917,155 +1893,6 @@ public sealed partial class MainWindow : Window
         ShowInfo(Localization.Text("图片译文已复制到剪贴板。"), InfoBarSeverity.Success);
     }
 
-    private async void PickTextFileButton_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new FileOpenPicker
-        {
-            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
-        };
-        picker.FileTypeFilter.Add(".txt");
-        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
-
-        var file = await picker.PickSingleFileAsync();
-        if (file is null)
-        {
-            return;
-        }
-
-        var properties = await file.GetBasicPropertiesAsync();
-        const ulong maximumFileBytes = 5UL * 1024 * 1024;
-        if (properties.Size > maximumFileBytes)
-        {
-            ShowInfo(Localization.Text("文件超过 5 MB 上限，无法进行文件翻译。"), InfoBarSeverity.Warning);
-            return;
-        }
-
-        _selectedTextFile = file;
-        SelectedTextFilePathText.Text = file.Path;
-        SelectedTextFileSizeText.Text = $"{FormatFileSize(properties.Size)}";
-        FileOutputTextBox.Text = string.Empty;
-        FileProgressText.Text = string.Empty;
-        UpdateFileModeAvailability();
-    }
-
-    private async void TranslateFileButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_isFileTranslating || _selectedTextFile is null)
-        {
-            return;
-        }
-
-        var configurationError = GetTranslationConfigurationError(FileModeComboBox.SelectedIndex);
-        if (configurationError is not null)
-        {
-            ShowInfo(configurationError, InfoBarSeverity.Warning);
-            UpdateFileModeAvailability();
-            return;
-        }
-
-        try
-        {
-            var sourceText = await ReadTextFileAsync(_selectedTextFile.Path);
-            if (sourceText.Length == 0)
-            {
-                ShowInfo(Localization.Text("所选文本文件为空。"), InfoBarSeverity.Warning);
-                return;
-            }
-
-            var chunks = SplitTextIntoChunks(sourceText);
-            if (chunks.Count == 0)
-            {
-                ShowInfo(Localization.Text("所选文本文件为空。"), InfoBarSeverity.Warning);
-                return;
-            }
-
-            var sourceLanguage = FileSourceLanguageComboBox.SelectedItem as LanguageOption ?? Languages[0];
-            var targetLanguage = FileTargetLanguageComboBox.SelectedItem as LanguageOption ?? Languages[3];
-            _fileTranslationCts = new CancellationTokenSource();
-            _isFileTranslating = true;
-            FileOutputTextBox.Text = string.Empty;
-            FileProgressRing.IsActive = true;
-            FileProgressText.Text = Localization.Text("第 0/{0} 块", chunks.Count);
-            ShowInfo(Localization.Text("正在翻译文件..."), InfoBarSeverity.Informational);
-            UpdateFileModeAvailability();
-
-            var translatedChunks = new List<string>(chunks.Count);
-            for (var index = 0; index < chunks.Count; index++)
-            {
-                _fileTranslationCts.Token.ThrowIfCancellationRequested();
-                try
-                {
-                    var completedChunks = string.Concat(translatedChunks);
-                    translatedChunks.Add(await TranslateFileChunkWithRetryAsync(
-                        chunks[index],
-                        FileModeComboBox.SelectedIndex,
-                        sourceLanguage,
-                        targetLanguage,
-                        _fileTranslationCts.Token,
-                        text => FileOutputTextBox.Text = completedChunks + text));
-                    FileOutputTextBox.Text = string.Concat(translatedChunks);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    FileOutputTextBox.Text = string.Concat(translatedChunks);
-                    ShowInfo(Localization.Text("第 {0}/{1} 块翻译失败：{2}", index + 1, chunks.Count, ex.Message), InfoBarSeverity.Error);
-                    return;
-                }
-
-                FileProgressText.Text = Localization.Text("第 {0}/{1} 块", index + 1, chunks.Count);
-            }
-
-            FileOutputTextBox.Text = string.Concat(translatedChunks);
-            ShowInfo(Localization.Text("文件翻译完成。"), InfoBarSeverity.Success);
-        }
-        catch (OperationCanceledException)
-        {
-            FileOutputTextBox.Text = string.Empty;
-            ShowInfo(Localization.Text("已取消文件翻译，未生成任何文件。"), InfoBarSeverity.Warning);
-        }
-        catch (InvalidDataException ex)
-        {
-            ShowInfo(ex.Message, InfoBarSeverity.Error);
-        }
-        catch (Exception ex)
-        {
-            ShowInfo(Localization.Text("读取或翻译文件失败：") + ex.Message, InfoBarSeverity.Error);
-        }
-        finally
-        {
-            _isFileTranslating = false;
-            _fileTranslationCts?.Dispose();
-            _fileTranslationCts = null;
-            FileProgressRing.IsActive = false;
-            UpdateFileModeAvailability();
-        }
-    }
-
-    private async void ClearTextFileButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_isFileTranslating || _selectedTextFile is null)
-        {
-            return;
-        }
-
-        if (!await ConfirmClearSelectionAsync(Localization.Text("清除已选文件"), Localization.Text("将清除已选文件和当前译文。")))
-        {
-            return;
-        }
-
-        _selectedTextFile = null;
-        SelectedTextFilePathText.Text = Localization.Text("尚未选择文件");
-        SelectedTextFileSizeText.Text = string.Empty;
-        FileOutputTextBox.Text = string.Empty;
-        FileProgressText.Text = string.Empty;
-        UpdateFileModeAvailability();
-        ShowInfo(Localization.Text("已清除选择的文件。"), InfoBarSeverity.Success);
-    }
-
     private async Task<bool> ConfirmClearSelectionAsync(string title, string message)
     {
         var dialog = new ContentDialog
@@ -2078,48 +1905,6 @@ public sealed partial class MainWindow : Window
             DefaultButton = ContentDialogButton.Close,
         };
         return await dialog.ShowAsync() == ContentDialogResult.Primary;
-    }
-
-    private void CopyFileOutputButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (string.IsNullOrEmpty(FileOutputTextBox.Text))
-        {
-            return;
-        }
-
-        SetClipboardText(FileOutputTextBox.Text);
-        ShowInfo(Localization.Text("文件译文已复制到剪贴板。"), InfoBarSeverity.Success);
-    }
-
-    private async void ExportFileOutputButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_selectedTextFile is null || string.IsNullOrEmpty(FileOutputTextBox.Text))
-        {
-            return;
-        }
-
-        var picker = new FileSavePicker
-        {
-            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
-            SuggestedFileName = Path.GetFileNameWithoutExtension(_selectedTextFile.Name) + Localization.Text("_译文"),
-        };
-        picker.FileTypeChoices.Add(Localization.Text("文本文件"), new List<string> { ".txt" });
-        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
-        var file = await picker.PickSaveFileAsync();
-        if (file is null)
-        {
-            return;
-        }
-
-        try
-        {
-            await File.WriteAllTextAsync(file.Path, FileOutputTextBox.Text, new UTF8Encoding(false));
-            ShowInfo(Localization.Text("译文已导出到：") + file.Path, InfoBarSeverity.Success);
-        }
-        catch (Exception ex)
-        {
-            ShowInfo(Localization.Text("导出失败：") + ex.Message, InfoBarSeverity.Error);
-        }
     }
 
     private async Task<string> TranslateFileChunkWithRetryAsync(
@@ -2739,43 +2524,6 @@ public sealed partial class MainWindow : Window
         }
 
         return null;
-    }
-
-    private void UpdateFileModeAvailability()
-    {
-        if (FileModeComboBox is null)
-        {
-            return;
-        }
-
-        var selectedIndex = Math.Clamp(FileModeComboBox.SelectedIndex, 0, 2);
-        var items = FileModeComboBox.Items.OfType<ComboBoxItem>().ToList();
-        if (items.Count == 0)
-        {
-            return;
-        }
-
-        for (var index = 0; index < items.Count; index++)
-        {
-            var isModeEnabled = IsTranslationModeEnabled(index);
-            items[index].Visibility = isModeEnabled ? Visibility.Visible : Visibility.Collapsed;
-            items[index].IsEnabled = isModeEnabled && GetTranslationConfigurationError(index) is null;
-        }
-
-        if (selectedIndex < items.Count && !items[selectedIndex].IsEnabled)
-        {
-            FileModeHintText.Text = GetTranslationConfigurationError(selectedIndex) ?? Localization.Text("当前模式未配置。");
-        }
-        else
-        {
-            FileModeHintText.Text = string.Empty;
-        }
-
-        TranslateFileButton.IsEnabled = !_isFileTranslating && _selectedTextFile is not null
-            && selectedIndex < items.Count && items[selectedIndex].IsEnabled;
-        ClearTextFileButton.IsEnabled = !_isFileTranslating && _selectedTextFile is not null;
-        CopyFileOutputButton.IsEnabled = !_isFileTranslating && !string.IsNullOrEmpty(FileOutputTextBox.Text);
-        ExportFileOutputButton.IsEnabled = !_isFileTranslating && !string.IsNullOrEmpty(FileOutputTextBox.Text);
     }
 
     private async void SpeakButton_Click(object sender, RoutedEventArgs e)
