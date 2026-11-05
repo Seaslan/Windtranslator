@@ -53,7 +53,7 @@ public sealed partial class MainWindow
                 SetImageModelSelection(ImageTranslationState.Models[index]);
                 var previous = _suppressEvents;
                 _suppressEvents = true;
-                ImageModelsListView.SelectedItem = _settings.ImageModel;
+                _settingsStore!.Update(state => state with { ImageModelIndex = index });
                 _suppressEvents = previous;
                 SaveSettings();
             },
@@ -73,6 +73,7 @@ public sealed partial class MainWindow
         _settings.ImageSelectedModels[GetImageProvider()] = model;
         var index = ImageTranslationState.Models.ToList().IndexOf(model);
         _imageTranslationStore!.Update(state => state with { ModelIndex = index });
+        _settingsStore!.Update(state => state with { ImageModelIndex = index });
     }
 
     private void InitializeImageTranslationLanguages(int sourceIndex, LanguageOption preferred)

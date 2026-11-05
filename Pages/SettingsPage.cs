@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Windtranslator.Services;
 using static Microsoft.UI.Reactor.Factories;
 
@@ -37,6 +38,13 @@ public sealed record SettingsPageState
     public string DialogModel { get; init; } = string.Empty;
     public IReadOnlyList<string> FetchedModels { get; init; } = Array.Empty<string>();
     public IReadOnlyList<string> SelectedFetchedModels { get; init; } = Array.Empty<string>();
+    public int ImageProviderIndex { get; init; } = -1;
+    public IReadOnlyList<string> ImageModels { get; init; } = Array.Empty<string>();
+    public int ImageModelIndex { get; init; } = -1;
+    public int LocalSourceIndex { get; init; }
+    public string LocalEndpoint { get; init; } = string.Empty;
+    public string LocalModel { get; init; } = string.Empty;
+    public bool IsRefreshingLocalModels { get; init; }
     public int UiLanguageIndex { get; init; }
     public int ThemeIndex { get; init; }
     public bool Mica { get; init; }
@@ -63,6 +71,7 @@ public sealed class SettingsPageStore
     public Action<string> ProviderAction { get; init; } = _ => { };
     public Action<string> DeleteModel { get; init; } = _ => { };
     public Action<ContentDialogResult> DialogClosed { get; init; } = _ => { };
+    public Action RefreshLocalModels { get; init; } = () => { };
     public Action Subscribe(Action callback) { Changed += callback; return () => Changed -= callback; }
     public void Update(Func<SettingsPageState, SettingsPageState> update)
     {
@@ -96,6 +105,7 @@ public sealed class SettingsPageView(SettingsPageStore store) : Component
                 MachineTranslation(state),
                 ProviderSettingsUi.Catalog(store, state),
                 ProviderSettingsUi.Ai(store, state),
+                ImageSettings(state), LocalSettings(state),
                 Border(Empty()).Set(border => border.Child = store.LegacySections).WithKey("legacy-settings"),
                 SettingsUi.Section("Sa1a42cd9b16e2162").Margin(4, 16, 4, 0),
                 General(state), Input(state), History(state), Realtime(state),
@@ -126,6 +136,41 @@ public sealed class SettingsPageView(SettingsPageStore store) : Component
                     .Set(box => { var key = store.ReadAliyunKey(true); if (box.Password != key) box.Password = key; }),
                 CheckBox(state.RememberAliyun, value => store.Edit(s => s with { RememberAliyun = value }), Localization.Get("Sb955203e9090eef9"))),
             SettingsUi.ModeToggle(state.ApiEnabled, value => store.Edit(s => s with { ApiEnabled = value }), "Sb55d73902020d21c"));
+
+    private Element ImageSettings(SettingsPageState state) =>
+        SettingsUi.Card(store, state, "image-settings", "S0c84c73f4b24b3b8", "S38c87877f29cf060", Icon("Pictures"),
+            VStack(8,
+                ComboBox(state.Providers.Select(Localization.ProviderName).ToArray(), state.ImageProviderIndex,
+                    index => { if (index >= 0 && index < state.Providers.Count) store.Edit(s => s with { ImageProviderIndex = index }); })
+                    .Header(Localization.Get("S033ed59452549c51")).HAlign(HorizontalAlignment.Stretch),
+                TextBlock(Localization.Get("Sc98e118e0a43f078")),
+                ListView((int?)state.ImageModelIndex,
+                    index => { if (index >= 0 && index < state.ImageModels.Count) store.Edit(s => s with { ImageModelIndex = index }); },
+                    state.ImageModels.Select(model => TextBlock(model).WithKey(model)).ToArray())
+                    .AutomationName(Localization.Get("Sc98e118e0a43f078"))
+                    .Set(list => {
+                        Microsoft.UI.Xaml.Controls.ScrollViewer.SetHorizontalScrollBarVisibility(list, ScrollBarVisibility.Disabled);
+                        Microsoft.UI.Xaml.Controls.ScrollViewer.SetVerticalScrollBarVisibility(list, ScrollBarVisibility.Disabled);
+                        Microsoft.UI.Xaml.Controls.ScrollViewer.SetVerticalScrollMode(list, ScrollMode.Disabled);
+                    }),
+                SettingsUi.Description("Se0d99ccba87fe53e")));
+
+    private Element LocalSettings(SettingsPageState state) =>
+        SettingsUi.Card(store, state, "local", "S8f4e49aeafbade43", "S7244c05cb62fc39c", Icon("Remote"),
+            VStack(8,
+                ComboBox(new[] { Localization.Text("本地接口"), Localization.Text("Mozilla Translations 模型") }, state.LocalSourceIndex,
+                    index => { if (index >= 0 && index <= 1) store.Edit(s => s with { LocalSourceIndex = index }); })
+                    .AutomationName(Localization.Get("S8f4e49aeafbade43")),
+                VStack(8,
+                    TextBlock(Localization.Get("S03b11112dc970014")),
+                    TextBox(state.LocalEndpoint, value => store.Edit(s => s with { LocalEndpoint = value }), placeholderText: "http://localhost:11434/v1")
+                        .AutomationName(Localization.Get("S03b11112dc970014")),
+                    TextBlock(Localization.Get("Sc98e118e0a43f078")),
+                    TextBox(state.LocalModel, value => store.Edit(s => s with { LocalModel = value }), placeholderText: Localization.Get("S177c17dc8aa34a2b"))
+                        .AutomationName(Localization.Get("Sc98e118e0a43f078")),
+                    Button(Localization.Get("S10bf64e5aab41b1b"), store.RefreshLocalModels)
+                        .AutomationName(Localization.Get("S10bf64e5aab41b1b")).IsEnabled(!state.IsRefreshingLocalModels))
+                    .IsVisible(state.LocalSourceIndex == 0)));
 
     private Element General(SettingsPageState state) =>
         SettingsUi.Card(store, state, "appearance", "S86a63f23a076b11e", "Sf57e6726727fd3b5", Icon("Highlight"),

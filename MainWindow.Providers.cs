@@ -106,9 +106,9 @@ public sealed partial class MainWindow
             RefreshAiModelOptions(GetProviderProfile(_currentProvider), aiModel);
             _settings.Models[_currentProvider] = GetSelectedAiModel();
 
-            ImageProviderComboBox.ItemsSource = AiProviders.ToList();
-            ImageProviderComboBox.SelectedItem = AiProviders.FirstOrDefault(provider =>
+            var selectedImageProvider = AiProviders.FirstOrDefault(provider =>
                 string.Equals(provider, imageProvider, StringComparison.OrdinalIgnoreCase)) ?? AiProviders[0];
+            _settingsStore!.Update(state => state with { ImageProviderIndex = AiProviders.IndexOf(selectedImageProvider) });
             _settings.ImageProviderName = GetImageProvider();
             RefreshImageModelOptions(imageModel);
             RefreshManagedProviderOptions(managedProvider);

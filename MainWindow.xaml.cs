@@ -172,8 +172,6 @@ public sealed partial class MainWindow : Window
 
         var initialModeIndex = Math.Clamp(_settings.ModeIndex, 0, 2);
         SetHomeMode(IsTranslationModeEnabled(initialModeIndex) ? initialModeIndex : 2);
-        LocalTranslationSourceComboBox.ItemsSource = new[] { Localization.Text("本地接口"), Localization.Text("Mozilla Translations 模型") };
-        LocalTranslationSourceComboBox.SelectedIndex = Math.Clamp(_settings.LocalTranslationSourceIndex, 0, 1);
 
         InitializeImageModelSettings();
 
@@ -261,16 +259,14 @@ public sealed partial class MainWindow : Window
 
         _settingsStore!.Update(state => state with { CredentialRevision = state.CredentialRevision + 1 });
 
-        LocalEndpointTextBox.Text = _settings.Endpoints.TryGetValue("本地 AI", out var localEndpoint)
-            && !string.IsNullOrWhiteSpace(localEndpoint)
-                ? localEndpoint
-                : "http://localhost:11434/v1";
-        LocalModelTextBox.Text = _settings.Models.TryGetValue("本地 AI", out var localModel)
-            && !string.IsNullOrWhiteSpace(localModel)
-                ? localModel
-                : "qwen2.5:7b";
+        _settingsStore!.Update(state => state with
+        {
+            LocalEndpoint = _settings.Endpoints.TryGetValue("本地 AI", out var localEndpoint) && !string.IsNullOrWhiteSpace(localEndpoint)
+                ? localEndpoint : "http://localhost:11434/v1",
+            LocalModel = _settings.Models.TryGetValue("本地 AI", out var localModel) && !string.IsNullOrWhiteSpace(localModel)
+                ? localModel : "qwen2.5:7b",
+        });
         _selectedOfflineModelPath = _settings.LocalModelPath;
-        UpdateLocalTranslationSourceUi();
         MigrateProviderCredentials();
         RefreshManagedProviderOptions();
 
@@ -467,45 +463,9 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void LocalEndpointTextBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
 
-        _settings.Endpoints["本地 AI"] = LocalEndpointTextBox.Text.Trim();
-        SaveSettings();
-    }
 
-    private void LocalModelTextBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
 
-        _settings.Models["本地 AI"] = LocalModelTextBox.Text.Trim();
-        SaveSettings();
-    }
-
-    private void LocalTranslationSourceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
-
-        _settings.LocalTranslationSourceIndex = Math.Clamp(LocalTranslationSourceComboBox.SelectedIndex, 0, 1);
-        UpdateLocalTranslationSourceUi();
-        SaveSettings();
-    }
-
-    private void UpdateLocalTranslationSourceUi()
-    {
-        var useModel = LocalTranslationSourceComboBox.SelectedIndex == 1;
-        LocalEndpointPanel.Visibility = useModel ? Visibility.Collapsed : Visibility.Visible;
-    }
 
     private void NetworkInformation_NetworkStatusChanged(object sender)
     {
@@ -663,11 +623,10 @@ public sealed partial class MainWindow : Window
 
         _suppressEvents = true;
         SetHomeMode(2);
-        LocalTranslationSourceComboBox.SelectedIndex = 1;
+        _settingsStore!.Update(state => state with { LocalSourceIndex = 1 });
         _selectedOfflineModelPath = model.LocalDirectory;
         SelectModelLanguages(model);
         _suppressEvents = false;
-        UpdateLocalTranslationSourceUi();
         SaveSettings();
         ShowInfo(Localization.Text("已选择 {0} 离线模型。", model.Title), InfoBarSeverity.Informational);
         NavigateTo("Home");
@@ -841,37 +800,7 @@ public sealed partial class MainWindow : Window
 
 
 
-    private void ImageModelsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
 
-        if (ImageModelsListView.SelectedItem is string model)
-        {
-            _settings.ImageModel = model;
-            _settings.ImageSelectedModels[GetImageProvider()] = model;
-            _suppressEvents = true;
-            SetImageModelSelection(model);
-            _suppressEvents = false;
-            SaveSettings();
-        }
-    }
-
-    private void ImageProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressEvents || ImageProviderComboBox.SelectedItem is not string provider)
-        {
-            return;
-        }
-
-        _settings.ImageProviderName = provider;
-        _suppressEvents = true;
-        RefreshImageModelOptions(_settings.ImageSelectedModels.GetValueOrDefault(provider));
-        _suppressEvents = false;
-        SaveSettings();
-    }
 
     private void InitializeImageModelSettings()
     {
@@ -879,8 +808,7 @@ public sealed partial class MainWindow : Window
             string.Equals(name, _settings.ImageProviderName, StringComparison.OrdinalIgnoreCase))
             ?? AiProviders[0];
         _settings.ImageProviderName = provider;
-        ImageProviderComboBox.ItemsSource = AiProviders.ToList();
-        ImageProviderComboBox.SelectedItem = provider;
+        _settingsStore!.Update(state => state with { Providers = AiProviders.ToArray(), ImageProviderIndex = AiProviders.IndexOf(provider) });
         RefreshImageModelOptions(_settings.ImageSelectedModels.GetValueOrDefault(provider));
     }
 
@@ -888,18 +816,17 @@ public sealed partial class MainWindow : Window
     {
         var provider = GetImageProvider();
         var models = GetAvailableAiModels(GetProviderProfile(provider));
-        ImageModelsListView.ItemsSource = models.ToList();
         var selectedModel = models.FirstOrDefault(model =>
             string.Equals(model, preferredModel, StringComparison.OrdinalIgnoreCase))
             ?? models.FirstOrDefault();
-        ImageModelsListView.SelectedItem = selectedModel;
+        _settingsStore!.Update(state => state with { ImageModels = models.ToArray(), ImageModelIndex = models.IndexOf(selectedModel!) });
         _imageTranslationStore!.Update(state => state with { Models = models.ToArray(), ModelIndex = models.IndexOf(selectedModel!) });
         _settings.ImageModel = selectedModel ?? string.Empty;
         _settings.ImageSelectedModels[provider] = _settings.ImageModel;
     }
 
     private string GetImageProvider() =>
-        ImageProviderComboBox.SelectedItem as string ?? _settings.ImageProviderName;
+        SettingsState.Providers.ElementAtOrDefault(SettingsState.ImageProviderIndex) ?? _settings.ImageProviderName;
 
     private string GetProviderEndpoint(string provider) =>
         ProviderCatalog.GetEndpoint(_settings, provider);
@@ -1609,12 +1536,12 @@ public sealed partial class MainWindow : Window
         }
 
         var isLocalMode = HomeState.ModeIndex == 2;
-        var useLocalModel = isLocalMode && LocalTranslationSourceComboBox.SelectedIndex == 1;
+        var useLocalModel = isLocalMode && SettingsState.LocalSourceIndex == 1;
         var endpoint = isLocalMode
-            ? LocalEndpointTextBox.Text.Trim()
+            ? SettingsState.LocalEndpoint.Trim()
             : GetProviderEndpoint(_currentProvider);
         var model = isLocalMode
-            ? LocalModelTextBox.Text.Trim()
+            ? SettingsState.LocalModel.Trim()
             : GetSelectedAiModel();
         var apiKey = isLocalMode
             ? null
@@ -1817,7 +1744,7 @@ public sealed partial class MainWindow : Window
                 () => _machineTranslationService.TranslateAsync(request, cancellationToken), cancellationToken);
         }
 
-        var useLocalModel = mode == 2 && LocalTranslationSourceComboBox.SelectedIndex == 1;
+        var useLocalModel = mode == 2 && SettingsState.LocalSourceIndex == 1;
         if (useLocalModel)
         {
             if (string.IsNullOrWhiteSpace(_selectedOfflineModelPath))
@@ -1834,8 +1761,8 @@ public sealed partial class MainWindow : Window
             }, cancellationToken);
         }
 
-        var endpoint = mode == 2 ? LocalEndpointTextBox.Text.Trim() : GetProviderEndpoint(_currentProvider);
-        var model = mode == 2 ? LocalModelTextBox.Text.Trim() : GetSelectedAiModel();
+        var endpoint = mode == 2 ? SettingsState.LocalEndpoint.Trim() : GetProviderEndpoint(_currentProvider);
+        var model = mode == 2 ? SettingsState.LocalModel.Trim() : GetSelectedAiModel();
         var apiKey = mode == 2 ? null : GetProviderApiKey(_currentProvider);
         if (string.IsNullOrWhiteSpace(endpoint))
         {
@@ -1931,7 +1858,7 @@ public sealed partial class MainWindow : Window
                 : null;
         }
 
-        if (mode == 2 && LocalTranslationSourceComboBox.SelectedIndex == 1)
+        if (mode == 2 && SettingsState.LocalSourceIndex == 1)
         {
             return string.IsNullOrWhiteSpace(_selectedOfflineModelPath)
                 ? Localization.Text("本地翻译未选择 Mozilla Translations 模型。")
@@ -1940,8 +1867,8 @@ public sealed partial class MainWindow : Window
                     : null;
         }
 
-        var endpoint = mode == 2 ? LocalEndpointTextBox.Text : GetProviderEndpoint(_currentProvider);
-        var model = mode == 2 ? LocalModelTextBox.Text : GetSelectedAiModel();
+        var endpoint = mode == 2 ? SettingsState.LocalEndpoint : GetProviderEndpoint(_currentProvider);
+        var model = mode == 2 ? SettingsState.LocalModel : GetSelectedAiModel();
         if (string.IsNullOrWhiteSpace(endpoint))
         {
             return mode == 2 ? Localization.Text("本地翻译未配置接口地址。") : Localization.Text("AI 翻译未配置接口地址。");
@@ -1996,14 +1923,15 @@ public sealed partial class MainWindow : Window
 
     private async void RefreshLocalModelsButton_Click(object sender, RoutedEventArgs e)
     {
-        var endpoint = LocalEndpointTextBox.Text.Trim();
+        var endpoint = SettingsState.LocalEndpoint.Trim();
         if (string.IsNullOrWhiteSpace(endpoint))
         {
             ShowInfo(Localization.Text("请先填写本地接口地址。"), InfoBarSeverity.Warning);
             return;
         }
 
-        RefreshLocalModelsButton.IsEnabled = false;
+        if (SettingsState.IsRefreshingLocalModels) return;
+        _settingsStore!.Update(state => state with { IsRefreshingLocalModels = true });
         try
         {
             var models = await _translationService.GetModelsAsync(
@@ -2018,7 +1946,7 @@ public sealed partial class MainWindow : Window
             }
 
             _suppressEvents = true;
-            LocalModelTextBox.Text = models[0];
+            _settingsStore!.Update(state => state with { LocalModel = models[0] });
             _suppressEvents = false;
             _settings.Endpoints["本地 AI"] = endpoint;
             _settings.Models["本地 AI"] = models[0];
@@ -2031,7 +1959,7 @@ public sealed partial class MainWindow : Window
         }
         finally
         {
-            RefreshLocalModelsButton.IsEnabled = true;
+            _settingsStore!.Update(state => state with { IsRefreshingLocalModels = false });
         }
     }
 
@@ -2155,10 +2083,10 @@ public sealed partial class MainWindow : Window
         _settings.RememberImageKeys = SettingsState.RememberKeys;
         _settings.RememberKeys = SettingsState.RememberKeys;
         _settings.RememberAliyunKeys = SettingsState.RememberAliyun;
-        _settings.LocalTranslationSourceIndex = Math.Clamp(LocalTranslationSourceComboBox.SelectedIndex, 0, 1);
+        _settings.LocalTranslationSourceIndex = Math.Clamp(SettingsState.LocalSourceIndex, 0, 1);
         _settings.LocalModelPath = _selectedOfflineModelPath;
-        _settings.Endpoints["本地 AI"] = LocalEndpointTextBox.Text.Trim();
-        _settings.Models["本地 AI"] = LocalModelTextBox.Text.Trim();
+        _settings.Endpoints["本地 AI"] = SettingsState.LocalEndpoint.Trim();
+        _settings.Models["本地 AI"] = SettingsState.LocalModel.Trim();
         if (!string.IsNullOrEmpty(_currentProvider))
         {
             _settings.Models[_currentProvider] = GetSelectedAiModel();

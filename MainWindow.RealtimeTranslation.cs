@@ -45,9 +45,9 @@ public sealed partial class MainWindow
 
         var local = mode == 2;
         return new RealtimeTranslationInput(text, mode, source, target,
-            local ? LocalTranslationSourceComboBox.SelectedIndex : 0,
-            local ? LocalEndpointTextBox.Text.Trim() : string.Empty,
-            local ? LocalModelTextBox.Text.Trim() : string.Empty,
+            local ? SettingsState.LocalSourceIndex : 0,
+            local ? SettingsState.LocalEndpoint.Trim() : string.Empty,
+            local ? SettingsState.LocalModel.Trim() : string.Empty,
             local ? _selectedOfflineModelPath : string.Empty,
             local ? string.Empty : _aliyunAccessKeyId,
             local ? string.Empty : _aliyunAccessKeySecret,

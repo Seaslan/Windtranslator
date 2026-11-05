@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Windtranslator.Services;
 
@@ -24,7 +25,8 @@ public sealed partial class MainWindow
             DraftKeyChanged = value => _providerDraftKey = value,
             ProviderAction = HandleProviderAction,
             DeleteModel = DeleteProviderModel,
-            DialogClosed = CloseProviderDialog };
+            DialogClosed = CloseProviderDialog,
+            RefreshLocalModels = () => RefreshLocalModelsButton_Click(this, new RoutedEventArgs()) };
         var host = CreateReactorHost();
         SettingsPageHost.Content = host;
         host.Mount(new SettingsPageView(_settingsStore));
@@ -38,7 +40,7 @@ public sealed partial class MainWindow
             AiEnabled = _settings.AiTranslationEnabled, RememberKeys = _settings.RememberKeys,
             Streaming = _settings.AiStreamingEnabled, PromptStyle = Math.Clamp(_settings.AiPromptStyleIndex, 0, 3),
             LanguageDetails = _settings.AiIncludeLanguageDetails, CustomPrompt = _settings.CustomPrompt,
-            Providers = AiProviders.ToArray(),
+            Providers = AiProviders.ToArray(), LocalSourceIndex = Math.Clamp(_settings.LocalTranslationSourceIndex, 0, 1),
             ApiEnabled = _settings.ApiTranslationEnabled, RememberAliyun = _settings.RememberAliyunKeys,
             UiLanguageIndex = _settings.UiLanguage switch { "zh-CN" => 1, "en-US" => 2, _ => 0 },
             ThemeIndex = Math.Clamp(_settings.ThemeIndex, 0, 2),
@@ -69,6 +71,14 @@ public sealed partial class MainWindow
             TrimTranslationHistory();
             RefreshTranslationHistory();
         }
+        if (before.ImageProviderIndex != after.ImageProviderIndex && after.ImageProviderIndex >= 0 && after.ImageProviderIndex < after.Providers.Count)
+        {
+            var provider = after.Providers[after.ImageProviderIndex];
+            _settings.ImageProviderName = provider;
+            RefreshImageModelOptions(_settings.ImageSelectedModels.GetValueOrDefault(provider));
+        }
+        else if (before.ImageModelIndex != after.ImageModelIndex && after.ImageModelIndex >= 0 && after.ImageModelIndex < after.ImageModels.Count)
+            SetImageModelSelection(after.ImageModels[after.ImageModelIndex]);
         if (before.ManagedProviderIndex != after.ManagedProviderIndex) RefreshManagedProvider();
         if (before.ProviderEndpoint != after.ProviderEndpoint)
             _settings.Endpoints[ManagedProvider] = SettingsState.ProviderEndpoint.Trim();
