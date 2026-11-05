@@ -170,7 +170,6 @@ public sealed partial class MainWindow : Window
         _suppressEvents = true;
         InitializeGeneralSettings();
 
-        ApiTranslationToggleSwitch.IsOn = _settings.ApiTranslationEnabled;
         AiTranslationToggleSwitch.IsOn = _settings.AiTranslationEnabled;
         UpdateTranslationToggleStateText();
         var initialModeIndex = Math.Clamp(_settings.ModeIndex, 0, 2);
@@ -194,7 +193,6 @@ public sealed partial class MainWindow : Window
         AiIncludeLanguageDetailsCheckBox.IsChecked = _settings.AiIncludeLanguageDetails;
         AiStreamingToggleSwitch.IsOn = _settings.AiStreamingEnabled;
         AiRememberKeyCheckBox.IsChecked = _settings.RememberKeys;
-        AliyunRememberKeyCheckBox.IsChecked = _settings.RememberAliyunKeys;
         ApplyEnterToTranslateInputMode();
         TrimTranslationHistory();
         RefreshTranslationHistory();
@@ -270,8 +268,7 @@ public sealed partial class MainWindow : Window
             }
         }
 
-        AliyunAccessKeyIdPasswordBox.Password = _aliyunAccessKeyId;
-        AliyunAccessKeySecretPasswordBox.Password = _aliyunAccessKeySecret;
+        _settingsStore!.Update(state => state with { CredentialRevision = state.CredentialRevision + 1 });
 
         LocalEndpointTextBox.Text = _settings.Endpoints.TryGetValue("本地 AI", out var localEndpoint)
             && !string.IsNullOrWhiteSpace(localEndpoint)
@@ -351,15 +348,6 @@ public sealed partial class MainWindow : Window
             ?? models.FirstOrDefault();
     }
 
-    private void ApiTranslationToggleSwitch_Toggled(object sender, RoutedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
-
-        SetTranslationModeEnabled(0, ApiTranslationToggleSwitch.IsOn);
-    }
 
     private void AiTranslationToggleSwitch_Toggled(object sender, RoutedEventArgs e)
     {
@@ -408,13 +396,12 @@ public sealed partial class MainWindow : Window
 
     private void UpdateTranslationToggleStateText()
     {
-        ApiTranslationStateText.Text = ApiTranslationToggleSwitch.IsOn ? Localization.Text("开") : Localization.Text("关");
         AiTranslationStateText.Text = AiTranslationToggleSwitch.IsOn ? Localization.Text("开") : Localization.Text("关");
     }
 
     private bool IsTranslationModeEnabled(int modeIndex) => modeIndex switch
     {
-        0 => ApiTranslationToggleSwitch.IsOn,
+        0 => SettingsState.ApiEnabled,
         1 => AiTranslationToggleSwitch.IsOn,
         _ => true,
     };
@@ -497,7 +484,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        _settings.RememberAliyunKeys = AliyunRememberKeyCheckBox.IsChecked == true;
+        _settings.RememberAliyunKeys = SettingsState.RememberAliyun;
         SaveSettings();
 
         if (_settings.RememberAliyunKeys)
@@ -886,35 +873,7 @@ public sealed partial class MainWindow : Window
             StringComparison.OrdinalIgnoreCase);
     }
 
-    private void AliyunAccessKeyIdPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
 
-        _aliyunAccessKeyId = AliyunAccessKeyIdPasswordBox.Password;
-        UpdateUiState();
-        if (AliyunRememberKeyCheckBox.IsChecked == true && !string.IsNullOrEmpty(_aliyunAccessKeyId))
-        {
-            SaveKeyToVault(AliyunAccessKeyIdResource, _aliyunAccessKeyId);
-        }
-    }
-
-    private void AliyunAccessKeySecretPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
-    {
-        if (_suppressEvents)
-        {
-            return;
-        }
-
-        _aliyunAccessKeySecret = AliyunAccessKeySecretPasswordBox.Password;
-        UpdateUiState();
-        if (AliyunRememberKeyCheckBox.IsChecked == true && !string.IsNullOrEmpty(_aliyunAccessKeySecret))
-        {
-            SaveKeyToVault(AliyunAccessKeySecretResource, _aliyunAccessKeySecret);
-        }
-    }
 
     private void CustomPromptTextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
@@ -2257,7 +2216,7 @@ public sealed partial class MainWindow : Window
     private void SaveSettings()
     {
         _settings.ModeIndex = Math.Max(0, HomeState.ModeIndex);
-        _settings.ApiTranslationEnabled = ApiTranslationToggleSwitch.IsOn;
+        _settings.ApiTranslationEnabled = SettingsState.ApiEnabled;
         _settings.AiTranslationEnabled = AiTranslationToggleSwitch.IsOn;
         _settings.ProviderName = _currentProvider;
         _settings.ThemeIndex = Math.Max(0, SettingsState.ThemeIndex);
@@ -2281,7 +2240,7 @@ public sealed partial class MainWindow : Window
         _settings.ImageSelectedModels[_settings.ImageProviderName] = _settings.ImageModel;
         _settings.RememberImageKeys = AiRememberKeyCheckBox.IsChecked == true;
         _settings.RememberKeys = AiRememberKeyCheckBox.IsChecked == true;
-        _settings.RememberAliyunKeys = AliyunRememberKeyCheckBox.IsChecked == true;
+        _settings.RememberAliyunKeys = SettingsState.RememberAliyun;
         _settings.LocalTranslationSourceIndex = Math.Clamp(LocalTranslationSourceComboBox.SelectedIndex, 0, 1);
         _settings.LocalModelPath = _selectedOfflineModelPath;
         _settings.Endpoints["本地 AI"] = LocalEndpointTextBox.Text.Trim();

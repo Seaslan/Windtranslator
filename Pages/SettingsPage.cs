@@ -11,6 +11,9 @@ namespace Windtranslator;
 
 public sealed record SettingsPageState
 {
+    public bool ApiEnabled { get; init; }
+    public bool RememberAliyun { get; init; }
+    public int CredentialRevision { get; init; }
     public int UiLanguageIndex { get; init; }
     public int ThemeIndex { get; init; }
     public bool Mica { get; init; }
@@ -29,6 +32,8 @@ public sealed class SettingsPageStore
     // Temporary host for the XAML sections migrated in steps 7b–7e.
     public FrameworkElement? LegacySections { get; init; }
     public Action<SettingsPageState, SettingsPageState> Edited { get; init; } = (_, _) => { };
+    public Func<bool, string> ReadAliyunKey { get; init; } = _ => string.Empty;
+    public Action<string, bool> AliyunKeyChanged { get; init; } = (_, _) => { };
     public Action Subscribe(Action callback) { Changed += callback; return () => Changed -= callback; }
     public void Update(Func<SettingsPageState, SettingsPageState> update)
     {
@@ -58,6 +63,8 @@ public sealed class SettingsPageView(SettingsPageStore store) : Component
         var state = UseExternalStore(store.Subscribe, () => store.State);
         return ScrollView(
             VStack(12,
+                SettingsUi.Section("S83095a6428e8d956"),
+                MachineTranslation(state),
                 Border(Empty()).Set(border => border.Child = store.LegacySections).WithKey("legacy-settings"),
                 SettingsUi.Section("Sa1a42cd9b16e2162").Margin(4, 16, 4, 0),
                 General(state), Input(state), History(state), Realtime(state))
@@ -70,6 +77,23 @@ public sealed class SettingsPageView(SettingsPageStore store) : Component
             })
             .OnSizeChanged((_, args) => store.Update(s => s with { PanelWidth = Math.Min(760, Math.Max(0, args.NewSize.Width)) }));
     }
+
+
+    private Element MachineTranslation(SettingsPageState state) =>
+        SettingsUi.Card(store, state, "machine", "Sb1862e99d55f529f", "Sfc13d6134b676aa0", Icon("Globe"),
+            VStack(8,
+                TextBlock("AccessKey ID"),
+                PasswordBox(onPasswordChanged: value => store.AliyunKeyChanged(value, false),
+                    placeholderText: Localization.Get("Saddb4567a33a4bc9"))
+                    .AutomationName("AccessKey ID")
+                    .Set(box => { var key = store.ReadAliyunKey(false); if (box.Password != key) box.Password = key; }),
+                TextBlock("AccessKey Secret"),
+                PasswordBox(onPasswordChanged: value => store.AliyunKeyChanged(value, true),
+                    placeholderText: Localization.Get("S289fe8982ee998ef"))
+                    .AutomationName("AccessKey Secret")
+                    .Set(box => { var key = store.ReadAliyunKey(true); if (box.Password != key) box.Password = key; }),
+                CheckBox(state.RememberAliyun, value => store.Edit(s => s with { RememberAliyun = value }), Localization.Get("Sb955203e9090eef9"))),
+            SettingsUi.ModeToggle(state.ApiEnabled, value => store.Edit(s => s with { ApiEnabled = value }), "Sb55d73902020d21c"));
 
     private Element General(SettingsPageState state) =>
         SettingsUi.Card(store, state, "appearance", "S86a63f23a076b11e", "Sf57e6726727fd3b5", Icon("Highlight"),
@@ -114,6 +138,10 @@ public sealed class SettingsPageView(SettingsPageStore store) : Component
 
 public static class SettingsUi
 {
+    public static Element ModeToggle(bool enabled, Action<bool> changed, string label) => HStack(6,
+        Caption(Localization.Text(enabled ? "开" : "关")).Foreground(Theme.SecondaryText).VAlign(VerticalAlignment.Center),
+        ToggleSwitch(enabled, changed, onContent: "", offContent: "").MinWidth(0)
+            .AutomationName(Localization.Get(label)).VAlign(VerticalAlignment.Center));
     public static Element Section(string key) => BodyStrong(Localization.Get(key)).TextWrapping().Margin(4, 4, 4, 0);
     public static Element Description(string key) => Caption(Localization.Get(key)).TextWrapping().Foreground(Theme.SecondaryText);
     public static Element Shortcut(string action, string shortcut) => Grid([GridSize.Star(), GridSize.Auto], [GridSize.Auto],
