@@ -1,3 +1,4 @@
+using Microsoft.UI.Reactor.Hosting;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
@@ -10,11 +11,40 @@ namespace Windtranslator;
 
 public sealed partial class MainWindow
 {
+    private FavoritesPageStore? _favoritesStore;
+
+    private void CreateFavoritesStore()
+    {
+        var store = new FavoritesPageStore
+        {
+            ItemClicked = FavoriteItemClicked,
+            Remove = RemoveFavorite,
+            Speak = favorite => _ = SpeakFavoriteAsync(favorite),
+            Copy = text =>
+            {
+                if (!string.IsNullOrEmpty(text))
+                {
+                    SetClipboardText(text);
+                    ShowInfo(Localization.Text("已复制到剪贴板。"), InfoBarSeverity.Success);
+                }
+            },
+        };
+
+        var host = new ReactorHostControl
+        {
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            VerticalContentAlignment = VerticalAlignment.Stretch,
+        };
+        FavoritesPageHost.Content = host;
+        host.Mount(new FavoritesPageView(store));
+        _favoritesStore = store;
+    }
+
     private void RefreshFavorites()
     {
         _settings.NormalizeFavorites();
-        FavoritesListView.ItemsSource = _settings.Favorites.AsEnumerable().Reverse().ToList();
-        FavoritesEmptyText.Visibility = _settings.Favorites.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        var favorites = _settings.Favorites.AsEnumerable().Reverse().ToArray();
+        _favoritesStore?.Update(state => state with { Items = favorites });
         UpdateFavoritesState();
     }
 
@@ -30,7 +60,10 @@ public sealed partial class MainWindow
         var label = isFavorite ? Localization.Text("取消收藏") : Localization.Text("收藏源文本和译文");
         ToolTipService.SetToolTip(AddFavoriteButton, label);
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(AddFavoriteButton, label);
-        FavoritesListView.IsEnabled = !_isTranslating && !_isSelectionTranslating;
+        _favoritesStore?.Update(state => state with
+        {
+            IsInteractive = !_isTranslating && !_isSelectionTranslating,
+        });
     }
 
     private void AddFavoriteButton_Click(object sender, RoutedEventArgs e)
@@ -64,9 +97,9 @@ public sealed partial class MainWindow
 
     private void FavoritesButton_Click(object sender, RoutedEventArgs e) => NavigateTo("Favorites");
 
-    private void FavoritesListView_ItemClick(object sender, ItemClickEventArgs e)
+    private void FavoriteItemClicked(FavoriteTranslation favorite)
     {
-        if (_isTranslating || _isSelectionTranslating || e.ClickedItem is not FavoriteTranslation favorite) return;
+        if (_isTranslating || _isSelectionTranslating) return;
         SourceTextBox.Text = favorite.SourceText;
         OutputTextBox.Text = favorite.TranslatedText;
         NavigateTo("Home");
@@ -76,45 +109,11 @@ public sealed partial class MainWindow
         SourceTextBox.SelectionLength = 0;
     }
 
-    private void RemoveFavoriteButton_Click(object sender, RoutedEventArgs e)
+    private void RemoveFavorite(FavoriteTranslation favorite)
     {
-        if (sender is not Button { DataContext: FavoriteTranslation favorite }) return;
         _settings.Favorites.Remove(favorite);
         RefreshFavorites();
         SaveSettings();
-    }
-
-    private void FavoriteMoreButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { DataContext: FavoriteTranslation favorite } button) return;
-
-        // Capture this card explicitly; flyouts live outside the list's visual tree.
-        var menu = new MenuFlyout();
-        var speak = new MenuFlyoutItem { Text = Localization.Text("朗读源文本"), Icon = new SymbolIcon(Symbol.Audio) };
-        speak.Click += async (_, _) => await SpeakFavoriteAsync(favorite);
-        menu.Items.Add(speak);
-        AddCopyItem(Localization.Text("复制源文本"), favorite.SourceText);
-        AddCopyItem(Localization.Text("复制译文"), favorite.TranslatedText);
-        AddCopyItem(Localization.Text("全部复制"), string.IsNullOrEmpty(favorite.TranslatedText)
-            ? favorite.SourceText
-            : favorite.SourceText + Environment.NewLine + Environment.NewLine + favorite.TranslatedText);
-        menu.ShowAt(button);
-
-        void AddCopyItem(string label, string text)
-        {
-            var item = new MenuFlyoutItem
-            {
-                Text = label,
-                Icon = new SymbolIcon(Symbol.Copy),
-                IsEnabled = !string.IsNullOrEmpty(text),
-            };
-            item.Click += (_, _) =>
-            {
-                SetClipboardText(text);
-                ShowInfo(Localization.Text("已复制到剪贴板。"), InfoBarSeverity.Success);
-            };
-            menu.Items.Add(item);
-        }
     }
 
     private async Task SpeakFavoriteAsync(FavoriteTranslation favorite)

@@ -123,6 +123,7 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         CreateAboutStore();
         CreateTranslationHistoryStore();
+        CreateFavoritesStore();
         InstallSelectionTranslationCommands();
         _windowProcedure = WindowProcedureCallback;
 
@@ -1499,7 +1500,7 @@ public sealed partial class MainWindow : Window
         TranslationToolbar.Visibility = tag == "Home" ? Visibility.Visible : Visibility.Collapsed;
         HomePageGrid.Visibility = tag == "Home" ? Visibility.Visible : Visibility.Collapsed;
         TranslationHistoryPageHost.Visibility = tag == "History" ? Visibility.Visible : Visibility.Collapsed;
-        FavoritesPageGrid.Visibility = tag == "Favorites" ? Visibility.Visible : Visibility.Collapsed;
+        FavoritesPageHost.Visibility = tag == "Favorites" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPageScrollViewer.Visibility = tag == "Settings" ? Visibility.Visible : Visibility.Collapsed;
         ImagePageGrid.Visibility = tag == "Image" ? Visibility.Visible : Visibility.Collapsed;
         FilePageGrid.Visibility = tag == "File" ? Visibility.Visible : Visibility.Collapsed;
