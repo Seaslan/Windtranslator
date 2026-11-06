@@ -159,6 +159,7 @@ public sealed partial class MainWindow : Window
         {
             _infoBarTimer?.Stop();
             StatusInfoBar.IsOpen = false;
+            StatusInfoBar.Visibility = Visibility.Collapsed;
         };
 
         InitializeUi();
@@ -2164,6 +2165,7 @@ public sealed partial class MainWindow : Window
         _infoBarTimer?.Stop();
         StatusInfoBar.Message = message;
         StatusInfoBar.Severity = severity;
+        StatusInfoBar.Visibility = Visibility.Visible;
         StatusInfoBar.IsOpen = true;
         _infoBarTimer?.Start();
     }

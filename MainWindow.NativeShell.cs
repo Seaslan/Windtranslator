@@ -123,7 +123,14 @@ public sealed partial class MainWindow
         Grid.SetRow(MiniPageHost, 1);
         MiniWindowGrid.Children.Add(MiniPageHost);
 
-        StatusInfoBar = new InfoBar { IsOpen = false, Severity = InfoBarSeverity.Informational, Margin = new Thickness(16, 0, 16, 16), CornerRadius = new CornerRadius(8) };
+        StatusInfoBar = new InfoBar
+        {
+            IsOpen = false,
+            Visibility = Visibility.Collapsed,
+            Severity = InfoBarSeverity.Informational,
+            Margin = new Thickness(16, 0, 16, 16),
+            CornerRadius = new CornerRadius(8),
+        };
         Grid.SetRow(StatusInfoBar, 1);
         ClipboardTipHost = Host();
         WindowRoot.Children.Add(AcrylicFallbackLayer);
