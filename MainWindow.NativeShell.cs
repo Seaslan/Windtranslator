@@ -93,8 +93,14 @@ public sealed partial class MainWindow
         Grid.SetRow(title, 0);
         content.Children.Add(title);
 
-        HomeToolbarHost = Host(); Grid.SetRow(HomeToolbarHost, 1); content.Children.Add(HomeToolbarHost);
-        HomePageHost = Host(); Grid.SetRow(HomePageHost, 2); content.Children.Add(HomePageHost);
+        HomeToolbarHost = Host();
+        HomeToolbarHost.Visibility = Visibility.Visible;
+        Grid.SetRow(HomeToolbarHost, 1);
+        content.Children.Add(HomeToolbarHost);
+        HomePageHost = Host();
+        HomePageHost.Visibility = Visibility.Visible;
+        Grid.SetRow(HomePageHost, 2);
+        content.Children.Add(HomePageHost);
         TranslationHistoryPageHost = Host(); Grid.SetRow(TranslationHistoryPageHost, 2); content.Children.Add(TranslationHistoryPageHost);
         FavoritesPageHost = Host(); Grid.SetRow(FavoritesPageHost, 2); content.Children.Add(FavoritesPageHost);
         SettingsPageHost = Host(); Grid.SetRow(SettingsPageHost, 2); content.Children.Add(SettingsPageHost);
