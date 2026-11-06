@@ -111,7 +111,11 @@ public sealed partial class MainWindow
         miniTitle.Children.Add(MiniTitleBarDragRegion);
         miniTitle.Children.Add(new TextBlock { Text = Localization.AppName, Margin = new Thickness(16, 0, 0, 0), FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center });
         MiniWindowGrid.Children.Add(miniTitle);
-        MiniPageHost = Host(); MiniPageHost.Padding = new Thickness(12); Grid.SetRow(MiniPageHost, 1); MiniWindowGrid.Children.Add(MiniPageHost);
+        MiniPageHost = Host();
+        MiniPageHost.Visibility = Visibility.Visible;
+        MiniPageHost.Padding = new Thickness(12);
+        Grid.SetRow(MiniPageHost, 1);
+        MiniWindowGrid.Children.Add(MiniPageHost);
 
         StatusInfoBar = new InfoBar { IsOpen = false, Severity = InfoBarSeverity.Informational, Margin = new Thickness(16, 0, 16, 16), CornerRadius = new CornerRadius(8) };
         Grid.SetRow(StatusInfoBar, 1);
